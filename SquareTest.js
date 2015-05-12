@@ -8,7 +8,7 @@ var colors = {
 	terrain_frame:     0x009900,
 };
 
-var cylinder_count = 950;
+var cylinder_count = 30;
 
 var scene = new THREE.Scene();
 
