@@ -24,7 +24,8 @@ var material = new THREE.MeshBasicMaterial( {wireframe: false, color: 0x00ff00 }
 var cube = new THREE.Mesh( geometry, material );
 scene.add( cube );
 
-var box = new THREE.BoxHelper(new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial()));
+var box = new THREE.BoxHelper(new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10)));
+box.material.color.setRGB( 1, 1, 1);
 scene.add(box);
 
 camera.position.z = 5;
