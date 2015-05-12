@@ -16,12 +16,16 @@ controls.addEventListener( 'change', render );
 
 var renderer = new THREE.WebGLRenderer();
 renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.setClearColor(0x252525);
 document.body.appendChild( renderer.domElement );
 
 var geometry = new THREE.CylinderGeometry( 1, 1, 1, 16);
 var material = new THREE.MeshBasicMaterial( {wireframe: false, color: 0x00ff00 } );
 var cube = new THREE.Mesh( geometry, material );
 scene.add( cube );
+
+var box = new THREE.BoxHelper(new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial()));
+scene.add(box);
 
 camera.position.z = 5;
 
