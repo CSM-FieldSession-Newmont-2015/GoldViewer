@@ -19,56 +19,70 @@ renderer.setSize( window.innerWidth, window.innerHeight );
 renderer.setClearColor(0x252525, 1);
 document.body.appendChild( renderer.domElement );
 
-var geometry = new THREE.CylinderGeometry( 1, 1, 1, 16);
-var material = new THREE.MeshBasicMaterial( {wireframe: false, color: 0x00ff00 } );
-var cube = new THREE.Mesh( geometry, material );
-scene.add( cube );
+var geometry = new THREE.CylinderGeometry(0.05, 0.05, 0.1, 10);
+geometry.computeFaceNormals();
+geometry.computeVertexNormals();
+
+var material = new THREE.MeshLambertMaterial({
+	color: 0xff00ff,
+	side: 2,
+	shading: THREE.FlatShading,
+});
+
+for (var i = 0; i < 100; i += 1) {
+	var matrix = new THREE.Matrix4().makeTranslation(10*Math.random(), 10*Math.random(), 10*Math.random());
+	matrix.matrixAutoUpdate = false;
+
+	var cylinder = new THREE.Mesh( geometry, material );
+	cylinder.applyMatrix(matrix);
+	scene.add(cylinder);
+}
 
 var box = new THREE.BoxHelper(new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10)));
 box.material.color.setRGB( 1, 1, 1);
+box.applyMatrix( new THREE.Matrix4().makeTranslation(5, 5, 5) );
 scene.add(box);
 
 //********** Surface ***********
-			var gridSize = 8;
+			var gridSize = 11;
 
 			var elevation = new THREE.Geometry();
 			for (i = 0; i < gridSize; ++i) {
-			    for (j = 0; j < gridSize; ++j) {
-			        elevation.vertices.push(
-                        new THREE.Vector3(i, Math.random(), j)
-                        );
-			    }
+				for (j = 0; j < gridSize; ++j) {
+					elevation.vertices.push(
+						new THREE.Vector3(i, Math.random()-0.5, j)
+						);
+				}
 			}
 
 			for (i = 0; i < gridSize - 1; ++i) {
-			    for (j = 0; j < gridSize - 1; ++j) {
-			        elevation.faces.push(
-                        new THREE.Face3(j + i * gridSize, j + 1 + i * gridSize, j + (i + 1) * gridSize),
-                        new THREE.Face3(j + (i + 1) * gridSize, j + 1 + i * gridSize, j + 1 + (i + 1) * gridSize)
-                        );
-			    }
+				for (j = 0; j < gridSize - 1; ++j) {
+					elevation.faces.push(
+						new THREE.Face3(j + i * gridSize, j + 1 + i * gridSize, j + (i + 1) * gridSize),
+						new THREE.Face3(j + (i + 1) * gridSize, j + 1 + i * gridSize, j + 1 + (i + 1) * gridSize)
+						);
+				}
 			}
 
-			elevation.applyMatrix( new THREE.Matrix4().makeTranslation(-gridSize/2, 0, -gridSize/2) );
+			elevation.applyMatrix(new THREE.Matrix4().makeTranslation(0, 8, 0));
 			elevation.computeBoundingBox();
 
-			var material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+			var material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
 			material.wireframe = true;
 			var surface = new THREE.Mesh( elevation, material );
+			surface.position.y = -5;
 			scene.add( surface );
 
 			camera.position.z = 5;
 			camera.position.y = 5;
-			camera.lookAt(new THREE.Vector3(0,0,0));
+			camera.lookAt(new THREE.Vector3(5,5,5));
 
 //******************************
-camera.position.z = 5;
+camera.position.x = 20;
+camera.position.y = 20;
+camera.position.z = 20;
 
 function render() {
-	//requestAnimationFrame( render );
-	//cube.rotation.x += 0.1;
-	//cube.rotation.y += 0.01;
-
 	renderer.render( scene, camera );
 }
 render();
