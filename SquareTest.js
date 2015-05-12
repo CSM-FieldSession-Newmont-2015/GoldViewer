@@ -8,6 +8,7 @@ window.addEventListener('resize', function(event){
 		camera.aspect = window.innerWidth / window.innerHeight;
 		camera.updateProjectionMatrix();
 		renderer.setSize( window.innerWidth, window.innerHeight );
+		render();
 	});
 
 controls = new THREE.OrbitControls( camera );
@@ -17,8 +18,8 @@ var renderer = new THREE.WebGLRenderer();
 renderer.setSize( window.innerWidth, window.innerHeight );
 document.body.appendChild( renderer.domElement );
 
-var geometry = new THREE.CylinderGeometry( 1, 1, 1, 500);
-var material = new THREE.MeshBasicMaterial( {wireframe: true, color: 0x00ff00 } );
+var geometry = new THREE.CylinderGeometry( 1, 1, 1, 16);
+var material = new THREE.MeshBasicMaterial( {wireframe: false, color: 0x00ff00 } );
 var cube = new THREE.Mesh( geometry, material );
 scene.add( cube );
 
