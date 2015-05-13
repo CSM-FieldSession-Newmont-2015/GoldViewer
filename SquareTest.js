@@ -3,12 +3,13 @@ var colors = {
 	background:        0xeeeeee,
 	cylinder:          0xff00ff,
 	property_boundary: 0x5d5d5d,
+	black:             0x000000,
 	white:             0xffffff,
 	soft_white:        0x404040,
 	terrain_frame:     0x009900,
 };
 
-var cylinder_count = 30;
+var cylinder_count = 500;
 
 var scene = new THREE.Scene();
 
@@ -27,14 +28,14 @@ window.addEventListener('resize', function(event){
 // This brings in basic controls for our view, like rotating, panning, and zooming.
 controls = new THREE.OrbitControls(camera);
 controls.addEventListener('change', render);
+controls.zoomSpeed = 3.0;
+controls.minDistance = 1;
+controls.maxDistance = 100;
 controls.target = new THREE.Vector3(5, 5, 5);
 
-var renderer = new THREE.WebGLRenderer({});
+var renderer = new THREE.WebGLRenderer({antialias: true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(colors.background, 1);
-// Enable shadow stuff.
-renderer.shadowMapEnabled = true;
-renderer.shadowMapType = THREE.PCFSoftShadowMap;
 
 document.body.appendChild(renderer.domElement);
 
@@ -42,59 +43,55 @@ document.body.appendChild(renderer.domElement);
 var cylinder_geometry = new THREE.CylinderGeometry(0.05, 0.05, 0.3, 10);
 var cylinder_material = new THREE.MeshLambertMaterial({color: colors.cylinder});
 
-for (var i = 0; i < cylinder_count; i += 1) {
+var cylinder = new THREE.Mesh(cylinder_geometry, cylinder_material);
+
+// Always draw a cylinder at the center of the box, to make it
+//   easy to look at a sample cylinder.
+cylinder.position.x = 5;
+cylinder.position.y = 5;
+cylinder.position.z = 5;
+scene.add(cylinder);
+
+for (var i = 0; i < cylinder_count-1; i += 1) {
 	var cylinder = new THREE.Mesh(cylinder_geometry, cylinder_material);
 	// We multiply by 7 for y because we draw the terrain at 7.
 	// Otherwise, we multiply by 10 because the property box has length 10.
 	cylinder.position.x = 10*Math.random();
 	cylinder.position.y = 7*Math.random();
 	cylinder.position.z = 10*Math.random();
-	if (cylinder_count <= 1000) {
-		// Shadows slow things down, so we only turn them on when we can afford it.
-		//   1000 is an arbitrary cut off.
-		cylinder.castShadow = true;
-	}
 	scene.add(cylinder);
 }
+
+var reticle = new THREE.Mesh(new THREE.SphereGeometry(0.05),
+	                         new THREE.MeshLambertMaterial({color: colors.black}));
+reticle.position.x = controls.target.x;
+reticle.position.y = controls.target.y;
+reticle.position.z = controls.target.z;
+scene.add(reticle);
 
 // This creates a wireframe box to encompass the property, but without the diagonals.
 var property_boundary = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10));
 var box = new THREE.EdgesHelper(property_boundary, colors.property_boundary);
 box.applyMatrix(new THREE.Matrix4().makeTranslation(5, 5, 5));
-box.castShadow = true;
 scene.add(box);
-
-// This creates a floor of sorts for everything to sit on. It helps orient oneself.
-var plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(35, 35),
-	                       new THREE.MeshLambertMaterial({color: colors.white}));
-plane.receiveShadow = true;
-// Render both sides. Otherwise, it goes invicible.
-plane.material.side = THREE.DoubleSide;
-// We want the plane flat in the xz plane.
-plane.rotation.x = -0.5*Math.PI;
-// Position *just* below the cube, so the cube and plane don't compete for the screen.
-//   and center the plane under the center of the cube.
-plane.position.set(5, -0.1, 5);
-scene.add(plane);
 
 // A spotlight gives us shadows.
 var spotlight = new THREE.SpotLight(colors.white);
 // This position is pretty arbitrary. It looks nice here, so I put it here.
 spotlight.position.set(-35, 80, -35);
-spotlight.castShadow = true;
 scene.add(spotlight);
 
 // And ambiant light ensures every face is lit, even if it's just a little.
 scene.add(new THREE.AmbientLight(colors.soft_white));
 
 // Add a terrain wireframe.
-var gridSize = 11;
+var gridSize = 31;
 var elevation = new THREE.Geometry();
 
 // Create points for a grid, with a random y offset.
 for (i = 0; i < gridSize; ++i) {
 	for (j = 0; j < gridSize; ++j) {
-		elevation.vertices.push(new THREE.Vector3(i, Math.random(), j));
+		elevation.vertices.push(new THREE.Vector3(i/3, Math.random()/3, j/3));
 	}
 }
 
@@ -117,5 +114,8 @@ scene.add(surface);
 
 function render() {
 	renderer.render(scene, camera);
+	reticle.position.x = controls.target.x;
+	reticle.position.y = controls.target.y;
+	reticle.position.z = controls.target.z;
 }
 render();
