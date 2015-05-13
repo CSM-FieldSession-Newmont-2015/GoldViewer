@@ -27,6 +27,7 @@ window.addEventListener('resize', function(event){
 // This brings in basic controls for our view, like rotating, panning, and zooming.
 controls = new THREE.OrbitControls(camera);
 controls.addEventListener('change', render);
+controls.target = new THREE.Vector3(5, 5, 5);
 
 var renderer = new THREE.WebGLRenderer({});
 renderer.setSize(window.innerWidth, window.innerHeight);
