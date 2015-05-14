@@ -55,14 +55,16 @@ controls.autoRotate = true;
 var stop_rotating = function (event) {
 	controls.autoRotate = false;
 };
-addEventListener('mousedown', stop_rotating);
-addEventListener('touchmove', stop_rotating);
+
 
 var renderer = new THREE.WebGLRenderer({antialias: true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(colors.background, 1);
 renderer.sortObjects = false;
 container.appendChild(renderer.domElement);
+
+renderer.domElement.addEventListener('mousedown', stop_rotating);
+renderer.domElement.addEventListener('touchmove', stop_rotating);
 
 stats = new Stats();
 stats.domElement.style.position = 'absolute';
