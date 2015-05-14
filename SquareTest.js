@@ -6,7 +6,8 @@ document.body.appendChild( container );
 var raycaster = new THREE.Raycaster();
 raycaster.linePrecision=0;
 
-var mouse = new THREE.Vector2(), INTERSECTED;
+var mouse = new THREE.Vector2()
+var INTERSECTED;
 document.addEventListener( 'mousemove', onDocumentMouseMove, false );
 function onDocumentMouseMove( event ) {
 
@@ -65,7 +66,8 @@ container.appendChild(renderer.domElement);
 
 stats = new Stats();
 stats.domElement.style.position = 'absolute';
-stats.domElement.style.top = '0px';
+stats.domElement.style.right = '0px';
+stats.domElement.style.bottom = '0px';
 container.appendChild( stats.domElement );
 
 // Generate a bunch of cylinders in random locations, within the box.
