@@ -80,7 +80,7 @@ cylinder.position.x = 5;
 cylinder.position.y = 5;
 cylinder.position.z = 5;
 scene.add(cylinder);
-
+var cylinders = [];
 for (var i = 0; i < cylinder_count-1; i += 1) {
 	var cylinder = new THREE.Mesh(cylinder_geometry, new THREE.MeshLambertMaterial({color: colors.pink}));
 	// We multiply by 7 for y because we draw the terrain at 7.
@@ -88,6 +88,7 @@ for (var i = 0; i < cylinder_count-1; i += 1) {
 	cylinder.position.x = 10*Math.random();
 	cylinder.position.y = 7*Math.random();
 	cylinder.position.z = 10*Math.random();
+	cylinders.push(cylinder);
 	scene.add(cylinder);
 }
 
@@ -145,15 +146,15 @@ scene.add(surface);
 var spritey = makeTextSprite( "Z",
 		{ fontsize: 18,size: 250} );
 	spritey.position.set(0,11,0);
-	//scene.add( spritey );
+	scene.add( spritey );
 var spritey = makeTextSprite( "X",
 		{ fontsize: 18,size: 250} );
 	spritey.position.set(0,0,11);
-	//scene.add( spritey );
+	scene.add( spritey );
 var spritey = makeTextSprite( "Y",
 		{ fontsize: 18,size: 250 } );
 	spritey.position.set(11,0,0);
-	//scene.add( spritey );
+	scene.add( spritey );
 
 
 function makeTextSprite( message, parameters ) {
@@ -199,7 +200,7 @@ function render() {
 
 	raycaster.setFromCamera( mouse, camera );
 
-	var intersects = raycaster.intersectObjects( scene.children );
+	var intersects = raycaster.intersectObjects( cylinders );
 
 	if (intersects.length > 0) {
 
