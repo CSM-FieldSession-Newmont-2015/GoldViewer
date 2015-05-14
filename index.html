@@ -1,20 +1,34 @@
-<html>
+<!doctype html>
+<html lang="en">
 	<head>
 		<title>Newmont WebGL Demo</title>
 		<style>
 			body { margin: 0; }
 			canvas { width: 100%; height: 100% }
 		</style>
+        <link rel="stylesheet" href="//code.jquery.com/ui/1.11.4/themes/sunny/jquery-ui.css">
+        <script src="//code.jquery.com/jquery-1.10.2.js"></script>
+        <script src="//code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
+        <script src="js/three.min.js"></script>
+        <script src="js/controls/OrbitControls.js"></script>
+        <style>
+            div#CommandBar > ul > li {
+                float: left;
+            }
+        </style>
 	</head>
 	<body>
-		<script src="js/three.min.js"></script>
-		
-		<script src="js/libs/stats.min.js"></script>
-		
-		<script src="js/controls/OrbitControls.js"></script>
-		
+        <div id="CommandBar"></div>
 		<script src ="SquareTest.js"></script>
-		
-		
+        <div id="ControlBar"></div>
 	</body>
 </html>
+
+<script>
+    $(document).ready(function() {
+        $.get("CommandBar.html", function (data) {
+            $("div#CommandBar").append(data);
+            $("ul#CommandBar").menu();
+        });
+    });
+</script>
