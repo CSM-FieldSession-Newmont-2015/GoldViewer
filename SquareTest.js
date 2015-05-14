@@ -82,7 +82,7 @@ cylinder.position.z = 5;
 scene.add(cylinder);
 
 for (var i = 0; i < cylinder_count-1; i += 1) {
-	var cylinder = new THREE.Mesh(cylinder_geometry, new THREE.MeshLambertMaterial({color: colors.cylinder}));
+	var cylinder = new THREE.Mesh(cylinder_geometry, new THREE.MeshLambertMaterial({color: colors.pink}));
 	// We multiply by 7 for y because we draw the terrain at 7.
 	// Otherwise, we multiply by 10 because the property box has length 10.
 	cylinder.position.x = 10*Math.random();
@@ -196,7 +196,7 @@ function render() {
 	reticle.position.y = controls.target.y;
 	reticle.position.z = controls.target.z;
 
-	
+
 	raycaster.setFromCamera( mouse, camera );
 
 	var intersects = raycaster.intersectObjects( scene.children );
@@ -214,7 +214,7 @@ function render() {
                 else{
                     material.color.setHex(INTERSECTED.currentHex);
                 }
-            }   
+            }
             INTERSECTED = intersects[0].object;
             material = INTERSECTED.material;
             if(material.emissive){
