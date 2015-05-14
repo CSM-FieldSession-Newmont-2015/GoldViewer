@@ -27,11 +27,16 @@ window.addEventListener('resize', function(event){
 
 // This brings in basic controls for our view, like rotating, panning, and zooming.
 controls = new THREE.OrbitControls(camera);
-controls.addEventListener('change', render);
+//controls.addEventListener('change', render);
 controls.zoomSpeed = 3.0;
 controls.minDistance = 1;
 controls.maxDistance = 100;
 controls.target = new THREE.Vector3(5, 5, 5);
+controls.autoRotate = true;
+function onMouseDown( event ) {
+	controls.autoRotate = false;
+}
+addEventListener( 'mousedown', onMouseDown, false );
 
 var renderer = new THREE.WebGLRenderer({antialias: true});
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -114,15 +119,15 @@ scene.add(surface);
 
 //Add labels for the axis hardcoded position currently
 var spritey = makeTextSprite( "Z",
-		{ fontsize: 25,size: 250, borderColor: {r:255, g:0, b:0, a:1.0}, backgroundColor: {r:255, g:100, b:100, a:0.8} } );
+		{ fontsize: 18,size: 250, borderColor: {r:255, g:0, b:0, a:1.0}, backgroundColor: {r:255, g:100, b:100, a:0.8} } );
 	spritey.position.set(0,11,0);
 	scene.add( spritey );
 var spritey = makeTextSprite( "X",
-		{ fontsize: 25,size: 250, borderColor: {r:255, g:0, b:0, a:1.0}, backgroundColor: {r:255, g:100, b:100, a:0.8} } );
+		{ fontsize: 18,size: 250, borderColor: {r:255, g:0, b:0, a:1.0}, backgroundColor: {r:255, g:100, b:100, a:0.8} } );
 	spritey.position.set(0,0,11);
 	scene.add( spritey );
 var spritey = makeTextSprite( "Y",
-		{ fontsize: 25,size: 250, borderColor: {r:255, g:0, b:0, a:1.0}, backgroundColor: {r:255, g:100, b:100, a:0.8} } );
+		{ fontsize: 18,size: 250, borderColor: {r:255, g:0, b:0, a:1.0}, backgroundColor: {r:255, g:100, b:100, a:0.8} } );
 	spritey.position.set(11,0,0);
 	scene.add( spritey );
 
@@ -157,7 +162,11 @@ function makeTextSprite( message, parameters ) {
 		return sprite;
 }
 
+
+
 function render() {
+	requestAnimationFrame( render );
+	controls.update();
 	reticle.position.x = controls.target.x;
 	reticle.position.y = controls.target.y;
 	reticle.position.z = controls.target.z;
