@@ -1,4 +1,22 @@
 
+var container
+container = document.createElement( 'div' );
+document.body.appendChild( container );
+
+var raycaster = new THREE.Raycaster();
+raycaster.linePrecision=0;
+
+var mouse = new THREE.Vector2(), INTERSECTED;
+document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+function onDocumentMouseMove( event ) {
+
+				event.preventDefault();
+
+				mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+				mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+
+}
+
 var colors = {
 	background:        0xeeeeee,
 	cylinder:          0xff00ff,
@@ -22,7 +40,6 @@ window.addEventListener('resize', function(event){
 		camera.aspect = window.innerWidth / window.innerHeight;
 		camera.updateProjectionMatrix();
 		renderer.setSize(window.innerWidth, window.innerHeight);
-		render();
 	});
 
 // This brings in basic controls for our view, like rotating, panning, and zooming.
@@ -41,8 +58,13 @@ addEventListener( 'mousedown', onMouseDown, false );
 var renderer = new THREE.WebGLRenderer({antialias: true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(colors.background, 1);
+renderer.sortObjects = false;
+container.appendChild(renderer.domElement);
 
-document.body.appendChild(renderer.domElement);
+stats = new Stats();
+stats.domElement.style.position = 'absolute';
+stats.domElement.style.top = '0px';
+container.appendChild( stats.domElement );
 
 // Generate a bunch of cylinders in random locations, within the box.
 var cylinder_geometry = new THREE.CylinderGeometry(0.05, 0.05, 0.3, 10);
@@ -58,7 +80,7 @@ cylinder.position.z = 5;
 scene.add(cylinder);
 
 for (var i = 0; i < cylinder_count-1; i += 1) {
-	var cylinder = new THREE.Mesh(cylinder_geometry, cylinder_material);
+	var cylinder = new THREE.Mesh(cylinder_geometry, new THREE.MeshLambertMaterial({color: colors.cylinder}));
 	// We multiply by 7 for y because we draw the terrain at 7.
 	// Otherwise, we multiply by 10 because the property box has length 10.
 	cylinder.position.x = 10*Math.random();
@@ -119,26 +141,24 @@ scene.add(surface);
 
 //Add labels for the axis hardcoded position currently
 var spritey = makeTextSprite( "Z",
-		{ fontsize: 18,size: 250, borderColor: {r:255, g:0, b:0, a:1.0}, backgroundColor: {r:255, g:100, b:100, a:0.8} } );
+		{ fontsize: 18,size: 250} );
 	spritey.position.set(0,11,0);
-	scene.add( spritey );
+	//scene.add( spritey );
 var spritey = makeTextSprite( "X",
-		{ fontsize: 18,size: 250, borderColor: {r:255, g:0, b:0, a:1.0}, backgroundColor: {r:255, g:100, b:100, a:0.8} } );
+		{ fontsize: 18,size: 250} );
 	spritey.position.set(0,0,11);
-	scene.add( spritey );
+	//scene.add( spritey );
 var spritey = makeTextSprite( "Y",
-		{ fontsize: 18,size: 250, borderColor: {r:255, g:0, b:0, a:1.0}, backgroundColor: {r:255, g:100, b:100, a:0.8} } );
+		{ fontsize: 18,size: 250 } );
 	spritey.position.set(11,0,0);
-	scene.add( spritey );
+	//scene.add( spritey );
+
 
 function makeTextSprite( message, parameters ) {
 		if ( parameters === undefined ) parameters = {};
 		var fontface = parameters.hasOwnProperty("fontface") ? parameters["fontface"] : "Arial";
 		var fontsize = parameters.hasOwnProperty("fontsize") ? parameters["fontsize"] : 18;
 		var size = parameters.hasOwnProperty("size") ? parameters["size"] : 100;
-		var borderThickness = parameters.hasOwnProperty("borderThickness") ? parameters["borderThickness"] : 4;
-		var borderColor = parameters.hasOwnProperty("borderColor") ?parameters["borderColor"] : { r:0, g:0, b:0, a:1.0 };
-		var backgroundColor = parameters.hasOwnProperty("backgroundColor") ?parameters["backgroundColor"] : { r:255, g:255, b:255, a:1.0 };
 		var textColor = parameters.hasOwnProperty("textColor") ?parameters["textColor"] : { r:0, g:0, b:0, a:1.0 };
 
 		var canvas = document.createElement('canvas');
@@ -156,9 +176,10 @@ function makeTextSprite( message, parameters ) {
 		var texture = new THREE.Texture(canvas)
 		texture.needsUpdate = true;
 
-		var spriteMaterial = new THREE.SpriteMaterial( { map: texture, useScreenCoordinates: false } );
+		var spriteMaterial = new THREE.SpriteMaterial( { map: texture, transparent: true, useScreenCoordinates: false } );
 		var sprite = new THREE.Sprite( spriteMaterial );
 		sprite.scale.set(0.5 * fontsize, 0.25 * fontsize, 0.75 * fontsize);
+
 		return sprite;
 }
 
@@ -167,9 +188,64 @@ function makeTextSprite( message, parameters ) {
 function render() {
 	requestAnimationFrame( render );
 	controls.update();
+	stats.update();
+
+	camera.updateMatrixWorld();
+
 	reticle.position.x = controls.target.x;
 	reticle.position.y = controls.target.y;
 	reticle.position.z = controls.target.z;
+
+	
+	raycaster.setFromCamera( mouse, camera );
+
+	var intersects = raycaster.intersectObjects( scene.children );
+
+	if (intersects.length > 0) {
+
+
+        if (INTERSECTED != intersects[0].object) {
+
+            if (INTERSECTED){
+                material = INTERSECTED.material;
+                if(material.emissive){
+                    material.emissive.setHex(INTERSECTED.currentHex);
+                }
+                else{
+                    material.color.setHex(INTERSECTED.currentHex);
+                }
+            }   
+            INTERSECTED = intersects[0].object;
+            material = INTERSECTED.material;
+            if(material.emissive){
+                INTERSECTED.currentHex = INTERSECTED.material.emissive.getHex();
+                material.emissive.setHex(0xff0000);
+            }
+            else{
+                INTERSECTED.currentHex = material.color.getHex();
+                material.color.setHex(0xff0000);
+            }
+
+        }
+
+    } else {
+
+        if (INTERSECTED){
+            material = INTERSECTED.material;
+
+            if(material.emissive){
+                material.emissive.setHex(INTERSECTED.currentHex);
+            }
+            else
+            {
+                material.color.setHex(INTERSECTED.currentHex);
+            }
+        }
+
+        INTERSECTED = null;
+
+    }
+
 	renderer.render(scene, camera);
 }
 render();
