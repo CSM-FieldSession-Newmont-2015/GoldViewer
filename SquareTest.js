@@ -19,12 +19,12 @@ function onDocumentMouseMove( event ) {
 
 var colors = {
 	background:        0xeeeeee,
-	cylinder:          0xff00ff,
-	property_boundary: 0x5d5d5d,
 	black:             0x000000,
-	white:             0xffffff,
+	pink:              0xff00ff,
+	property_boundary: 0x5d5d5d,
 	soft_white:        0x404040,
 	terrain_frame:     0x009900,
+	white:             0xffffff,
 };
 
 var cylinder_count = 500;
@@ -50,10 +50,12 @@ controls.minDistance = 1;
 controls.maxDistance = 100;
 controls.target = new THREE.Vector3(5, 5, 5);
 controls.autoRotate = true;
-function onMouseDown( event ) {
+
+var stop_rotating = function (event) {
 	controls.autoRotate = false;
-}
-addEventListener( 'mousedown', onMouseDown, false );
+};
+addEventListener('mousedown', stop_rotating);
+addEventListener('touchmove', stop_rotating);
 
 var renderer = new THREE.WebGLRenderer({antialias: true});
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -68,7 +70,7 @@ container.appendChild( stats.domElement );
 
 // Generate a bunch of cylinders in random locations, within the box.
 var cylinder_geometry = new THREE.CylinderGeometry(0.05, 0.05, 0.3, 10);
-var cylinder_material = new THREE.MeshLambertMaterial({color: colors.cylinder});
+var cylinder_material = new THREE.MeshLambertMaterial({color: colors.pink});
 
 var cylinder = new THREE.Mesh(cylinder_geometry, cylinder_material);
 
@@ -172,7 +174,7 @@ function makeTextSprite( message, parameters ) {
 		context.textAlign = 'center'
 		context.fillStyle = "rgba("+textColor.r+", "+textColor.g+", "+textColor.b+", 1.0)";
 		context.fillText( message, size/2, size/2 );
-		
+
 		var texture = new THREE.Texture(canvas)
 		texture.needsUpdate = true;
 
@@ -182,8 +184,6 @@ function makeTextSprite( message, parameters ) {
 
 		return sprite;
 }
-
-
 
 function render() {
 	requestAnimationFrame( render );
