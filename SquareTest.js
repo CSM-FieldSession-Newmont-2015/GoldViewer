@@ -212,18 +212,7 @@ function makeTextSprite(message, parameters) {
 	return sprite;
 }
 
-function render() {
-	requestAnimationFrame(render);
-	controls.update();
-	stats.update();
-
-	camera.updateMatrixWorld();
-
-	reticle.position.x = controls.target.x;
-	reticle.position.y = controls.target.y;
-	reticle.position.z = controls.target.z;
-
-
+function checkMouseIntercept(){
 	raycaster.setFromCamera(mouse, camera);
 
 	var intersects = raycaster.intersectObjects(cylinders);
@@ -263,6 +252,21 @@ function render() {
 		}
 		INTERSECTED = null;
 	}
+}
+
+function render() {
+	requestAnimationFrame(render);
+	controls.update();
+	stats.update();
+
+	camera.updateMatrixWorld();
+
+	checkMouseIntercept();
+
+	reticle.position.x = controls.target.x;
+	reticle.position.y = controls.target.y;
+	reticle.position.z = controls.target.z;
+
 
 	renderer.render(scene, camera);
 }
