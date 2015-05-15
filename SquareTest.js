@@ -10,7 +10,8 @@ document.addEventListener('mousemove', onDocumentMouseMove, false);
 function onDocumentMouseMove(event) {
 
 	event.preventDefault();
-
+	sprite.position.x= event.clientX-(window.innerWidth/2);
+	sprite.position.y= -event.clientY+(window.innerHeight/2)+20;
 	mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
 	mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
 
@@ -36,6 +37,22 @@ var camera = new THREE.PerspectiveCamera(
 camera.position.set(20, 20, 20);
 camera.lookAt(new THREE.Vector3(5, 5, 5));
 
+var width = window.innerWidth;
+var height = window.innerHeight;
+//orthographic camera for displaying tooltips
+cameraOrtho = new THREE.OrthographicCamera( - width / 2, width / 2, height / 2, - height / 2, 1, 1000 );
+		cameraOrtho.position.z = 1;
+		cameraOrtho.position.x = 0;
+		cameraOrtho.position.y = 0;
+sceneOrtho = new THREE.Scene();
+
+var sprite = makeTextSprite("Hello, I'm a Tooltip", {
+	fontsize: 18,
+	size: 250});
+sprite.position.set(0,100,0);
+sprite.scale.set(250,250,1);
+sceneOrtho.add(sprite);
+
 // Resize the camera when the window is resized.
 window.addEventListener('resize', function (event) {
 	camera.aspect = window.innerWidth / window.innerHeight;
@@ -55,6 +72,7 @@ var renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(colors.background, 1);
 renderer.sortObjects = false;
+renderer.autoClear=false;
 container.appendChild(renderer.domElement);
 
 renderer.domElement.addEventListener('mousedown', function (event) {
@@ -228,6 +246,7 @@ function checkMouseIntercept(){
 				}
 			}
 			INTERSECTED = intersects[0].object;
+			sprite.position.z=0;
 			material = INTERSECTED.material;
 			if (material.emissive) {
 				INTERSECTED.currentHex = INTERSECTED.material.emissive.getHex();
@@ -250,6 +269,7 @@ function checkMouseIntercept(){
 				material.color.setHex(INTERSECTED.currentHex);
 			}
 		}
+		sprite.position.z=5;
 		INTERSECTED = null;
 	}
 }
@@ -268,6 +288,9 @@ function render() {
 	reticle.position.z = controls.target.z;
 
 
-	renderer.render(scene, camera);
+	renderer.clear();
+	renderer.render( scene, camera );
+	renderer.clearDepth();
+	renderer.render( sceneOrtho, cameraOrtho );
 }
 render();
