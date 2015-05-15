@@ -91,7 +91,7 @@ stats.domElement.style.bottom = '0px';
 container.appendChild(stats.domElement);
 
 // Generate a bunch of cylinders in random locations, within the box.
-var cylinder_geometry = new THREE.CylinderGeometry(0.05, 0.05, 0.3, 10);
+var cylinder_geometry = new THREE.CylinderGeometry(0.01, 0.01, 0.3, 10);
 var cylinder_material = new THREE.MeshLambertMaterial({ color: colors.pink });
 
 var cylinder = new THREE.Mesh(cylinder_geometry, cylinder_material);
