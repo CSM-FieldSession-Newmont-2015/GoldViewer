@@ -97,20 +97,22 @@ var cylinder = new THREE.Mesh(cylinder_geometry, cylinder_material);
 
 // Always draw a cylinder at the center of the box, to make it
 //   easy to look at a sample cylinder.
+// This one is not counted in the cylinder_count.
 cylinder.position.x = 5; // TODO: Hard coded to box's size.
 cylinder.position.y = 5; // TODO: Hard coded to box's size.
 cylinder.position.z = 5; // TODO: Hard coded to box's size.
 
 var cylinders = [];
 
-cylinders.push(cylinder);
+scene.add(cylinder);
 
 // This number is totally arbitrary.
-var cylinder_count = 1000;
+var cylinder_count = 100;
+var cylinder_max = 10000;
 
-// Subtract 1 from count because we make the first cylinder manually, with a
-//   hard coded location.
-for (var i = 0; i < cylinder_count - 1; i += 1) {
+// Generate more than we'll ever use, but only ever add the first
+//   cylinder_count to the scene.
+for (var i = 0; i < cylinder_max; i += 1) {
 	// We create an individual material for each cylinder so that
 	//   modifications to one - when the raytracer hits it - doesn't change
 	//   the others.
@@ -126,13 +128,14 @@ for (var i = 0; i < cylinder_count - 1; i += 1) {
 	cylinder.position.y = 7 * Math.random(); // TODO: Hard coded to box's size.
 	cylinder.position.z = 10 * Math.random(); // TODO: Hard coded to box's size.
 
+	// Only so man should be rendered at a time.
+	if (i >= cylinder_count) {
+		cylinder.visible = false;
+	}
+
 	cylinders.push(cylinder);
+	scene.add(cylinder);
 }
-
-for (var i = 0; i < cylinders.length; i += 1) {
-	scene.add(cylinders[i]);
-}
-
 
 var reticle = new THREE.Mesh(
 	new THREE.SphereGeometry(0.05),
@@ -203,6 +206,25 @@ var spriteZ = makeTextSprite("Z", axis_format);
 spriteZ.position.set(0, 0, 11); // TODO: Hard coded to box's size.
 scene.add(spriteZ);
 
+// dat.gui.js lets us modify variables live, on the page.
+var gui = new dat.GUI();
+gui.add(this, 'cylinder_count')
+	.name("Cylinders")
+	.min(1)
+	.max(cylinder_max)
+	.step(100)
+	.onFinishChange(function () {
+		if (cylinder_count < 1) {
+			cylinder_count = 1;
+		}
+		for (var i = 0; i < cylinders.length; i += 1) {
+			if (i < cylinder_count) {
+				cylinders[i].visible = true;
+			} else {
+				cylinders[i].visible = false;
+			}
+		}
+});
 
 function makeTextSprite(message, parameters) {
 	if (parameters === undefined) parameters = {};
