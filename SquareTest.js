@@ -1,3 +1,7 @@
+// Visual Studio Code uses these to hush warnings about
+//   variable names it can't find declared.
+/* global Stats */
+/* global THREE */
 var container = document.createElement('div');
 document.body.appendChild(container);
 
