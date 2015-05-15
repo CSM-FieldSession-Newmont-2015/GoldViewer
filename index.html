@@ -7,22 +7,27 @@
 			canvas { width: 100%; height: 100% }
 		</style>
 		<link rel="stylesheet" href="http://code.jquery.com/ui/1.11.4/themes/sunny/jquery-ui.css">
-		<script src="http://code.jquery.com/jquery-1.10.2.js"></script>
-		<script src="http://code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
-		<script src="js/three.min.js"></script>
-		<script src="js/controls/OrbitControls.js"></script>
-		<script src="js/libs/stats.min.js"></script>
-		<script type="text/javascript" src="js/dat.gui.min.js"></script>
 		<style>
 			div#CommandBar > ul > li {
 				float: left;
 			}
 		</style>
+
+		<!-- External libraries are hosted under /js. -->
+		<script type="text/javascript" src="http://code.jquery.com/jquery-1.10.2.js"></script>
+		<script type="text/javascript" src="http://code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
+		<script type="text/javascript" src="js/three.js"></script>
+		<script type="text/javascript" src="js/OrbitControls.js"></script>
+		<script type="text/javascript" src="js/stats.min.js"></script>
+		<script type="text/javascript" src="js/dat.gui.min.js"></script>
+
+		<!-- But all of our stuff is in the root directory. -->
+		<script type="text/javascript" src="Property.js"></script>
+
 	</head>
 	<body>
 		<div id="CommandBar"></div>
-				<script src="Property.js"></script>
-		<script src ="SquareTest.js"></script>
+			<script type="text/javascript" src="SquareTest.js"></script>
 		<div id="ControlBar"></div>
 	</body>
 </html>
