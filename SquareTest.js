@@ -39,6 +39,7 @@ var camera = new THREE.PerspectiveCamera(
 	window.innerWidth / window.innerHeight, // Aspect
 	0.1, // Near
 	1000); // Far
+camera.up.set(0, 0, 1);
 camera.position.set(20, 20, 20);
 camera.lookAt(new THREE.Vector3(5, 5, 5));
 
@@ -102,6 +103,10 @@ cylinder.position.x = 5; // TODO: Hard coded to box's size.
 cylinder.position.y = 5; // TODO: Hard coded to box's size.
 cylinder.position.z = 5; // TODO: Hard coded to box's size.
 
+cylinder.rotation.x = Math.PI / 2 * Math.random();
+cylinder.rotation.y = Math.PI / 2 * Math.random();
+cylinder.rotation.z = Math.PI / 2 * Math.random();
+
 var cylinders = [];
 
 scene.add(cylinder);
@@ -122,11 +127,17 @@ for (var i = 0; i < cylinder_max; i += 1) {
 	});
 	var cylinder = new THREE.Mesh(cylinder_geometry, cylinder_material);
 
-	// We multiply by 7 for y because we draw the terrain at 7.
+	// Rotate it to align with the z axis.
+	cylinder.rotation.x = Math.PI / 2 * Math.random();
+	cylinder.rotation.y = Math.PI / 2 * Math.random();
+	cylinder.rotation.z = Math.PI / 2 * Math.random();
+
+
+	// We multiply by 7 for z because we draw the terrain at 7.
 	// Otherwise, we multiply by 10 because the property box has length 10.
 	cylinder.position.x = 10 * Math.random(); // TODO: Hard coded to box's size.
-	cylinder.position.y = 7 * Math.random(); // TODO: Hard coded to box's size.
-	cylinder.position.z = 10 * Math.random(); // TODO: Hard coded to box's size.
+	cylinder.position.y = 10 * Math.random(); // TODO: Hard coded to box's size.
+	cylinder.position.z = 7 * Math.random(); // TODO: Hard coded to box's size.
 
 	// Only so man should be rendered at a time.
 	if (i >= cylinder_count) {
@@ -154,7 +165,7 @@ scene.add(box);
 // A spotlight gives us basic shading.
 var spotlight = new THREE.SpotLight(colors.white);
 // This position is pretty arbitrary. It looks nice here, so I put it here.
-spotlight.position.set(-35, 80, -35);
+spotlight.position.set(-35, -35, 80);
 scene.add(spotlight);
 
 // And ambiant light ensures every face is lit, even if it's just a little.
@@ -167,7 +178,7 @@ var elevation = new THREE.Geometry();
 // Create points for a grid, with a random y offset.
 for (var i = 0; i < gridSize; ++i) {
 	for (var j = 0; j < gridSize; ++j) {
-		elevation.vertices.push(new THREE.Vector3(i / 3, Math.random() / 3, j / 3));
+		elevation.vertices.push(new THREE.Vector3(i / 3, j / 3, Math.random() / 3));
 	}
 }
 
@@ -185,7 +196,7 @@ var surface = new THREE.Mesh(elevation, new THREE.MeshBasicMaterial({
 	color: colors.terrain_frame,
 	wireframe: true,
 }));
-surface.position.set(0, 7, 0);
+surface.position.set(0, 0, 7);
 scene.add(surface);
 
 // Add labels for each axis.
