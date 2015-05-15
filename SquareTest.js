@@ -14,8 +14,9 @@ document.addEventListener('mousemove', onDocumentMouseMove, false);
 function onDocumentMouseMove(event) {
 
 	event.preventDefault();
-	sprite.position.x= event.clientX-(window.innerWidth/2);
-	sprite.position.y= -event.clientY+(window.innerHeight/2)+20;
+	//this will update the mouse position as well as make the tooltipSprite follow the mouse
+	tooltipSprite.position.x= event.clientX-(window.innerWidth/2);
+	tooltipSprite.position.y= -event.clientY+(window.innerHeight/2)+20;
 	mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
 	mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
 
@@ -45,17 +46,16 @@ var width = window.innerWidth;
 var height = window.innerHeight;
 //orthographic camera for displaying tooltips
 cameraOrtho = new THREE.OrthographicCamera( - width / 2, width / 2, height / 2, - height / 2, 1, 1000 );
-		cameraOrtho.position.z = 1;
-		cameraOrtho.position.x = 0;
-		cameraOrtho.position.y = 0;
+//The z position of the orthgraphic camera seems to need to be "above" where the sprites are drawn
+//setting it to one here
+cameraOrtho.position.z = 1;
+cameraOrtho.position.x = 0;
+cameraOrtho.position.y = 0;
 sceneOrtho = new THREE.Scene();
 
-var sprite = makeTextSprite("Hello, I'm a Tooltip", {
-	fontsize: 18,
-	size: 250});
-sprite.position.set(0,100,0);
-sprite.scale.set(250,250,1);
-sceneOrtho.add(sprite);
+var tooltipSprite = makeTextSprite("Hello, I'm a Tooltip", {fontsize: 18, size: 250}); //Create a basic tooltip display sprite TODO: Make tooltip display info about current drillhole
+tooltipSprite.scale.set(250,250,1);
+sceneOrtho.add(tooltipSprite);
 
 // Resize the camera when the window is resized.
 window.addEventListener('resize', function (event) {
@@ -238,9 +238,6 @@ function makeTextSprite(message, parameters) {
 	canvas.height = size;
 	var context = canvas.getContext('2d');
 	context.font = "Bold " + fontsize + "px " + fontface;
-	// These are unused.
-	//		var metrics = context.measureText( message );
-	//		var textWidth = metrics.width;
 
 	context.textAlign = 'center';
 	context.fillStyle = "rgba(" + textColor.r + ", " + textColor.g + ", " + textColor.b + ", 1.0)";
@@ -272,7 +269,8 @@ function checkMouseIntercept(){
 				}
 			}
 			INTERSECTED = intersects[0].object;
-			sprite.position.z=0;
+			//set sprite to be in front of the orthographic camera so it is visible
+			tooltipSprite.position.z=0;
 			material = INTERSECTED.material;
 			if (material.emissive) {
 				INTERSECTED.currentHex = INTERSECTED.material.emissive.getHex();
@@ -295,7 +293,8 @@ function checkMouseIntercept(){
 				material.color.setHex(INTERSECTED.currentHex);
 			}
 		}
-		sprite.position.z=5;
+		//set sprite to be behind the ortographic camer so it is not visible
+		tooltipSprite.position.z=5;
 		INTERSECTED = null;
 	}
 }
