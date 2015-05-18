@@ -60,8 +60,18 @@ sceneOrtho.add(tooltipSprite);
 
 // Resize the camera when the window is resized.
 window.addEventListener('resize', function (event) {
+	
 	camera.aspect = window.innerWidth / window.innerHeight;
 	camera.updateProjectionMatrix();
+
+	cameraOrtho.left= - window.innerWidth / 2;
+	cameraOrtho.right=  window.innerWidth / 2;
+	cameraOrtho.top= window.innerHeight / 2;
+	cameraOrtho.bottom=- window.innerHeight / 2;
+
+
+	cameraOrtho.updateProjectionMatrix();
+
 	renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
