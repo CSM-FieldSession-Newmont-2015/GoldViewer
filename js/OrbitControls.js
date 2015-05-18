@@ -417,7 +417,7 @@ THREE.OrbitControls = function ( object, domElement ) {
 
 	}
 
-	function onMouseMove( event ) {
+	 function onMouseMove( event ) {
 
 		if ( scope.enabled === false ) return;
 
@@ -522,8 +522,7 @@ THREE.OrbitControls = function ( object, domElement ) {
 
 	}
 
-	function onKeyDown( event ) {
-
+	this.onKeyDown = function ( event ) {
 		if ( scope.enabled === false || scope.noKeys === true || scope.noPan === true ) return;
 
 		switch ( event.keyCode ) {
@@ -695,7 +694,7 @@ THREE.OrbitControls = function ( object, domElement ) {
 	this.domElement.addEventListener( 'touchend', touchend, false );
 	this.domElement.addEventListener( 'touchmove', touchmove, false );
 
-	window.addEventListener( 'keydown', onKeyDown, false );
+	//window.addEventListener( 'keydown', onKeyDown, false );
 
 	// force an update at start
 	this.update();
