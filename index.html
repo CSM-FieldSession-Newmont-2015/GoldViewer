@@ -10,14 +10,20 @@
         <script type="text/javascript" src="http://code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
 
         <style>
-			body { margin: 0; }
+			html, body { height: 100%; width: 100%; margin: 0; }
 			canvas { width: 100%; height: 100% }
             div#CommandBar > ul > li {
                 float: left;
+                left:0px;
+                top:0px;
+                background-color:white;
             }
             #ControlBar {
                 padding: 4px;
                 display: inline-block;
+                position: absolute;
+                left:0px;
+                bottom:0px;
             }
             /* support: IE7 */
             *+html #ControlBar {
@@ -26,13 +32,12 @@
         </style>
 	</head>
 	<body>
-		<div id="CommandBar"></div>
-		<iframe src="ViewFrame.html"
+		
+		<iframe id = "viewFrame" src="ViewFrame.html"
 		  allowfullscreen webkitallowfullscreen mozallowfullscreen
-		  style=" height: 100%; width: 100%; border: none"
-		  id = "viewFrame">
+		  style="position:absolute; height:100%;  width: 100%; border: none">
 		</iframe>
-        
+        <div id="CommandBar"></div>
         
         <div id="ControlBar" class="ui-widget-header ui-corner-all"></div>
 	</body>
@@ -52,18 +57,28 @@
                     primary: "ui-icon-zoomin"
                 }
             });
+            $( "#zoomIn" ).click(function() {
+			  document.getElementById('viewFrame').contentWindow.controls.dollyIn(1.25);
+			});
             $("#zoomOut").button({
                 text: false,
                 icons: {
                     primary: "ui-icon-zoomout"
                 }
             });
+            $( "#zoomOut" ).click(function() {
+			  document.getElementById('viewFrame').contentWindow.controls.dollyIn(.75);
+			});
             $("#panLeft").button({
                 text: false,
                 icons: {
                     primary: "ui-icon-arrow-1-w"
                 }
-            })
+            });
+            $( "#panLeft" ).click(function() {
+			  document.getElementById('viewFrame').contentWindow.controls.panLeft(1);
+			});
+
             /*            .click(function () {
                             var options;
                             if ($(this).text() === "play") {
@@ -104,20 +119,35 @@
                     primary: "ui-icon-arrow-1-e"
                 }
             });
+            $( "#panRight" ).click(function() {
+			  document.getElementById('viewFrame').contentWindow.controls.panLeft(-1);
+			});
+
             $("#panUp").button({
                 text: false,
                 icons: {
                     primary: "ui-icon-arrow-1-n"
                 }
             });
+            $( "#panUp" ).click(function() {
+			  document.getElementById('viewFrame').contentWindow.controls.panUp(1);
+			});
             $("#panDown").button({
                 text: false,
                 icons: {
                     primary: "ui-icon-arrow-1-s"
                 }
             });
+            $( "#panDown" ).click(function() {
+			  document.getElementById('viewFrame').contentWindow.controls.panUp(-1);
+			});
             $("#toggleButton").button();
             $("#radioDemo").buttonset();
+
+            click(function(){
+            	alert("click")
+  				$('#viewFrame').focus();
+			});
         });
     });
 </script>
