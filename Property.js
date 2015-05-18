@@ -2,59 +2,180 @@
 //   variable names it can't find declared.
 /* global THREE */
 
-var json_data = {
-	"projectName": "Drillhole Traces",
-	"description": "A project with two drillhole traces and no other data.",
-	"boxMin": [10000.0, 50000.0, 1000.0],
-	"boxMax": [15000.0, 55000.0, 1500.0],
-	"formatVersion:": 0.01,
-	"holes": [
-		{"id": 1, "holeName": "DDH-01", "points": [[12500.0, 52500.0, 1400.0], [12500.0, 52500.0, 1100.0]] },
-		{"id": 2, "holeName": "DDH-02", "points": [[12600.0, 52500.0, 1300.0], [12600.0, 52500.0, 1000.0]] }
+var sampleJSON = {
+	"projectName": "Mt Pleasant West Subset",
+	"description": "A smaller subset of holes within the larger Mt Pleasant West area.",
+	"projectionEPSG": 28351,
+	"boxMin": [305104.60,6617982.92,437.90],
+	"boxMax": [306136.77,6618077.70,440.10],
+	"formatVersion": 0.01,
+	"holes":
+	[
+		{
+			"id": 1569866,
+			"name": "KSS-267",
+			"depth": 2.00,
+			"location": [305153.75,6618024.24,440.00],
+			"downholeSurveys":
+			[
+				{
+					"depth": 0.00,
+					"azimuth": 0.00,
+					"inclination": -90.00,
+					"location": [305153.75,6618024.24,440.00]
+				},
+				{
+					"depth": 2.00,
+					"azimuth": 0.00,
+					"inclination": -90.00,
+					"location": [305153.75,6618024.24,438.00]
+				}
+			],
+			"downholeDataValues":
+			[
+				{
+					"name": "Au",
+					"intervals":
+					[
+						{"from": 1.00,"to": 2.00,"value": 0.00600}
+					]
+				},
+				{
+					"name": "As",
+					"intervals":
+					[
+						{"from": 1.00,"to": 2.00,"value": 4.00000}
+					]
+				}
+			]
+		},
+		{
+			"id": 1569867,
+			"name": "KSS-268",
+			"depth": 2.00,
+			"location": [305199.75,6617999.24,440.00],
+			"downholeSurveys":
+			[
+				{
+					"depth": 0.00,
+					"azimuth": 0.00,
+					"inclination": -90.00,
+					"location": [305199.75,6617999.24,440.00]
+				},
+				{
+					"depth": 2.00,
+					"azimuth": 0.00,
+					"inclination": -90.00,
+					"location": [305199.75,6617999.24,438.00]
+				}
+			],
+			"downholeDataValues":
+			[
+				{
+					"name": "Au",
+					"intervals":
+					[
+						{"from": 1.00,"to": 2.00,"value": 0.00800}
+					]
+				},
+				{
+					"name": "As",
+					"intervals":
+					[
+						{"from": 1.00,"to": 2.00,"value": 0.01000}
+					]
+				}
+			]
+		},
+		{
+			"id": 1569868,
+			"name": "KSS-269",
+			"depth": 2.00,
+			"location": [306136.77,6617987.23,440.00],
+			"downholeSurveys":
+			[
+				{
+					"depth": 0.00,
+					"azimuth": 0.00,
+					"inclination": -90.00,
+					"location": [306136.77,6617987.23,440.00]
+				},
+				{
+					"depth": 2.00,
+					"azimuth": 0.00,
+					"inclination": -90.00,
+					"location": [306136.77,6617987.23,438.00]
+				}
+			],
+			"downholeDataValues":
+			[
+				{
+					"name": "Au",
+					"intervals":
+					[
+						{"from": 1.00,"to": 2.00,"value": 0.00700}
+					]
+				},
+				{
+					"name": "As",
+					"intervals":
+					[
+						{"from": 1.00,"to": 2.00,"value": 0.01000}
+					]
+				}
+			]
+		}
 	]
 };
 
-// We shouldn't rely on threejs for this too much.
-var Vec3 = THREE.Vector3;
+function pprint(thing) {
+	console.log(JSON.stringify(thing, null, 2));
+}
 
-// Property class.
-// Encapsulates all of the data about a property which we might want.
-var Property = function () {
-	this.name = "Property Demo";
-	this.description = "Example description";
+// Convert [a, b, c, d..] into {x: a, y: b, z: c}.
+//   Disregard anything after the third element.
+//   Anything missing is assumed to be 0.
+function vec3FromArray(array) {
+	return new THREE.Vector3(array[0], array[1], array[2]);
+}
+
+// Given an object loaded from Newmont's JSON, return an object with
+//   the hole meta data and a list of lines representing the survey lines.
+function parseHoleData(jsonHole) {
+	var hole = {};
+
+	// This data has absolutely no bearing on rendering, but has uses
+	//   for things like tooltips and debugging.
+	hole.id = jsonHole["id"];
+	hole.name = jsonHole["name"];
+
+	var surveys = jsonHole["downholeSurveys"];
+	hole.survey_points = []
+	for (var i = 0; i < surveys.length; i += 1 ) {
+		hole.survey_points.push(vec3FromArray(surveys[i]["location"]));
+	}
+
+	return hole;
+}
+
+function PropertyFromJSON(propertyJSON) {
+	this.name = propertyJSON["projectName"];
+	this.description = propertyJSON["description"];
+
+	var boxMin = vec3FromArray(propertyJSON["boxMin"]);
+	var boxMax = vec3FromArray(propertyJSON["boxMax"]);
 	this.box = {
-		size:     new Vec3(),
-		position: new Vec3(),
+		size:     boxMax.sub(boxMin),
+		position: boxMin,
 	};
-	this.survey_lines = [];
 
-	this.from_json = function (jdata) {
-		name = jdata["projectName"];
-		this.description = jdata["description"];
-
-		var boxmin = new Vec3(jdata["boxMin"][0], jdata["boxMin"][1], jdata["boxMin"][2]);
-		var boxmax = new Vec3(jdata["boxMax"][0], jdata["boxMax"][1], jdata["boxMax"][2]);
-		box = {
-			size:     boxmax.sub(boxmin),
-			position: boxmin,
-		};
-
-		for (var i = 0; i < jdata["holes"].length; i += 1) {
-			var hole = jdata["holes"][i];
-
-			var points = [];
-			for (var j = 0; j < hole["points"].length; j += 1) {
-				var point = hole["points"][i];
-				points.push(new Vec3(point[0], point[1], point[2]));
-			}
-
-			this.survey_lines.push({
-				name:   hole["holeName"],
-				points: points,
-			});
-		}
-	};
+	this.holes = [];
+	var holesJSON = propertyJSON["holes"];
+	for (var i = 0; i < holesJSON.length; i += 1) {
+		this.holes.push(parseHoleData(holesJSON[i]));
+	}
 };
 
-var property = new Property();
-console.log("Example property:", JSON.stringify(property));
+console.log("Example property:");
+var property = new PropertyFromJSON(sampleJSON);
+pprint(property);
