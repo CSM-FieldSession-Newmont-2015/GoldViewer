@@ -8,13 +8,6 @@
         <link rel="stylesheet" href="//code.jquery.com/ui/1.11.4/themes/sunny/jquery-ui.css">
         <script type="text/javascript" src="http://code.jquery.com/jquery-1.10.2.js"></script>
         <script type="text/javascript" src="http://code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
-        <script type="text/javascript" src="js/three.js"></script>
-        <script type="text/javascript" src="js/OrbitControls.js"></script>
-        <script type="text/javascript" src="js/stats.min.js"></script>
-        <script type="text/javascript" src="js/dat.gui.min.js"></script>
-
-        <!-- But all of our stuff is in the root directory. -->
-        <script type="text/javascript" src="Property.js"></script>
 
         <style>
 			body { margin: 0; }
@@ -33,8 +26,14 @@
         </style>
 	</head>
 	<body>
-        <div id="CommandBar"></div>
-        <script type="text/javascript" src="SquareTest.js"></script>
+		<div id="CommandBar"></div>
+		<iframe src="ViewFrame.html"
+		  allowfullscreen webkitallowfullscreen mozallowfullscreen
+		  style=" height: 100%; width: 100%; border: none"
+		  id = "viewFrame">
+		</iframe>
+        
+        
         <div id="ControlBar" class="ui-widget-header ui-corner-all"></div>
 	</body>
 </html>
