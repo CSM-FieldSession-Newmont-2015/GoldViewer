@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
 	<head>
+        <meta charset="utf-8" />
 		<title>Newmont WebGL Demo</title>
 		<style>
 			body { margin: 0; }
@@ -16,12 +17,20 @@
             div#CommandBar > ul > li {
                 float: left;
             }
+            #ControlBar {
+                padding: 4px;
+                display: inline-block;
+            }
+            /* support: IE7 */
+            *+html #ControlBar {
+                display: inline;
+            }
         </style>
 	</head>
 	<body>
         <div id="CommandBar"></div>
 		<script src ="SquareTest.js"></script>
-        <div id="ControlBar"></div>
+        <div id="ControlBar" class="ui-widget-header ui-corner-all"></div>
 	</body>
 </html>
 
@@ -30,6 +39,81 @@
         $.get("CommandBar.html", function (data) {
             $("div#CommandBar").append(data);
             $("ul#CommandBar").menu();
+        });
+        $.get("ControlBar.html", function (data) {
+            $("div#ControlBar").append(data);
+            $("#zoomIn").button({
+                text: false,
+                icons: {
+                    primary: "ui-icon-zoomin"
+                }
+            });
+            $("#zoomOut").button({
+                text: false,
+                icons: {
+                    primary: "ui-icon-zoomout"
+                }
+            });
+            $("#panLeft").button({
+                text: false,
+                icons: {
+                    primary: "ui-icon-arrow-1-w"
+                }
+            })
+            /*            .click(function () {
+                            var options;
+                            if ($(this).text() === "play") {
+                                options = {
+                                    label: "pause",
+                                    icons: {
+                                        primary: "ui-icon-pause"
+                                    }
+                                };
+                            } else {
+                                options = {
+                                    label: "play",
+                                    icons: {
+                                        primary: "ui-icon-play"
+                                    }
+                                };
+                            }
+                            $(this).button("option", options);
+                        });
+                        $("#stop").button({
+                            text: false,
+                            icons: {
+                                primary: "ui-icon-stop"
+                            }
+                        })
+                        .click(function () {
+                            $("#play").button("option", {
+                                label: "play",
+                                icons: {
+                                    primary: "ui-icon-play"
+                                }
+                            });
+                        });
+                        */;
+            $("#panRight").button({
+                text: false,
+                icons: {
+                    primary: "ui-icon-arrow-1-e"
+                }
+            });
+            $("#panUp").button({
+                text: false,
+                icons: {
+                    primary: "ui-icon-arrow-1-n"
+                }
+            });
+            $("#panDown").button({
+                text: false,
+                icons: {
+                    primary: "ui-icon-arrow-1-s"
+                }
+            });
+            $("#toggleButton").button();
+            $("#radioDemo").buttonset();
         });
     });
 </script>
