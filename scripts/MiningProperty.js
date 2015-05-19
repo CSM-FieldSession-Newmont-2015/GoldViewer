@@ -150,7 +150,6 @@ This the structure of a MiningProperty object.
 	"projectionEPSG": Number,
 	"box": {
 		"size":        THREE.Vector3,
-		"lowerCorner": THREE.Vector3,
 		"center":      THREE.Vector3
 	},
 	"holes": [
@@ -182,13 +181,16 @@ function MiningPropertyFromJSON(propertyJSON) {
 	var boxMin = vec3FromArray(propertyJSON["boxMin"]);
 	var boxMax = vec3FromArray(propertyJSON["boxMax"]);
 
+	// We need to adjust each point so that the bottom corner is at (0, 0, 0).
+	// This is our offset for that.
+	var offset = boxMin.clone();
+	pprint(offset);
+
 	var size        = boxMax.clone().sub(boxMin);
-	var lowerCorner = boxMin.clone();
-	var center      = lowerCorner.clone().add(size.clone().multiplyScalar(0.5));
+	var center      = size.clone().multiplyScalar(0.5);
 
 	this.box = {
 		size:        size,
-		lowerCorner: lowerCorner, // TODO: Do we ever need the lower corner?
 		center:      center,
 	};
 
@@ -197,6 +199,33 @@ function MiningPropertyFromJSON(propertyJSON) {
 	for (var i = 0; i < holesJSON.length; i += 1) {
 		this.holes.push(parseHoleData(holesJSON[i]));
 	}
+
+	// Go through and adjust each point.
+	this.holes.forEach(function (hole) {
+		hole.surveyPoints.forEach(function (point) {
+			point.sub(offset);
+		});
+		hole.minerals.forEach(function (mineral) {
+			mineral.intervals.forEach(function (interval) {
+				interval.start.sub(offset);
+				interval.end.sub(offset);
+			});
+		});
+	});
+/*
+	for (var i = 0; i < this.holes.length; i += 1) {
+		for (var j = 0; j < this.holes[i].surveyPoints.length; j += 1) {
+			this.holes[i].surveyPoints[j].sub(offset);
+		}
+		for (var j = 0; j < this.holes[i].minerals.length; j += 1) {
+			var intervals = this.holes[i].minerals[j].intervals;
+			for (var k = 0; k < intervals.length; k += 1) {
+				intervals[k].start.sub(offset);
+				intervals[k].end.sub(offset);
+			}
+		}
+	}
+*/
 };
 
 function MiningPropertyFromURL(url, onError) {
