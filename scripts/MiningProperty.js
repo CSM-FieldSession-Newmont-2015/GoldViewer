@@ -41,7 +41,7 @@ function parseHoleData(jsonHole) {
 	//   the hole, instead of coorinates. We'll need to calculate the
 	//   coordinates from a given depth, or look it up in a cache.
 	var depthMap = {}
-	var depthToCoords = function (depth, depthMap) {
+	var depthToCoords = function (depth) {
 		var lookup = depthMap[depth];
 		if (lookup === undefined) {
 			// The depth isn't in our depth map and we need to caclulate it.
@@ -161,7 +161,18 @@ function MiningPropertyFromJSON(propertyJSON) {
 	}
 };
 
-var sampleJSON = loadJSON("../data/mt_pleasant_west_subset.json");
-var property = new MiningPropertyFromJSON(sampleJSON);
+function MiningPropertyFromURL(url, onError) {
+	if (!onError) {
+		onError = function() {
+			console.log("[Error] Recieved a 404 when trying to load MiningProperty JSON from\"",
+				url, "\".");
+		}
+	}
+	var data = loadJSON(url);
+	// TODO: Check for errors.
+	return new MiningPropertyFromJSON(data);
+}
+
+var property = new MiningPropertyFromURL("../data/mt_pleasant_west_subset.json");
 console.log("Example property:");
 pprint(property);
