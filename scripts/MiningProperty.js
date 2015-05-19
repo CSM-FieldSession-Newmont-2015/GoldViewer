@@ -2,19 +2,19 @@
 //   variable names it can't find declared.
 /* global THREE */
 
-var sampleJSON = (function () {
+function loadJSON(url) {
 	var json = null;
 	$.ajax({
-		'async': false,
-		'global': false,
-		'url': "../data/mt_pleasant_west_subset.json",
+		'async':    false,
+		'global':   false,
+		'url':      url,
 		'dataType': "json",
-		'success': function (data) {
+		'success':  function (data) {
 			json = data;
 		}
 	});
 	return json;
-})();
+}
 
 function pprint(thing) {
 	console.log(JSON.stringify(thing, null, 2));
@@ -41,17 +41,19 @@ function parseHoleData(jsonHole) {
 	//   the hole, instead of coorinates. We'll need to calculate the
 	//   coordinates from a given depth, or look it up in a cache.
 	var depthMap = {}
-	var depthToCoords = function (depth) {
+	var depthToCoords = function (depth, depthMap) {
 		var lookup = depthMap[depth];
 		if (lookup === undefined) {
 			// The depth isn't in our depth map and we need to caclulate it.
 			var calculateDepth = function(
-				surveyDepthStart,
-				surveyDepthEnd,
-				surveyPointStart,
-				surveyPointEnd,
-				intervalDepth
+					surveyDepthStart,
+					surveyDepthEnd,
+					surveyPointStart,
+					surveyPointEnd,
+					intervalDepth
 				) {
+
+				//return new THREE.Vector3();
 
 				// Total distance of this survey chunk in depth units. (meters)
 				var depthDistance = surveyDepthEnd - surveyDepthStart;
@@ -94,12 +96,6 @@ function parseHoleData(jsonHole) {
 				depthMap[upperDepth],
 				depth);
 
-			console.log("Depth == ", depth);
-			pprint(depthMap[lowerDepth])
-			pprint(depthMap[depth])
-			pprint(depthMap[upperDepth]);
-			console.log("");
-
 			lookup = depthMap[depth];
 		}
 		return lookup;
@@ -116,6 +112,8 @@ function parseHoleData(jsonHole) {
 		var location = surveys[i]["location"];
 
 		hole.surveyPoints.push(vec3FromArray(location));
+		pprint(depthMap);
+		console.log("===");
 		depthMap[surveys[i]["depth"]] = vec3FromArray(location);
 	}
 
@@ -145,7 +143,7 @@ function parseHoleData(jsonHole) {
 	return hole;
 }
 
-function PropertyFromJSON(propertyJSON) {
+function MiningPropertyFromJSON(propertyJSON) {
 	this.name = propertyJSON["projectName"];
 	this.description = propertyJSON["description"];
 
@@ -163,6 +161,7 @@ function PropertyFromJSON(propertyJSON) {
 	}
 };
 
-var property = new PropertyFromJSON(sampleJSON);
+var sampleJSON = loadJSON("../data/mt_pleasant_west_subset.json");
+var property = new MiningPropertyFromJSON(sampleJSON);
 console.log("Example property:");
-//pprint(property);
+pprint(property);
