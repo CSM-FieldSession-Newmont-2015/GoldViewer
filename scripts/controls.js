@@ -5,7 +5,6 @@ $(document).ready(function() {
 		$("ul#CommandBar").menu();
 	});
 	$.get("html/ControlBar.html", function (data) {
-		alert(data);
 		$("div#ControlBar").append(data);
 		$("#zoomIn").button({
 			text: false,
