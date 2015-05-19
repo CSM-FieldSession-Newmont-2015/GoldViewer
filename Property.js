@@ -45,18 +45,63 @@ function parseHoleData(jsonHole) {
 	var depthToCoords = function (depth) {
 		var lookup = depthMap[depth];
 		if (lookup === undefined) {
-			// This depth isn't in our map. We'll have to extrapolate
-			//   from depths which are to calculate it.
-			// TODO: Calculate the depth.
-			// Until then, treat undefined as the 0-vector and warn in the
-			//   console.
-			// This should make some interesting visual effects.
-			console.log("[Warning] A depth of", depth,
-				"was requested when loading the property,",
-				"but didn't exist in the depth map.",
-				"Using (0, 0, 0) instead.\n",
-				"This will cause problems. Please see the TODO near me.");
-			return new THREE.Vector3();
+			// The depth isn't in our depth map and we need to caclulate it.
+			var calculateDepth = function(
+				surveyDepthStart,
+				surveyDepthEnd,
+				surveyPointStart,
+				surveyPointEnd,
+				intervalDepth
+				) {
+
+				// Total distance of this survey chunk in depth units. (meters)
+				var depthDistance = surveyDepthEnd - surveyDepthStart;
+
+				// Total distance of this survey chunk in coordinates. (m, m, m)
+				var lineDistance = surveyPointEnd.sub(surveyPointStart);
+
+				// The ratio of the survey line that we need to "follow down".
+				// e.g. Survey line is from depth 10 to 12 and we want to
+				//      start the interval at 11, we need to travel down
+				//      (11 - 10) / (12 - 10) = 1 / 2 = 50% of the way down.
+				var ratio = (intervalDepth - surveyDepthStart) / depthDistance;
+
+				return lineDistance.multiplyScalar(ratio).add(surveyPointStart);
+			};
+
+			// Here "lower" means smaller magnitude.
+			// lowerDepth < depth < upperDepth.
+			// lowerDepth and upperDepth are already in our map, so we shouldn't
+			//   expect either of them to be equal to depth.
+			// If they were, we wouldn't be in this if-body.
+
+			// We assume depths are always integral, and search down.
+			// TODO: Don't assume integral depths and search the map's keys instead.
+			var lowerDepth = depth;
+			while (depthMap[lowerDepth] === undefined) {
+				lowerDepth -= 1;
+			}
+
+			// ... and then up.
+			var upperDepth = depth;
+			while (depthMap[upperDepth] === undefined) {
+				upperDepth += 1;
+			}
+
+			depthMap[depth] = calculateDepth(
+				lowerDepth,
+				upperDepth,
+				depthMap[lowerDepth],
+				depthMap[upperDepth],
+				depth);
+
+			console.log("Depth == ", depth);
+			pprint(depthMap[lowerDepth])
+			pprint(depthMap[depth])
+			pprint(depthMap[upperDepth]);
+			console.log("");
+
+			lookup = depthMap[depth];
 		}
 		return lookup;
 	};
