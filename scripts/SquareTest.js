@@ -60,7 +60,7 @@ sceneOrtho.add(tooltipSprite);
 
 // Resize the camera when the window is resized.
 window.addEventListener('resize', function (event) {
-	
+
 	camera.aspect = window.innerWidth / window.innerHeight;
 	camera.updateProjectionMatrix();
 

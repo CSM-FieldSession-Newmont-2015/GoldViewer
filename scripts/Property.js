@@ -3,19 +3,18 @@
 /* global THREE */
 
 var sampleJSON = (function () {
-    var json = null;
-    $.ajax({
-        'async': false,
-        'global': false,
-        'url': "../data/mt_pleasant_west_subset.json",
-        'dataType': "json",
-        'success': function (data) {
-            json = data;
-        }
-    });
-    return json;
-})(); 
-
+	var json = null;
+	$.ajax({
+		'async': false,
+		'global': false,
+		'url': "../data/mt_pleasant_west_subset.json",
+		'dataType': "json",
+		'success': function (data) {
+			json = data;
+		}
+	});
+	return json;
+})();
 
 function pprint(thing) {
 	console.log(JSON.stringify(thing, null, 2));

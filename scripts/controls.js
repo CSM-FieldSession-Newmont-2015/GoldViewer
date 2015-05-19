@@ -34,7 +34,8 @@ $(document).ready(function() {
 		  document.getElementById('viewFrame').contentWindow.controls.panLeft(1);
 		});
 
-		/*            .click(function () {
+		/*
+		.click(function () {
 						var options;
 						if ($(this).text() === "play") {
 							options = {
@@ -67,7 +68,7 @@ $(document).ready(function() {
 							}
 						});
 					});
-					*/;
+		*/;
 		$("#panRight").button({
 			text: false,
 			icons: {
