@@ -7,7 +7,7 @@ var sampleJSON = (function () {
     $.ajax({
         'async': false,
         'global': false,
-        'url': "../mt_pleasant_west_subset.json",
+        'url': "../data/mt_pleasant_west_subset.json",
         'dataType': "json",
         'success': function (data) {
             json = data;
