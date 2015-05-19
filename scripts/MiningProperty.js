@@ -54,7 +54,8 @@ function parseHoleData(jsonHole) {
 				) {
 
 				// Doing operations like we do modifies the arguments. ಠ_ಠ
-				surveyPointEnd = surveyPointEnd.clone();
+				surveyPointStart = surveyPointStart.clone();
+				surveyPointEnd   = surveyPointEnd.clone();
 
 				// Total distance of this survey chunk in depth units. (meters)
 				var depthDistance = surveyDepthEnd - surveyDepthStart;
@@ -99,7 +100,7 @@ function parseHoleData(jsonHole) {
 
 			lookup = depthMap[depth];
 		}
-		return lookup;
+		return lookup.clone();
 	};
 
 	// Process the survey hole.
@@ -212,20 +213,6 @@ function MiningPropertyFromJSON(propertyJSON) {
 			});
 		});
 	});
-/*
-	for (var i = 0; i < this.holes.length; i += 1) {
-		for (var j = 0; j < this.holes[i].surveyPoints.length; j += 1) {
-			this.holes[i].surveyPoints[j].sub(offset);
-		}
-		for (var j = 0; j < this.holes[i].minerals.length; j += 1) {
-			var intervals = this.holes[i].minerals[j].intervals;
-			for (var k = 0; k < intervals.length; k += 1) {
-				intervals[k].start.sub(offset);
-				intervals[k].end.sub(offset);
-			}
-		}
-	}
-*/
 };
 
 function MiningPropertyFromURL(url, onError) {
