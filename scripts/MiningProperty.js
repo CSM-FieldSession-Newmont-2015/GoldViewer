@@ -149,9 +149,9 @@ This the structure of a MiningProperty object.
 	"description": String,
 	"projectionEPSG": Number,
 	"box": {
-		"size":     THREE.Vector3,
-		"position": THREE.Vector3,
-		"center":   THREE.Vector3
+		"size":        THREE.Vector3,
+		"lowerCorner": THREE.Vector3,
+		"center":      THREE.Vector3
 	},
 	"holes": [
 		{
