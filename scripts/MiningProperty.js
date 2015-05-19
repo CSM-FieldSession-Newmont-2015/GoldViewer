@@ -53,7 +53,8 @@ function parseHoleData(jsonHole) {
 					intervalDepth
 				) {
 
-				//return new THREE.Vector3();
+				// Doing operations like we do modifies the arguments. ಠ_ಠ
+				surveyPointEnd = surveyPointEnd.clone();
 
 				// Total distance of this survey chunk in depth units. (meters)
 				var depthDistance = surveyDepthEnd - surveyDepthStart;
@@ -110,10 +111,7 @@ function parseHoleData(jsonHole) {
 	hole.surveyPoints = []
 	for (var i = 0; i < surveys.length; i += 1 ) {
 		var location = surveys[i]["location"];
-
 		hole.surveyPoints.push(vec3FromArray(location));
-		pprint(depthMap);
-		console.log("===");
 		depthMap[surveys[i]["depth"]] = vec3FromArray(location);
 	}
 
@@ -143,15 +141,55 @@ function parseHoleData(jsonHole) {
 	return hole;
 }
 
+
+/*
+This the structure of a MiningProperty object.
+{
+	"name": String,
+	"description": String,
+	"projectionEPSG": Number,
+	"box": {
+		"size":     THREE.Vector3,
+		"position": THREE.Vector3,
+		"center":   THREE.Vector3
+	},
+	"holes": [
+		{
+			"id": Number,
+			"name": String,
+			"surveyPoints": [ THREE.Vector3 ],
+			"minerals": [
+				{
+					"type": "Au",
+					"intervals": [
+						{
+							"value": Number,
+							"start": THREE.Vector3,
+							"end":   THREE.Vector3
+						}
+					]
+				}
+			]
+		}
+	]
+}
+*/
 function MiningPropertyFromJSON(propertyJSON) {
 	this.name = propertyJSON["projectName"];
 	this.description = propertyJSON["description"];
+	this.projectionEPSG = propertyJSON["projectionEPSG"]; // Some sort of coordinate.
 
 	var boxMin = vec3FromArray(propertyJSON["boxMin"]);
 	var boxMax = vec3FromArray(propertyJSON["boxMax"]);
+
+	var size        = boxMax.clone().sub(boxMin);
+	var lowerCorner = boxMin.clone();
+	var center      = lowerCorner.clone().add(size.clone().multiplyScalar(0.5));
+
 	this.box = {
-		size:     boxMax.sub(boxMin),
-		position: boxMin,
+		size:        size,
+		lowerCorner: lowerCorner, // TODO: Do we ever need the lower corner?
+		center:      center,
 	};
 
 	this.holes = [];
