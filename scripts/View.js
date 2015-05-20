@@ -21,6 +21,9 @@ function View(property){
 
 	var mouse = new THREE.Vector2();
 	var INTERSECTED;
+	var reticle;
+	var size = property.box.size;
+	var maxDimension = Math.max(size.x, size.y, size.z);
 
 	init();
 
@@ -31,12 +34,12 @@ function View(property){
 
 		var width = window.innerWidth;		//used to make the camera declarations prettier
 		var height = window.innerHeight;
-		var maxDimension = Math.max(property.box.size.x, property.box.size.y, property.box.size.z);
-		camera = new THREE.PerspectiveCamera(45, width / height, 0.1, maxDimension*7000);
-		camera.up.set(0,0,1);
-		camera.position.set(Math.max(maxDimension/5, property.box.size.x), Math.max(maxDimension/5,property.box.size.y), Math.max(maxDimension/5, property.box.size.z));
-		camera.lookAt(property.box.center);
+		var center = property.box.center;
 
+		camera = new THREE.PerspectiveCamera(45, width / height, 0.1, maxDimension*70);
+		camera.up.set(0,0,1);
+		camera.position.set(Math.max(maxDimension/5, size.x*1.2), Math.max(maxDimension/5,size.y*1.2), Math.max(maxDimension/5, size.z*1.2));
+		camera.lookAt(center);
 		cameraOrtho = new THREE.OrthographicCamera( width/-2, width/2, height/2, height/-2, 1, 1000);
 
 
@@ -45,31 +48,37 @@ function View(property){
 
 		controls = new THREE.OrbitControls(camera);
 		controls.zoomSpeed = 3.0;
-		controls.minDistance = 1;
+		controls.minDistance = maxDimension / 100;
 		controls.maxDistance = maxDimension * 2;
 		controls.target = property.box.center;
 
 		renderer = new THREE.WebGLRenderer({antialias: true});
 		renderer.setSize(window.innerWidth, window.innerHeight);
 		renderer.setClearColor(colors.background, 1);
-		//renderer.sortObjects = false;
-		//renderer.autoClear=false;
+		renderer.sortObjects = false;
+		renderer.autoClear=false;
 		container.appendChild(renderer.domElement);
 
-		var property_boundary = new THREE.Mesh(new THREE.BoxGeometry(property.box.size.x, property.box.size.y, property.box.size.z));
+		var property_boundary = new THREE.Mesh(new THREE.BoxGeometry(size.x, size.y, size.z));
 		var box = new THREE.EdgesHelper(property_boundary, colors.axes);
-		box.applyMatrix(new THREE.Matrix4().makeTranslation(property.box.center.x, property.box.center.y, property.box.center.z));
-
-		var cylinder_geometry = new THREE.CylinderGeometry(1, 1, 3, 10);
-		var cylinder_material = new THREE.MeshBasicMaterial({ color: colors.pink });
-
-		var cylinder = new THREE.Mesh(cylinder_geometry, cylinder_material);
-		scene.add(cylinder);
+		box.applyMatrix(new THREE.Matrix4().makeTranslation(center.x, center.y, center.z));
 
 		scene.add(box);
 
+		addReticle();
+
 		addSurveyLines();
 		
+	}
+
+	function addReticle(){
+		reticle = new THREE.Mesh(
+			new THREE.SphereGeometry(maxDimension / 1000),
+			new THREE.MeshLambertMaterial({ color: colors.black }));
+		reticle.position.x = controls.target.x;
+		reticle.position.y = controls.target.y;
+		reticle.position.z = controls.target.z;
+		scene.add(reticle);
 	}
 
 	function addSurveyLines(){
@@ -79,6 +88,7 @@ function View(property){
 			hole.surveyPoints.forEach(function(point){
 				geometry.vertices.push(point);
 			});
+
 			scene.add(new THREE.Line(geometry, material));
 		});
 	}
@@ -90,8 +100,11 @@ function View(property){
 
 		camera.updateMatrixWorld();
 
-		//renderer.clear();
-		//console.log("rendering");
+		reticle.position.x = controls.target.x;
+		reticle.position.y = controls.target.y;
+		reticle.position.z = controls.target.z;
+
+		renderer.clear();
 		renderer.render(scene, camera);
 	}
 
