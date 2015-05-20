@@ -11,6 +11,7 @@ function loadJSON(url) {
 		'dataType': "json",
 		'success':  function (data) {
 			json = data;
+			console.log("hello");
 		}
 	});
 	return json;
