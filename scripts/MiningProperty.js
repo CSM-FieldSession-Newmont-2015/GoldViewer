@@ -40,7 +40,7 @@ function parseHoleData(jsonHole) {
 	// Mineral deposits are saved with their concentration and depth down
 	//   the hole, instead of coorinates. We'll need to calculate the
 	//   coordinates from a given depth, or look it up in a cache.
-	var depthMap = {}
+	var depthMap = {};
 	var depthToCoords = function (depth) {
 		var lookup = depthMap[depth];
 		if (lookup === undefined) {
@@ -109,7 +109,7 @@ function parseHoleData(jsonHole) {
 	// We assume any individual hole's survey line is continuous,
 	//   *and in order*. If they're not in order, bad things happen (TM).
 	var surveys = jsonHole["downholeSurveys"];
-	hole.surveyPoints = []
+	hole.surveyPoints = [];
 	for (var i = 0; i < surveys.length; i += 1 ) {
 		var location = surveys[i]["location"];
 		hole.surveyPoints.push(vec3FromArray(location));
@@ -150,8 +150,8 @@ This the structure of a MiningProperty object.
 	"description": String,
 	"projectionEPSG": Number,
 	"box": {
-		"size":        THREE.Vector3,
-		"center":      THREE.Vector3
+		"size":   THREE.Vector3,
+		"center": THREE.Vector3
 	},
 	"holes": [
 		{
@@ -187,12 +187,12 @@ function MiningPropertyFromJSON(propertyJSON) {
 	var offset = boxMin.clone();
 	pprint(offset);
 
-	var size        = boxMax.clone().sub(boxMin);
-	var center      = size.clone().multiplyScalar(0.5);
+	var size   = boxMax.clone().sub(boxMin);
+	var center = size.clone().multiplyScalar(0.5);
 
 	this.box = {
-		size:        size,
-		center:      center,
+		size:   size,
+		center: center,
 	};
 
 	this.holes = [];
@@ -215,18 +215,18 @@ function MiningPropertyFromJSON(propertyJSON) {
 	});
 };
 
-function MiningPropertyFromURL(url, onError) {
+function miningPropertyFromURL(url, onError) {
 	if (!onError) {
 		onError = function() {
 			console.log("[Error] Recieved a 404 when trying to load MiningProperty JSON from\"",
 				url, "\".");
-		}
+		};
 	}
 	var data = loadJSON(url);
 	// TODO: Check for errors.
 	return new MiningPropertyFromJSON(data);
 }
 
-var property = new MiningPropertyFromURL("../data/mt_pleasant_west_subset.json");
+var property = miningPropertyFromURL("../data/mt_pleasant_west_subset.json");
 console.log("Example property:");
 pprint(property);

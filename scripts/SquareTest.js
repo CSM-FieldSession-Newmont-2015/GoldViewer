@@ -1,7 +1,9 @@
 // Visual Studio Code uses these to hush warnings about
 //   variable names it can't find declared.
+/* global dat */
 /* global Stats */
 /* global THREE */
+
 var container = document.createElement('div');
 document.body.appendChild(container);
 
@@ -46,13 +48,13 @@ camera.lookAt(new THREE.Vector3(5, 5, 5));
 var width = window.innerWidth;
 var height = window.innerHeight;
 //orthographic camera for displaying tooltips
-cameraOrtho = new THREE.OrthographicCamera( - width / 2, width / 2, height / 2, - height / 2, 1, 1000 );
+var cameraOrtho = new THREE.OrthographicCamera( - width / 2, width / 2, height / 2, - height / 2, 1, 1000 );
 //The z position of the orthgraphic camera seems to need to be "above" where the sprites are drawn
 //setting it to one here
 cameraOrtho.position.z = 1;
 cameraOrtho.position.x = 0;
 cameraOrtho.position.y = 0;
-sceneOrtho = new THREE.Scene();
+var sceneOrtho = new THREE.Scene();
 
 var tooltipSprite = makeTextSprite("Hello, I'm a Tooltip", {fontsize: 18, size: 250}); //Create a basic tooltip display sprite TODO: Make tooltip display info about current drillhole
 tooltipSprite.scale.set(250,250,1);

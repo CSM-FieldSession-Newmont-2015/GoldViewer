@@ -1,3 +1,4 @@
+/* global $ */
 
 $(document).ready(function() {
 	$.get("html/CommandBar.html", function (data) {
@@ -13,7 +14,7 @@ $(document).ready(function() {
 			}
 		});
 		$( "#zoomIn" ).click(function() {
-		  document.getElementById('viewFrame').contentWindow.controls.dollyIn(1.25);
+			document.getElementById('viewFrame').contentWindow.controls.dollyIn(1.25);
 		});
 		$("#zoomOut").button({
 			text: false,
@@ -34,41 +35,6 @@ $(document).ready(function() {
 		  document.getElementById('viewFrame').contentWindow.controls.panLeft(1);
 		});
 
-		/*
-		.click(function () {
-						var options;
-						if ($(this).text() === "play") {
-							options = {
-								label: "pause",
-								icons: {
-									primary: "ui-icon-pause"
-								}
-							};
-						} else {
-							options = {
-								label: "play",
-								icons: {
-									primary: "ui-icon-play"
-								}
-							};
-						}
-						$(this).button("option", options);
-					});
-					$("#stop").button({
-						text: false,
-						icons: {
-							primary: "ui-icon-stop"
-						}
-					})
-					.click(function () {
-						$("#play").button("option", {
-							label: "play",
-							icons: {
-								primary: "ui-icon-play"
-							}
-						});
-					});
-		*/;
 		$("#panRight").button({
 			text: false,
 			icons: {
@@ -117,5 +83,4 @@ $(document).ready(function() {
 		height -= 8;
 		$("#viewFrame").height(height);
 	});
-
 });
