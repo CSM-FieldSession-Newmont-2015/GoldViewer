@@ -18,11 +18,12 @@ function View(property){
 
 	var container, stats;
 	var camera, cameraOrtho, scene, controls, raycaster, renderer;
-
+	var maxDimension;
 	var mouse = new THREE.Vector2();
 	var INTERSECTED;
 
 	init();
+	render();
 
 	function init() {
 
@@ -31,7 +32,7 @@ function View(property){
 
 		var width = window.innerWidth;		//used to make the camera declarations prettier
 		var height = window.innerHeight;
-		var maxDimension = Math.max(property.box.size.x, property.box.size.y, property.box.size.z);
+		maxDimension = Math.max(property.box.size.x, property.box.size.y, property.box.size.z);
 		camera = new THREE.PerspectiveCamera(45, width / height, 0.1, maxDimension*7000);
 		camera.up.set(0,0,1);
 		camera.position.set(Math.max(maxDimension/5, property.box.size.x), Math.max(maxDimension/5,property.box.size.y), Math.max(maxDimension/5, property.box.size.z));
@@ -59,16 +60,10 @@ function View(property){
 		var property_boundary = new THREE.Mesh(new THREE.BoxGeometry(property.box.size.x, property.box.size.y, property.box.size.z));
 		var box = new THREE.EdgesHelper(property_boundary, colors.axes);
 		box.applyMatrix(new THREE.Matrix4().makeTranslation(property.box.center.x, property.box.center.y, property.box.center.z));
-
-		var cylinder_geometry = new THREE.CylinderGeometry(1, 1, 3, 10);
-		var cylinder_material = new THREE.MeshBasicMaterial({ color: colors.pink });
-
-		var cylinder = new THREE.Mesh(cylinder_geometry, cylinder_material);
-		scene.add(cylinder);
-
 		scene.add(box);
 
 		addSurveyLines();
+		labelAxis();
 		
 	}
 
@@ -83,7 +78,55 @@ function View(property){
 		});
 	}
 
-	render();
+	function labelAxis(){
+		var axis_format = {
+			fontsize: 400,
+			size: 1000
+		};
+		function kFormatter(num) {
+   			 return num > 999 ? (num/1000) + 'k' : num
+		}
+
+		
+
+		var spriteX = makeTextSprite("X", axis_format);
+		spriteX.position.set(property.box.size.x, 0, 0);
+		scene.add(spriteX);
+
+		var spriteY = makeTextSprite("Y", axis_format);
+		spriteY.position.set(0, property.box.size.y, 0);
+		scene.add(spriteY);
+
+		var spriteZ = makeTextSprite("Z", axis_format);
+		spriteZ.position.set(0, 0, property.box.size.z); 
+		scene.add(spriteZ);
+
+		for(var i=0; i< property.box.size.x;i+=property.box.size.x/10){
+			interval=Math.floor(i);
+			interval=parseFloat(interval.toPrecision(2));
+			var spriteLabel = makeTextSprite(kFormatter(interval), axis_format);
+			spriteLabel.position.set(interval, 0, 0);
+			scene.add(spriteLabel);
+		}
+
+		for(var i=0; i< property.box.size.y;i+=property.box.size.y/10){
+			interval=Math.floor(i);
+			interval=parseFloat(interval.toPrecision(2));
+			var spriteLabel = makeTextSprite(kFormatter(interval), axis_format);
+			spriteLabel.position.set(0, interval, 0);
+			scene.add(spriteLabel);
+		}
+
+		for(var i=0; i< property.box.size.z;i+=property.box.size.z/3){
+			interval=Math.floor(i);
+			interval=parseFloat(interval.toPrecision(2));
+			var spriteLabel = makeTextSprite(kFormatter(interval), axis_format);
+			spriteLabel.position.set(0, 0, interval);
+			scene.add(spriteLabel);
+		}
+	}
+
+	
 	function render(){
 		requestAnimationFrame(render);
 		controls.update();
@@ -93,6 +136,32 @@ function View(property){
 		//renderer.clear();
 		//console.log("rendering");
 		renderer.render(scene, camera);
+	}
+
+	function makeTextSprite(message, parameters) {
+		if (parameters === undefined) parameters = {};
+		var fontface = parameters.hasOwnProperty("fontface") ? parameters["fontface"] : "Arial";
+		var fontsize = parameters.hasOwnProperty("fontsize") ? parameters["fontsize"] : 18;
+		var size = parameters.hasOwnProperty("size") ? parameters["size"] : 100;
+		var textColor = parameters.hasOwnProperty("textColor") ? parameters["textColor"] : { r: 0, g: 0, b: 0, a: 1.0 };
+
+		var canvas = document.createElement('canvas');
+		canvas.width = size;
+		canvas.height = size;
+		var context = canvas.getContext('2d');
+		context.font = "Bold " + fontsize + "px " + fontface;
+
+		context.textAlign = 'center';
+		context.fillStyle = "rgba(" + textColor.r + ", " + textColor.g + ", " + textColor.b + ", 1.0)";
+		context.fillText(message, size / 2, size / 2);
+
+		var texture = new THREE.Texture(canvas);
+		texture.needsUpdate = true;
+
+		var spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+		var sprite = new THREE.Sprite(spriteMaterial);
+		sprite.scale.set(maxDimension/50, maxDimension/50,maxDimension/50);
+		return sprite;
 	}
 
 
