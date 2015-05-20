@@ -71,6 +71,7 @@ function View(property){
 		addReticle();
 
 		addSurveyLines();
+		addMinerals();
 		labelAxis();
 		
 	}
@@ -85,8 +86,22 @@ function View(property){
 		scene.add(reticle);
 	}
 
+	function addMinerals(){
+		var material = undefined;
+		property.holes.forEach(function(hole){
+			hole.minerals.forEach(function(mineral){
+				mineral.intervals.forEach(function(interval){
+					var geometry = new THREE.Geometry();
+					geometry.vertices.push(interval.start);
+					geometry.vertices.push(interval.end);
+					scene.add(new THREE.Line(geometry, material));
+				});
+			});
+		});
+	}
+
 	function addSurveyLines(){
-		var material = undefined;//new THREE.LineBasicMaterial({color:colors.black});
+		var material = new THREE.LineBasicMaterial({color:colors.black});
 		property.holes.forEach(function(hole){
 			geometry = new THREE.Geometry();
 			hole.surveyPoints.forEach(function(point){

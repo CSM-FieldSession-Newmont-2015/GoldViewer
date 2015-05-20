@@ -33,89 +33,28 @@ function parseHoleData(jsonHole) {
 	hole.id = jsonHole["id"];
 	hole.name = jsonHole["name"];
 
-	// Make sure none of the data goes below the maximum depth of this hole.
-	var maxDepth = jsonHole["depth"];
-
 	// Mineral deposits are saved with their concentration and depth down
 	//   the hole, instead of coorinates. We'll need to calculate the
 	//   coordinates from a given depth, or look it up in a cache.
 	var depthMap = {};
 	var depthToCoords = function (depth) {
-		if (depth > maxDepth) {
-			console.log("Hole \'" + hole.name + "\' " +
-				"has a maximum depth of " + maxDepth + " " +
-				"but has a reference to a depth of " + depth + ".\n" +
-				"Using the maximum depth of " + maxDepth + " instead.");
-			depth = maxDepth;
+
+		//iterate until we find a depth in our hole greater than or equal to 
+		//the mineral's location
+		var index = 1;
+		while(depths[index] < depth && index < depths.length){
+			index+=1;
 		}
-		var lookup = depthMap[depth];
-		if (lookup === undefined) {
-			// The depth isn't in our depth map and we need to caclulate it.
-			var calculateDepth = function(
-					surveyDepthStart,
-					surveyDepthEnd,
-					surveyPointStart,
-					surveyPointEnd,
-					intervalDepth
-				) {
 
-				// Doing operations like we do modifies the arguments. ಠ_ಠ
-				surveyPointStart = surveyPointStart.clone();
-				surveyPointEnd   = surveyPointEnd.clone();
+		index -= 1;
+		var lastPoint = depthMap[depths[index]];
 
-				// Total distance of this survey chunk in depth units. (meters)
-				var depthDistance = surveyDepthEnd - surveyDepthStart;
-
-				// Total distance of this survey chunk in coordinates. (m, m, m)
-				var lineDistance = surveyPointEnd.sub(surveyPointStart);
-
-				// The ratio of the survey line that we need to "follow down".
-				// e.g. Survey line is from depth 10 to 12 and we want to
-				//      start the interval at 11, we need to travel down
-				//      (11 - 10) / (12 - 10) = 1 / 2 = 50% of the way down.
-				var ratio = (intervalDepth - surveyDepthStart) / depthDistance;
-
-				return lineDistance.multiplyScalar(ratio).add(surveyPointStart);
-			};
-
-			if (depth < 0) {
-				console.log("Negative depth in " + hole.name);
-			}
-
-			// Here "lower" means smaller magnitude.
-			// lowerDepth < depth < upperDepth.
-			// lowerDepth and upperDepth are already in our map, so we shouldn't
-			//   expect either of them to be equal to depth.
-			// If they were, we wouldn't be in this if-body.
-
-			// We assume depths are always integral, and search down.
-			// TODO: Don't assume integral depths and search the map's keys instead.
-			var lowerDepth = depth;
-			while (depthMap[lowerDepth] === undefined && lowerDepth >= 0) {
-				lowerDepth -= 1;
-			}
-
-			// ... and then up.
-			var upperDepth = depth;
-			while (depthMap[upperDepth] === undefined && upperDepth <= maxDepth) {
-				upperDepth += 1;
-			}
-
-			if (lowerDepth == upperDepth) {
-				console.log("In hole " + hole.name + ", lower and upper are equal.");
-				console.log(lowerDepth);
-			}
-
-			depthMap[depth] = calculateDepth(
-				lowerDepth,
-				upperDepth,
-				depthMap[lowerDepth],
-				depthMap[upperDepth],
-				depth);
-
-			lookup = depthMap[depth];
-		}
-		return lookup.clone();
+		var depthDiff = depth - depths[index];
+		var pos = lastPoint.location.clone();
+		pos.x += depthDiff * Math.cos(lastPoint.inclination) * Math.sin(lastPoint.azimuth);
+		pos.y += depthDiff * Math.cos(lastPoint.inclination) * Math.cos(lastPoint.azimuth);
+		pos.z += depthDiff * Math.sin(lastPoint.inclination);
+		return pos;
 	};
 
 	// Process the survey hole.
@@ -126,11 +65,20 @@ function parseHoleData(jsonHole) {
 	var surveys = jsonHole["downholeSurveys"];
 	hole.surveyPoints = [];
 	for (var i = 0; i < surveys.length; i += 1 ) {
+
 		var location = surveys[i]["location"];
 		hole.surveyPoints.push(vec3FromArray(location));
-		depthMap[surveys[i]["depth"]] = vec3FromArray(location);
+		depthMap[surveys[i]["depth"]] = {
+			azimuth:     surveys[i]["azimuth"]/180 * Math.PI,
+			inclination: surveys[i]["inclination"]/180 * Math.PI,
+			location:    vec3FromArray(location)
+		};
 	}
 
+	var depths = Object.keys(depthMap);
+	depths.sort(function(a,b){return a - b});
+
+	/*
 	// Add the end point to the survey hole.
 	var lastJSON = surveys[surveys.length - 1];
 	var last = vec3FromArray(lastJSON["location"]);
@@ -140,7 +88,8 @@ function parseHoleData(jsonHole) {
 
 	depthMap[maxDepth] = last;
 	hole.surveyPoints.push(last);
-
+	
+	*/
 	// And then the intervals with mineral deposits.
 	hole.minerals = [];
 	var mineralsJSON = jsonHole["downholeDataValues"];
@@ -225,6 +174,8 @@ function MiningPropertyFromJSON(propertyJSON) {
 		this.holes.push(parseHoleData(holesJSON[i]));
 	}
 
+	var intervals = 0;
+
 	// Go through and adjust each point.
 	this.holes.forEach(function (hole) {
 		hole.surveyPoints.forEach(function (point) {
@@ -233,11 +184,15 @@ function MiningPropertyFromJSON(propertyJSON) {
 
 		hole.minerals.forEach(function (mineral) {
 			mineral.intervals.forEach(function (interval) {
+				intervals += 1;
 				interval.start.sub(offset);
 				interval.end.sub(offset);
 			});
 		});
 	});
+
+	console.log("Found " + this.holes.length + " holes.");
+	console.log("Found " + intervals + " intervals.");
 };
 
 function miningPropertyFromURL(url, onError) {
