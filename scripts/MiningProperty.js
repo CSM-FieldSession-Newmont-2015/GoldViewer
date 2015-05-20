@@ -11,7 +11,6 @@ function loadJSON(url) {
 		'dataType': "json",
 		'success':  function (data) {
 			json = data;
-			console.log("hello");
 		}
 	});
 	return json;
@@ -132,7 +131,15 @@ function parseHoleData(jsonHole) {
 		depthMap[surveys[i]["depth"]] = vec3FromArray(location);
 	}
 
-	return hole; // TODO: Process minerals.
+	// Add the end point to the survey hole.
+	var lastJSON = surveys[surveys.length - 1];
+	var last = vec3FromArray(lastJSON["location"]);
+	last.x += Math.cos(lastJSON["inclination"]) * Math.cos(lastJSON["azimuth"]);
+	last.y += Math.cos(lastJSON["inclination"]) * Math.sin(lastJSON["azimuth"]);
+	last.z += -lastJSON["depth"];
+
+	depthMap[maxDepth] = last;
+	hole.surveyPoints.push(last);
 
 	// And then the intervals with mineral deposits.
 	hole.minerals = [];
@@ -223,7 +230,7 @@ function MiningPropertyFromJSON(propertyJSON) {
 		hole.surveyPoints.forEach(function (point) {
 			point.sub(offset);
 		});
-		return; // TODO: Process minerals.
+
 		hole.minerals.forEach(function (mineral) {
 			mineral.intervals.forEach(function (interval) {
 				interval.start.sub(offset);
@@ -236,14 +243,15 @@ function MiningPropertyFromJSON(propertyJSON) {
 function miningPropertyFromURL(url, onError) {
 	if (!onError) {
 		onError = function() {
-			console.log("[Error] Recieved a 404 when trying to load MiningProperty JSON from\"",
+			console.log("[Error] Something went wrong when trying to load MiningProperty JSON from\"",
 				url, "\".");
 		};
 	}
 	var data = loadJSON(url);
-	// TODO: Check for errors.
+
+	if (!data) {
+		onError();
+	}
+
 	return new MiningPropertyFromJSON(data);
 }
-
-var property = miningPropertyFromURL("../data/mt_pleasant_west.json");
-console.log("Example property: " + JSON.stringify(property));
