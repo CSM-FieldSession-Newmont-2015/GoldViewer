@@ -17,10 +17,6 @@ function loadJSON(url) {
 	return json;
 }
 
-function pprint(thing) {
-	console.log(JSON.stringify(thing, null, 2));
-}
-
 // Convert [a, b, c, d..] into {x: a, y: b, z: c}.
 //   Disregard anything after the third element.
 //   Anything missing is assumed to be 0.
@@ -38,11 +34,21 @@ function parseHoleData(jsonHole) {
 	hole.id = jsonHole["id"];
 	hole.name = jsonHole["name"];
 
+	// Make sure none of the data goes below the maximum depth of this hole.
+	var maxDepth = jsonHole["depth"];
+
 	// Mineral deposits are saved with their concentration and depth down
 	//   the hole, instead of coorinates. We'll need to calculate the
 	//   coordinates from a given depth, or look it up in a cache.
 	var depthMap = {};
 	var depthToCoords = function (depth) {
+		if (depth > maxDepth) {
+			console.log("Hole \'" + hole.name + "\' " +
+				"has a maximum depth of " + maxDepth + " " +
+				"but has a reference to a depth of " + depth + ".\n" +
+				"Using the maximum depth of " + maxDepth + " instead.");
+			depth = maxDepth;
+		}
 		var lookup = depthMap[depth];
 		if (lookup === undefined) {
 			// The depth isn't in our depth map and we need to caclulate it.
@@ -73,6 +79,10 @@ function parseHoleData(jsonHole) {
 				return lineDistance.multiplyScalar(ratio).add(surveyPointStart);
 			};
 
+			if (depth < 0) {
+				console.log("Negative depth in " + hole.name);
+			}
+
 			// Here "lower" means smaller magnitude.
 			// lowerDepth < depth < upperDepth.
 			// lowerDepth and upperDepth are already in our map, so we shouldn't
@@ -82,14 +92,19 @@ function parseHoleData(jsonHole) {
 			// We assume depths are always integral, and search down.
 			// TODO: Don't assume integral depths and search the map's keys instead.
 			var lowerDepth = depth;
-			while (depthMap[lowerDepth] === undefined) {
+			while (depthMap[lowerDepth] === undefined && lowerDepth >= 0) {
 				lowerDepth -= 1;
 			}
 
 			// ... and then up.
 			var upperDepth = depth;
-			while (depthMap[upperDepth] === undefined) {
+			while (depthMap[upperDepth] === undefined && upperDepth <= maxDepth) {
 				upperDepth += 1;
+			}
+
+			if (lowerDepth == upperDepth) {
+				console.log("In hole " + hole.name + ", lower and upper are equal.");
+				console.log(lowerDepth);
 			}
 
 			depthMap[depth] = calculateDepth(
@@ -116,6 +131,8 @@ function parseHoleData(jsonHole) {
 		hole.surveyPoints.push(vec3FromArray(location));
 		depthMap[surveys[i]["depth"]] = vec3FromArray(location);
 	}
+
+	return hole; // TODO: Process minerals.
 
 	// And then the intervals with mineral deposits.
 	hole.minerals = [];
@@ -186,7 +203,6 @@ function MiningPropertyFromJSON(propertyJSON) {
 	// We need to adjust each point so that the bottom corner is at (0, 0, 0).
 	// This is our offset for that.
 	var offset = boxMin.clone();
-	pprint(offset);
 
 	var size   = boxMax.clone().sub(boxMin);
 	var center = size.clone().multiplyScalar(0.5);
@@ -207,6 +223,7 @@ function MiningPropertyFromJSON(propertyJSON) {
 		hole.surveyPoints.forEach(function (point) {
 			point.sub(offset);
 		});
+		return; // TODO: Process minerals.
 		hole.minerals.forEach(function (mineral) {
 			mineral.intervals.forEach(function (interval) {
 				interval.start.sub(offset);
@@ -228,6 +245,5 @@ function miningPropertyFromURL(url, onError) {
 	return new MiningPropertyFromJSON(data);
 }
 
-var property = miningPropertyFromURL("../data/mt_pleasant_west_subset.json");
-console.log("Example property:");
-pprint(property);
+var property = miningPropertyFromURL("../data/mt_pleasant_west.json");
+console.log("Example property: " + JSON.stringify(property));
