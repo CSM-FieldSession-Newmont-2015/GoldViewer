@@ -24,6 +24,7 @@ function View(property){
 	var reticle;
 	var size = property.box.size;
 	var maxDimension = Math.max(size.x, size.y, size.z);
+	var stats;
 
 	init();
 	render();
@@ -65,8 +66,13 @@ function View(property){
 		var property_boundary = new THREE.Mesh(new THREE.BoxGeometry(size.x, size.y, size.z));
 		var box = new THREE.EdgesHelper(property_boundary, colors.axes);
 		box.applyMatrix(new THREE.Matrix4().makeTranslation(center.x, center.y, center.z));
-
 		scene.add(box);
+
+		stats = new Stats();
+		stats.domElement.style.position = 'absolute';
+		stats.domElement.style.right = '0px';
+		stats.domElement.style.bottom = '0px';
+		container.appendChild(stats.domElement);
 
 		addReticle();
 
@@ -87,19 +93,36 @@ function View(property){
 	}
 
 	function addMinerals(){
-		var material = undefined;
+		var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
 		property.holes.forEach(function(hole){
 			hole.minerals.forEach(function(mineral){
 				mineral.intervals.forEach(function(interval){
-					var geometry = new THREE.Geometry();
+					/*var geometry = new THREE.Geometry();
 					geometry.vertices.push(interval.start);
 					geometry.vertices.push(interval.end);
-					scene.add(new THREE.Line(geometry, material));
+					scene.add(new THREE.Line(geometry, material));*/
+					scene.add(cylinderMesh(interval.start, interval.end,25,material));
 				});
 			});
 		});
 	}
 
+	function cylinderMesh(pointX, pointY, width, material) {
+            var direction = new THREE.Vector3().subVectors(pointY, pointX);
+            var orientation = new THREE.Matrix4();
+            orientation.lookAt(pointX, pointY, new THREE.Object3D().up);
+            orientation.multiply(new THREE.Matrix4().set(1, 0, 0, 0,
+                0, 0, 1, 0,
+                0, -1, 0, 0,
+                0, 0, 0, 1));
+            var edgeGeometry = new THREE.CylinderGeometry(width, width, direction.length(), 8, 1);
+            var edge = new THREE.Mesh(edgeGeometry, material);
+            edge.applyMatrix(orientation);
+            edge.position.x = (pointY.x + pointX.x) / 2;
+            edge.position.y = (pointY.y + pointX.y) / 2;
+            edge.position.z = (pointY.z + pointX.z) / 2;
+            return edge;
+    }
 	function addSurveyLines(){
 		var material = new THREE.LineBasicMaterial({color:colors.black});
 		property.holes.forEach(function(hole){
@@ -165,6 +188,8 @@ function View(property){
 		requestAnimationFrame(render);
 		controls.update();
 
+		stats.update();
+
 		camera.updateMatrixWorld();
 
 		reticle.position.x = controls.target.x;
@@ -200,6 +225,7 @@ function View(property){
 		sprite.scale.set(maxDimension/50, maxDimension/50,maxDimension/50);
 		return sprite;
 	}
+
 
 
 	window.addEventListener('resize', function (event) {
