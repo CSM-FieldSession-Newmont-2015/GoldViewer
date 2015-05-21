@@ -17,7 +17,7 @@ var colors = {
 function View(property){
 
 	var container, stats;
-	var camera, cameraOrtho, scene, controls, raycaster, renderer;
+	var camera, cameraOrtho, scene, sceneOrtho, controls, raycaster, renderer;
 	var maxDimension;
 	var mouse = new THREE.Vector2();
 	var INTERSECTED;
@@ -26,10 +26,16 @@ function View(property){
 	var maxDimension = Math.max(size.x, size.y, size.z);
 	var stats;
 
+	var tooltipSprite;
+
+	var cylinders=[];
+
 	init();
 	render();
 
 	function init() {
+
+		raycaster = new THREE.Raycaster();
 
 		container = document.createElement('div');
 		document.body.appendChild(container);
@@ -40,11 +46,20 @@ function View(property){
 
 		var center = property.box.center;
 
+		//Sets up the camera object for the 3d scene
 		camera = new THREE.PerspectiveCamera(45, width / height, 0.1, maxDimension*70);
 		camera.up.set(0,0,1);
 		camera.position.set(Math.max(maxDimension/5, size.x*1.2), Math.max(maxDimension/5,size.y*1.2), Math.max(maxDimension/5, size.z*1.2));
 		camera.lookAt(center);
+
+		//Sets up the 2d orthographic camera for tooltips
 		cameraOrtho = new THREE.OrthographicCamera( width/-2, width/2, height/2, height/-2, 1, 1000);
+		sceneOrtho = new THREE.Scene();
+
+
+		tooltipSprite = makeTextSprite("Hello, I'm a Tooltip", {fontsize: 18, size: 250}); //Create a basic tooltip display sprite TODO: Make tooltip display info about current drillhole
+		tooltipSprite.scale.set(250,250,1);
+		sceneOrtho.add(tooltipSprite);
 
 
 		scene = new THREE.Scene;
@@ -93,7 +108,10 @@ function View(property){
 	}
 
 	function addMinerals(){
+		
 		var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+		var totalGeom = new THREE.Geometry();
+
 		property.holes.forEach(function(hole){
 			hole.minerals.forEach(function(mineral){
 				mineral.intervals.forEach(function(interval){
@@ -101,10 +119,19 @@ function View(property){
 					geometry.vertices.push(interval.start);
 					geometry.vertices.push(interval.end);
 					scene.add(new THREE.Line(geometry, material));*/
-					scene.add(cylinderMesh(interval.start, interval.end,25,material));
+					cylinder = cylinderMesh(interval.start, interval.end,25,material);
+					cylinder.updateMatrix();
+					cylinders.push(cylinder);
+					totalGeom.merge( cylinder.geometry, cylinder.matrix );
+					//cylinder.matrixAutoUpdate = false;
+					//cylinder.updateMatrix();
+					//scene.add(cylinder);
 				});
 			});
 		});
+		var total = new THREE.Mesh(totalGeom);
+		total.matrixAutoUpdate = false;
+    	scene.add(total);
 	}
 
 	function cylinderMesh(pointX, pointY, width, material) {
@@ -192,12 +219,16 @@ function View(property){
 
 		camera.updateMatrixWorld();
 
+		checkMouseIntercept();
+
 		reticle.position.x = controls.target.x;
 		reticle.position.y = controls.target.y;
 		reticle.position.z = controls.target.z;
 
 		renderer.clear();
-		renderer.render(scene, camera);
+		renderer.render(scene,camera);
+		renderer.clearDepth();
+		renderer.render(sceneOrtho,cameraOrtho);
 	}
 
 	function makeTextSprite(message, parameters) {
@@ -226,6 +257,51 @@ function View(property){
 		return sprite;
 	}
 
+	function checkMouseIntercept(){
+		raycaster.setFromCamera(mouse, camera);
+		var intersects = raycaster.intersectObjects(cylinders);
+
+		if (intersects.length > 0) {
+			if (INTERSECTED != intersects[0].object) {
+				if (INTERSECTED) {
+					var material = INTERSECTED.material;
+					if (material.emissive) {
+						material.emissive.setHex(INTERSECTED.currentHex);
+					} else {
+						material.color.setHex(INTERSECTED.currentHex);
+					}
+				}
+				INTERSECTED = intersects[0].object;
+				//set sprite to be in front of the orthographic camera so it is visible
+				tooltipSprite.position.z=0;
+				material = INTERSECTED.material;
+				if (material.emissive) {
+					INTERSECTED.currentHex = INTERSECTED.material.emissive.getHex();
+					material.emissive.setHex(0xff0000);
+				}
+				else {
+					INTERSECTED.currentHex = material.color.getHex();
+					material.color.setHex(0xff0000);
+				}
+
+			}
+
+		} else {
+			if (INTERSECTED) {
+				material = INTERSECTED.material;
+
+				if (material.emissive) {
+					material.emissive.setHex(INTERSECTED.currentHex);
+				} else {
+					material.color.setHex(INTERSECTED.currentHex);
+				}
+			}
+			//set sprite to be behind the ortographic camer so it is not visible
+			tooltipSprite.position.z=5;
+			INTERSECTED = null;
+		}
+	}
+
 
 
 	window.addEventListener('resize', function (event) {
@@ -235,4 +311,16 @@ function View(property){
 
 		renderer.setSize(window.innerWidth, window.innerHeight);
 	});
+
+	document.addEventListener('mousemove', onDocumentMouseMove, false);
+	function onDocumentMouseMove(event) {
+
+		event.preventDefault();
+		//this will update the mouse position as well as make the tooltipSprite follow the mouse
+		tooltipSprite.position.x= event.clientX-(window.innerWidth/2);
+		tooltipSprite.position.y= -event.clientY+(window.innerHeight/2)+20;
+		mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+		mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+
+	}
 }
