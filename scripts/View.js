@@ -61,7 +61,7 @@ function View(property){
 		sceneOrtho = new THREE.Scene();
 
 
-		tooltipSprite = makeTextSprite("Hello, I'm a Tooltip", {fontsize: 18, size: 250}); //Create a basic tooltip display sprite TODO: Make tooltip display info about current drillhole
+		tooltipSprite = makeTextSprite("Hello, I'm a Tooltip", {fontsize: 18, size: 256}); //Create a basic tooltip display sprite TODO: Make tooltip display info about current drillhole
 		tooltipSprite.scale.set(250,250,1);
 		sceneOrtho.add(tooltipSprite);
 
@@ -126,7 +126,8 @@ function View(property){
 					cylinder = cylinderMesh(interval.start, interval.end,25,material);
 					cylinder.updateMatrix();
 					cylinders.push(cylinder);
-					totalGeom.merge( cylinder.geometry, cylinder.matrix );
+					cylinder.oreConcentration=interval.value;
+					totalGeom.merge(cylinder.geometry, cylinder.matrix);
 
 					scene.add(cylinder);
 					cylinder.visible=false;
@@ -169,7 +170,7 @@ function View(property){
 	function labelAxis(){
 		var axis_format = {
 			fontsize: 400,
-			size: 1000
+			size: 1024
 		};
 		function kFormatter(num) {
    			 return num > 999 ? (num/1000) + 'k' : num
@@ -325,6 +326,20 @@ function View(property){
 		tooltipSprite.position.y= -event.clientY+(window.innerHeight/2)+20;
 		mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
 		mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
-
 	}
+
+	// Resize the camera when the window is resized.
+	window.addEventListener('resize', function (event) {
+		camera.aspect = window.innerWidth / window.innerHeight;
+		camera.updateProjectionMatrix();
+
+		cameraOrtho.left= - window.innerWidth / 2;
+		cameraOrtho.right=  window.innerWidth / 2;
+		cameraOrtho.top= window.innerHeight / 2;
+		cameraOrtho.bottom=- window.innerHeight / 2;
+
+		cameraOrtho.updateProjectionMatrix();
+
+		renderer.setSize(window.innerWidth, window.innerHeight);
+	});
 }
