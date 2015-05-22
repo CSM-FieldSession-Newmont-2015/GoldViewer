@@ -96,7 +96,7 @@ function View(property){
 		addReticle();
 
 		addSurveyLines();
-		addMinerals();
+		setTimeout(addMinerals, 2000);
 		labelAxis();
 		
 	}
