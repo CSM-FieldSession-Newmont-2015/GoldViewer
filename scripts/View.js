@@ -26,7 +26,7 @@ function View(property){
 	var maxDimension = Math.max(size.x, size.y, size.z);
 	var stats;
 
-	var tooltipSprite;
+	var tooltipSprite, tooltipSpriteLocation = new THREE.Vector2();
 
 	var cylinders=[];
 
@@ -59,11 +59,6 @@ function View(property){
 		cameraOrtho.position.y = 0;
 
 		sceneOrtho = new THREE.Scene();
-
-
-		tooltipSprite = makeTextSprite("Hello, I'm a Tooltip", {fontsize: 18, size: 256}); //Create a basic tooltip display sprite TODO: Make tooltip display info about current drillhole
-		tooltipSprite.scale.set(250,250,1);
-		sceneOrtho.add(tooltipSprite);
 
 
 		scene = new THREE.Scene;
@@ -184,7 +179,7 @@ function View(property){
     	scene.add(total);
 	}
 
-	function cylinderMesh(pointX, pointY, width, material) {
+	function cylinderMesh(pointX, pointY, width) {
             var direction = new THREE.Vector3().subVectors(pointY, pointX);
             var orientation = new THREE.Matrix4();
             orientation.lookAt(pointX, pointY, new THREE.Object3D().up);
@@ -193,7 +188,7 @@ function View(property){
                 0, -1, 0, 0,
                 0, 0, 0, 1));
             var edgeGeometry = new THREE.CylinderGeometry(width, width, direction.length(), 8, 1);
-            var edge = new THREE.Mesh(edgeGeometry, material);
+            var edge = new THREE.Mesh(edgeGeometry);
             edge.applyMatrix(orientation);
             edge.position.x = (pointY.x + pointX.x) / 2;
             edge.position.y = (pointY.y + pointX.y) / 2;
@@ -323,7 +318,14 @@ function View(property){
 				}
 				INTERSECTED = intersects[0].object;
 				//set sprite to be in front of the orthographic camera so it is visible
+				sceneOrtho.remove(tooltipSprite);
+				tooltipSprite = makeTextSprite(INTERSECTED.oreConcentration+" g/ton", {fontsize: 18, size: 256}); //Create a basic tooltip display sprite TODO: Make tooltip display info about current drillhole
+				tooltipSprite.scale.set(250,250,1);
 				tooltipSprite.position.z=0;
+				tooltipSprite.position.x=tooltipSpriteLocation.x;
+				tooltipSprite.position.y=tooltipSpriteLocation.y;
+				sceneOrtho.add(tooltipSprite);
+				
 				material = INTERSECTED.material;
 				if (material.emissive) {
 					INTERSECTED.currentHex = INTERSECTED.material.emissive.getHex();
@@ -347,7 +349,7 @@ function View(property){
 				}
 			}
 			//set sprite to be behind the ortographic camer so it is not visible
-			tooltipSprite.position.z=5;
+			sceneOrtho.remove(tooltipSprite);
 			INTERSECTED = null;
 		}
 	}
@@ -366,11 +368,13 @@ function View(property){
 	function onDocumentMouseMove(event) {
 
 		event.preventDefault();
-		//this will update the mouse position as well as make the tooltipSprite follow the mouse
-		tooltipSprite.position.x= event.clientX-(window.innerWidth/2);
-		tooltipSprite.position.y= -event.clientY+(window.innerHeight/2)+20;
+		
 		mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
 		mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+
+		//this will update the mouse position as well as make the tooltipSprite follow the mouse
+		tooltipSpriteLocation.x=event.clientX-(window.innerWidth/2);
+		tooltipSpriteLocation.y=-event.clientY+(window.innerHeight/2)+20;
 	}
 	// Resize the camera when the window is resized.
 	window.addEventListener('resize', function (event) {
