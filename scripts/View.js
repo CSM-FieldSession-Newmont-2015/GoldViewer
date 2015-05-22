@@ -97,8 +97,53 @@ function View(property){
 
 		addSurveyLines();
 		setTimeout(addMinerals, 2000);
+		addRandomTerrain();
 		labelAxis();
-		
+	}
+
+	function addRandomTerrain() {
+		var maxX = property.box.size.x;
+		var maxY = property.box.size.y;
+
+		// Draw 100 lines on each side.
+		var dx = maxX / 100.0;
+		var dy = maxY / 100.0;
+		var mindz = property.box.size.z;
+		var maxdz = property.box.size.z / 5.0;
+
+		var meshGeometry = new THREE.Geometry();
+		var material = new THREE.LineBasicMaterial({
+			color: colors.terrain_frame,
+		});
+
+		var heights = [];
+
+		// Draw lines along the y axis.
+		for (var x = 0; x < maxX; x += dx) {
+			var lineGeometry = new THREE.Geometry();
+			heights[x] = [];
+			for (var y = 0; y < maxY; y += dy) {
+				var z = maxdz * Math.random() + mindz;
+				heights[x][y] = z;
+				lineGeometry.vertices.push(new THREE.Vector3(x, y, z));
+			}
+			scene.add(new THREE.Line(lineGeometry, material));
+			meshGeometry.merge(lineGeometry);
+		}
+
+		// And then along the x axis.
+		for (var y = 0; y < maxY; y += dy) {
+			var lineGeometry = new THREE.Geometry();
+			for (var x = 0; x < maxX; x += dx) {
+				var z = heights[x][y];
+				lineGeometry.vertices.push(new THREE.Vector3(x, y, z));
+			}
+			scene.add(new THREE.Line(lineGeometry, material));
+			meshGeometry.merge(lineGeometry);
+		}
+
+		var mesh = new THREE.Mesh(meshGeometry, material);
+		//scene.add(mesh);
 	}
 
 	function addReticle(){
@@ -112,7 +157,7 @@ function View(property){
 	}
 
 	function addMinerals(){
-		
+
 		var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
 		var totalGeom = new THREE.Geometry();
 
@@ -176,7 +221,7 @@ function View(property){
    			 return num > 999 ? (num/1000) + 'k' : num
 		}
 
-		
+
 
 		var spriteX = makeTextSprite("X", axis_format);
 		spriteX.position.set(property.box.size.x, 0, 0);
@@ -187,7 +232,7 @@ function View(property){
 		scene.add(spriteY);
 
 		var spriteZ = makeTextSprite("Z", axis_format);
-		spriteZ.position.set(0, 0, property.box.size.z); 
+		spriteZ.position.set(0, 0, property.box.size.z);
 		scene.add(spriteZ);
 
 		for(var i=0; i< property.box.size.x;i+=property.box.size.x/10){
@@ -215,7 +260,7 @@ function View(property){
 		}
 	}
 
-	
+
 	function render(){
 		requestAnimationFrame(render);
 		controls.update();
@@ -327,7 +372,6 @@ function View(property){
 		mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
 		mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
 	}
-
 	// Resize the camera when the window is resized.
 	window.addEventListener('resize', function (event) {
 		camera.aspect = window.innerWidth / window.innerHeight;
