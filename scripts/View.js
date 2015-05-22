@@ -54,6 +54,10 @@ function View(property){
 
 		//Sets up the 2d orthographic camera for tooltips
 		cameraOrtho = new THREE.OrthographicCamera( width/-2, width/2, height/2, height/-2, 1, 1000);
+		cameraOrtho.position.z = 1;
+		cameraOrtho.position.x = 0;
+		cameraOrtho.position.y = 0;
+
 		sceneOrtho = new THREE.Scene();
 
 
@@ -123,9 +127,9 @@ function View(property){
 					cylinder.updateMatrix();
 					cylinders.push(cylinder);
 					totalGeom.merge( cylinder.geometry, cylinder.matrix );
-					//cylinder.matrixAutoUpdate = false;
-					//cylinder.updateMatrix();
-					//scene.add(cylinder);
+
+					scene.add(cylinder);
+					cylinder.visible=false;
 				});
 			});
 		});
