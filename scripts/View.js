@@ -210,7 +210,7 @@ function View(property){
 	function labelAxis(){
 		var axis_format = {
 			fontsize: 400,
-			size: 1024
+			size: 2048 // This should be a power of 2!
 		};
 		function kFormatter(num) {
 			return (num > 999 ? (num/1000) + ' k' : num) + "m";
