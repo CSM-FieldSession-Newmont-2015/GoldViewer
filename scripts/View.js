@@ -213,10 +213,8 @@ function View(property){
 			size: 1024
 		};
 		function kFormatter(num) {
-   			 return num > 999 ? (num/1000) + 'k' : num
+			return (num > 999 ? (num/1000) + ' k' : num) + "m";
 		}
-
-
 
 		var spriteX = makeTextSprite("X", axis_format);
 		spriteX.position.set(property.box.size.x, 0, 0);
@@ -227,7 +225,7 @@ function View(property){
 		scene.add(spriteY);
 
 		var spriteZ = makeTextSprite("Z", axis_format);
-		spriteZ.position.set(0, 0, property.box.size.z);
+		spriteZ.position.set(0, 0, 1.5 * property.box.size.z);
 		scene.add(spriteZ);
 
 		for(var i=0; i< property.box.size.x;i+=property.box.size.x/10){
@@ -254,7 +252,6 @@ function View(property){
 			scene.add(spriteLabel);
 		}
 	}
-
 
 	function render(){
 		requestAnimationFrame(render);
