@@ -14,3 +14,5 @@ python -m SimpleHTTPServer 8000
 
 The page is then available at http://127.0.0.1:8000.
 
+For information on setting-up data files see the [jsondh project](https://github.com/cokrzys/jsondh).
+
