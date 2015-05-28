@@ -103,7 +103,7 @@ function View(property){
 		// Draw 100 lines on each side.
 		var dx = maxX / 100.0;
 		var dy = maxY / 100.0;
-		var mindz = property.box.size.z;
+		var minZ = property.box.center.z + property.box.size.z/2;
 		var maxdz = property.box.size.z / 5.0;
 
 		var meshGeometry = new THREE.Geometry();
@@ -118,7 +118,7 @@ function View(property){
 			var lineGeometry = new THREE.Geometry();
 			heights[x] = [];
 			for (var y = 0; y < maxY; y += dy) {
-				var z = maxdz * Math.random() + mindz;
+				var z = maxdz * Math.random() + minZ;
 				heights[x][y] = z;
 				lineGeometry.vertices.push(new THREE.Vector3(x, y, z));
 			}
@@ -138,7 +138,7 @@ function View(property){
 		}
 
 		var mesh = new THREE.Mesh(meshGeometry, material);
-		//scene.add(mesh);
+		// scene.add(mesh);
 	}
 
 	function addReticle(){
@@ -159,11 +159,7 @@ function View(property){
 		property.holes.forEach(function(hole){
 			hole.minerals.forEach(function(mineral){
 				mineral.intervals.forEach(function(interval){
-					/*var geometry = new THREE.Geometry();
-					geometry.vertices.push(interval.start);
-					geometry.vertices.push(interval.end);
-					scene.add(new THREE.Line(geometry, material));*/
-					cylinder = cylinderMesh(interval.start, interval.end,25,material);
+					cylinder = cylinderMesh(interval.path.start, interval.path.end, 25, material);
 					cylinder.updateMatrix();
 					cylinders.push(cylinder);
 					cylinder.oreConcentration=interval.value;
@@ -322,7 +318,7 @@ function View(property){
 				tooltipSprite.position.x=tooltipSpriteLocation.x;
 				tooltipSprite.position.y=tooltipSpriteLocation.y;
 				sceneOrtho.add(tooltipSprite);
-				
+
 				material = INTERSECTED.material;
 				if (material.emissive) {
 					INTERSECTED.currentHex = INTERSECTED.material.emissive.getHex();
@@ -365,7 +361,7 @@ function View(property){
 	function onDocumentMouseMove(event) {
 
 		event.preventDefault();
-		
+
 		mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
 		mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
 

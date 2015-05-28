@@ -1,0 +1,3 @@
+[submodule "data/jsondh"]
+	path = data/jsondh
+	url = https://github.com/cokrzys/jsondh.git

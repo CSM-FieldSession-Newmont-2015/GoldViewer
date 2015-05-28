@@ -9,15 +9,20 @@
 	</head>
 	<body>
 		<script type="text/javascript" src="http://code.jquery.com/jquery-1.10.2.js"></script>
-		<script type="text/javascript" src="../js/three.js"></script>
-		<script type="text/javascript" src="../js/OrbitControls.js"></script>
-		<script type="text/javascript" src="../js/stats.min.js"></script>
-		<script type="text/javascript" src="../js/dat.gui.min.js"></script>
-		<script type="text/javascript" src="../scripts/MiningProperty.js"></script>
-		<script type="text/javascript" src="../scripts/View.js"></script>
+		<script type="text/javascript" src="/js/three.js"></script>
+		<script type="text/javascript" src="/js/OrbitControls.js"></script>
+		<script type="text/javascript" src="/js/stats.min.js"></script>
+		<script type="text/javascript" src="/js/dat.gui.min.js"></script>
+		<script type="text/javascript" src="/scripts/MiningProperty.js"></script>
+		<script type="text/javascript" src="/scripts/View.js"></script>
 		<script>
-		property = miningPropertyFromURL("../data/rocklea.json");
-		view = new View(property);
+			property = miningPropertyFromURL("/data/jsondh/examples/edrc053.json");
+			console.log(JSON.stringify({
+					name: property.name,
+					holes: property.holes.length,
+					analytes: property.analytes
+				}));
+			view = new View(property);
 		</script>
 	</body>
 </html>
