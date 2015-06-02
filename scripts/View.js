@@ -157,13 +157,17 @@ function View(property){
 		
 		console.log(property);
 		property.analytes.forEach(function(analyte){
-			var material = new THREE.MeshBasicMaterial({color:analyte.color});
+
+			var material = new THREE.MeshBasicMaterial();
+			var color = new THREE.Color(parseInt(analyte.color,16));
+			material.color=color;
 			var totalGeom = new THREE.Geometry();
 
 			property.holes.forEach(function(hole){
 				hole.minerals.forEach(function(mineral){
 					mineral.intervals.forEach(function(interval){
 						if(mineral.type === analyte.name){
+							console.log(analyte.name);
 							cylinder = cylinderMesh(interval.path.start, interval.path.end, maxDimension/1000, material);
 							cylinder.updateMatrix();
 							cylinders.push(cylinder);
@@ -179,10 +183,10 @@ function View(property){
 				});
 			});
 			var total = new THREE.Mesh(totalGeom,material);
+			total.name=analyte.name;
 			total.matrixAutoUpdate = false;
     		scene.add(total);
 		});
-		
 	}
 
 	function cylinderMesh(pointX, pointY, width) {
