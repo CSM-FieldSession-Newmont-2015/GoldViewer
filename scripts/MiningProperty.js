@@ -165,6 +165,13 @@ function MiningPropertyFromJSON(propertyJSON) {
 
 	this.analytes = propertyJSON["analytes"];
 
+	//convert color to javascript format
+	this.analytes.forEach(function(analyte){
+		color=analyte.color.split("#");
+		color="0x"+color[1];
+		analyte.color=color;
+	});
+
 	var holes = [];
 	propertyJSON["holes"].forEach(function (hole) {
 		holes.push(parseHoleData(hole));

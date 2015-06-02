@@ -157,7 +157,7 @@ function View(property){
 		
 		console.log(property);
 		property.analytes.forEach(function(analyte){
-			var material = new THREE.MeshBasicMaterial({color:colors.black});
+			var material = new THREE.MeshBasicMaterial({color:analyte.color});
 			var totalGeom = new THREE.Geometry();
 
 			property.holes.forEach(function(hole){
