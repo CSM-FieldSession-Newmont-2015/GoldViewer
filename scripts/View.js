@@ -153,8 +153,6 @@ function View(property){
 	}
 
 	function addMinerals(){
-
-		
 		console.log(property);
 		property.analytes.forEach(function(analyte){
 
@@ -184,26 +182,26 @@ function View(property){
 			var total = new THREE.Mesh(totalGeom,material);
 			total.name=analyte.name;
 			total.matrixAutoUpdate = false;
-    		scene.add(total);
+			scene.add(total);
 		});
 	}
 
 	function cylinderMesh(pointX, pointY, width) {
-            var direction = new THREE.Vector3().subVectors(pointY, pointX);
-            var orientation = new THREE.Matrix4();
-            orientation.lookAt(pointX, pointY, new THREE.Object3D().up);
-            orientation.multiply(new THREE.Matrix4().set(1, 0, 0, 0,
-                0, 0, 1, 0,
-                0, -1, 0, 0,
-                0, 0, 0, 1));
-            var edgeGeometry = new THREE.CylinderGeometry(width, width, direction.length(), 8, 1);
-            var edge = new THREE.Mesh(edgeGeometry);
-            edge.applyMatrix(orientation);
-            edge.position.x = (pointY.x + pointX.x) / 2;
-            edge.position.y = (pointY.y + pointX.y) / 2;
-            edge.position.z = (pointY.z + pointX.z) / 2;
-            return edge;
-    }
+			var direction = new THREE.Vector3().subVectors(pointY, pointX);
+			var orientation = new THREE.Matrix4();
+			orientation.lookAt(pointX, pointY, new THREE.Object3D().up);
+			orientation.multiply(new THREE.Matrix4().set(1, 0, 0, 0,
+				0, 0, 1, 0,
+				0, -1, 0, 0,
+				0, 0, 0, 1));
+			var edgeGeometry = new THREE.CylinderGeometry(width, width, direction.length(), 8, 1);
+			var edge = new THREE.Mesh(edgeGeometry);
+			edge.applyMatrix(orientation);
+			edge.position.x = (pointY.x + pointX.x) / 2;
+			edge.position.y = (pointY.y + pointX.y) / 2;
+			edge.position.z = (pointY.z + pointX.z) / 2;
+			return edge;
+	}
 	function addSurveyLines(){
 		var material = new THREE.LineBasicMaterial({color:colors.black});
 		property.holes.forEach(function(hole){
