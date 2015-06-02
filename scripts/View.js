@@ -14,6 +14,7 @@ var colors = {
 	white: 0xffffff,
 };
 
+
 function View(property){
 
 	var container, stats;
@@ -153,26 +154,35 @@ function View(property){
 
 	function addMinerals(){
 
-		var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
-		var totalGeom = new THREE.Geometry();
+		
+		console.log(property);
+		property.analytes.forEach(function(analyte){
+			var material = new THREE.MeshBasicMaterial({color:colors.black});
+			var totalGeom = new THREE.Geometry();
 
-		property.holes.forEach(function(hole){
-			hole.minerals.forEach(function(mineral){
-				mineral.intervals.forEach(function(interval){
-					cylinder = cylinderMesh(interval.path.start, interval.path.end, 25, material);
-					cylinder.updateMatrix();
-					cylinders.push(cylinder);
-					cylinder.oreConcentration=interval.value;
-					totalGeom.merge(cylinder.geometry, cylinder.matrix);
+			property.holes.forEach(function(hole){
+				hole.minerals.forEach(function(mineral){
+					mineral.intervals.forEach(function(interval){
+						if(mineral.type === analyte.name){
+							cylinder = cylinderMesh(interval.path.start, interval.path.end, maxDimension/1000, material);
+							cylinder.updateMatrix();
+							cylinders.push(cylinder);
+							cylinder.oreConcentration=interval.value;
+							cylinder.oreType=mineral.type;
 
-					scene.add(cylinder);
-					cylinder.visible=false;
+							totalGeom.merge(cylinder.geometry, cylinder.matrix);
+
+							scene.add(cylinder);
+							cylinder.visible=false;
+						}
+					});
 				});
 			});
+			var total = new THREE.Mesh(totalGeom,material);
+			total.matrixAutoUpdate = false;
+    		scene.add(total);
 		});
-		var total = new THREE.Mesh(totalGeom);
-		total.matrixAutoUpdate = false;
-    	scene.add(total);
+		
 	}
 
 	function cylinderMesh(pointX, pointY, width) {
@@ -282,9 +292,9 @@ function View(property){
 		var context = canvas.getContext('2d');
 		context.font = "Bold " + fontsize + "px " + fontface;
 
-		context.textAlign = 'center';
+		context.textAlign = 'left';
 		context.fillStyle = "rgba(" + textColor.r + ", " + textColor.g + ", " + textColor.b + ", 1.0)";
-		context.fillText(message, size / 2, size / 2);
+		context.wrapText(message, size / 2, size / 2,10000,fontsize);
 
 		var texture = new THREE.Texture(canvas);
 		texture.needsUpdate = true;
@@ -294,6 +304,8 @@ function View(property){
 		sprite.scale.set(maxDimension/50, maxDimension/50,maxDimension/50);
 		return sprite;
 	}
+
+
 
 	function checkMouseIntercept(){
 		raycaster.setFromCamera(mouse, camera);
@@ -312,7 +324,7 @@ function View(property){
 				INTERSECTED = intersects[0].object;
 				//set sprite to be in front of the orthographic camera so it is visible
 				sceneOrtho.remove(tooltipSprite);
-				tooltipSprite = makeTextSprite(INTERSECTED.oreConcentration+" g/ton", {fontsize: 18, size: 256}); //Create a basic tooltip display sprite TODO: Make tooltip display info about current drillhole
+				tooltipSprite = makeTextSprite(INTERSECTED.oreType+"\n"+INTERSECTED.oreConcentration+" g/ton", {fontsize: 18, size: 256}); //Create a basic tooltip display sprite TODO: Make tooltip display info about current drillhole
 				tooltipSprite.scale.set(250,250,1);
 				tooltipSprite.position.z=0;
 				tooltipSprite.position.x=tooltipSpriteLocation.x;
@@ -384,3 +396,31 @@ function View(property){
 		renderer.setSize(window.innerWidth, window.innerHeight);
 	});
 }
+
+//Need this function for creating multi-line text sprites
+CanvasRenderingContext2D.prototype.wrapText = function (text, x, y, maxWidth, lineHeight) {
+
+    var lines = text.split("\n");
+
+    for (var i = 0; i < lines.length; i++) {
+
+        var words = lines[i].split(' ');
+        var line = '';
+
+        for (var n = 0; n < words.length; n++) {
+            var testLine = line + words[n] + ' ';
+            var metrics = this.measureText(testLine);
+            var testWidth = metrics.width;
+            if (testWidth > maxWidth && n > 0) {
+                this.fillText(line, x, y);
+                line = words[n] + ' ';
+                y += lineHeight;
+            } else {
+                line = testLine;
+            }
+        }
+
+        this.fillText(line, x, y);
+        y += lineHeight;
+    }
+};
