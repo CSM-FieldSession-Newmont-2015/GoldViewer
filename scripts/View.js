@@ -167,7 +167,6 @@ function View(property){
 				hole.minerals.forEach(function(mineral){
 					mineral.intervals.forEach(function(interval){
 						if(mineral.type === analyte.name){
-							console.log(analyte.name);
 							cylinder = cylinderMesh(interval.path.start, interval.path.end, maxDimension/1000, material);
 							cylinder.updateMatrix();
 							cylinders.push(cylinder);
