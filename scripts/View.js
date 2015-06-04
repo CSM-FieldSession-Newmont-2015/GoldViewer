@@ -48,7 +48,7 @@ function View(property){
 		var center = property.box.center;
 
 		//Sets up the camera object for the 3d scene
-		camera = new THREE.PerspectiveCamera(45, width / height, 0.1, maxDimension*70);
+		camera = new THREE.PerspectiveCamera(45, width / height, 0.1, maxDimension*700);
 		camera.up.set(0,0,1);
 		camera.position.set(Math.max(maxDimension/5, size.x*1.2), Math.max(maxDimension/5,size.y*1.2), Math.max(maxDimension/5, size.z*1.2));
 		camera.lookAt(center);
@@ -92,8 +92,8 @@ function View(property){
 		addReticle();
 
 		addSurveyLines();
-		addMinerals();
-		addRandomTerrain();
+		setTimeout(addMinerals, 2000);
+		//addRandomTerrain();
 		labelAxis();
 	}
 
@@ -162,16 +162,15 @@ function View(property){
 				hole.minerals.forEach(function(mineral){
 					mineral.intervals.forEach(function(interval){
 						if(mineral.type === analyte.name){
-							cylinder = cylinderMesh(interval.path.start, interval.path.end, maxDimension/1000);
+							cylinder = cylinderMesh(interval.path.start, interval.path.end, maxDimension/3000);
 							list.push(cylinder);
-							/*cylinders.push(cylinder);
-							cylinder.oreConcentration=interval.value;
-							cylinder.oreType=mineral.type;
+							var cylinderObject = new THREE.Mesh(cylinder);
+							cylinders.push(cylinderObject);
+							cylinderObject.oreConcentration=interval.value;
+							cylinderObject.oreType=mineral.type;
 
-							//totalGeom.merge(cylinder.geometry, cylinder.matrix);
-
-							scene.add(cylinder);
-							cylinder.visible=false;*/
+							scene.add(cylinderObject);
+							cylinderObject.visible=false;
 						}
 					});
 				});
@@ -190,7 +189,8 @@ function View(property){
 		transform.makeTranslation((pointY.x + pointX.x) / 2, (pointY.y + pointX.y) / 2, (pointY.z + pointX.z) / 2);
 
 		orientation.lookAt(pointX, pointY, new THREE.Object3D().up);
-		orientation.multiply(new THREE.Matrix4().set(1, 0, 0, 0,
+		orientation.multiply(new THREE.Matrix4().set
+			(1, 0, 0, 0,
 			0, 0, 1, 0,
 			0, -1, 0, 0,
 			0, 0, 0, 1));
