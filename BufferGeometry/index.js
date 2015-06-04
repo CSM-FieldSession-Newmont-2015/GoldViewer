@@ -6,6 +6,8 @@ var renderer = null;
 var camera = null;
 var scene = null;
 
+var controls =null;
+
 var height = null;
 var width = null;
 
@@ -22,7 +24,7 @@ function numberWithCommas(x) {
 
 function render() {
 	requestAnimationFrame(render);
-
+	controls.update();
 	renderer.render(scene, camera);
 }
 
@@ -78,7 +80,6 @@ function start() {
 	canvas = document.getElementById("glcanvas");
 	height = window.innerHeight;
 	width = window.innerWidth;
-
 	renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: false });
 	renderer.setSize(width, height);
 	renderer.setClearColor(0xdedede);
@@ -104,7 +105,7 @@ function start() {
 	camera.position.z = scale;
 
 	camera.lookAt(new THREE.Vector3(0, 0, 0));
-
+	controls= new THREE.OrbitControls(camera);
 	// Scene
 	scene = new THREE.Scene();
 	scene.add(camera);
@@ -112,7 +113,7 @@ function start() {
 	// Cylinders
 	var goldCylinders = [];
 
-	var cylinderCount = 10 * 1000;
+	/*var cylinderCount = 10 * 1000;
 	for (var i = 0; i < cylinderCount; i += 1) {
 		var transform = new THREE.Matrix4();
 
@@ -127,7 +128,30 @@ function start() {
 		cylinder.applyMatrix(transform);
 
 		goldCylinders.push(cylinder);
+	}*/
+
+	function cylinderMesh(pointX, pointY, width) {
+		var direction = new THREE.Vector3().subVectors(pointY, pointX);
+		var orientation = new THREE.Matrix4();
+
+		var transform = new THREE.Matrix4();
+		transform.makeTranslation((pointY.x + pointX.x) / 2, (pointY.y + pointX.y) / 2, (pointY.z + pointX.z) / 2);
+
+		orientation.lookAt(pointX, pointY, new THREE.Object3D().up);
+		orientation.multiply(new THREE.Matrix4().set(1, 0, 0, 0,
+			0, 0, 1, 0,
+			0, -1, 0, 0,
+			0, 0, 0, 1));
+		var edgeGeometry = new THREE.CylinderGeometry(width, width, direction.length(), 8, 1);
+		edgeGeometry.applyMatrix(orientation);
+		edgeGeometry.applyMatrix(transform);
+		return edgeGeometry;
 	}
+
+	var test = cylinderMesh(new THREE.Vector3( 0,1, 0 ),new THREE.Vector3( 0, 99, 5 ),1)
+	goldCylinders.push(test);
+	//test = cylinderMesh(new THREE.Vector3( 1, 999, 0 ),new THREE.Vector3( 0, 0, 0 ),5)
+	//goldCylinders.push(test.geometry);
 
 	var mesh = makeCylinderMesh("Gold", 0xcc9900, goldCylinders);
 	scene.add(mesh);

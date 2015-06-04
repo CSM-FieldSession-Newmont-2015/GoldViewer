@@ -92,7 +92,7 @@ function View(property){
 		addReticle();
 
 		addSurveyLines();
-		setTimeout(addMinerals, 2000);
+		addMinerals();
 		addRandomTerrain();
 		labelAxis();
 	}
@@ -155,53 +155,93 @@ function View(property){
 	function addMinerals(){
 		console.log(property);
 		property.analytes.forEach(function(analyte){
-
-			var material = new THREE.MeshBasicMaterial();
 			var color = new THREE.Color(parseInt(analyte.color,16));
-			material.color=color;
-			var totalGeom = new THREE.Geometry();
+			var list=[];
 
 			property.holes.forEach(function(hole){
 				hole.minerals.forEach(function(mineral){
 					mineral.intervals.forEach(function(interval){
 						if(mineral.type === analyte.name){
-							cylinder = cylinderMesh(interval.path.start, interval.path.end, maxDimension/1000, material);
-							cylinder.updateMatrix();
-							cylinders.push(cylinder);
+							cylinder = cylinderMesh(interval.path.start, interval.path.end, maxDimension/1000);
+							list.push(cylinder);
+							/*cylinders.push(cylinder);
 							cylinder.oreConcentration=interval.value;
 							cylinder.oreType=mineral.type;
 
-							totalGeom.merge(cylinder.geometry, cylinder.matrix);
+							//totalGeom.merge(cylinder.geometry, cylinder.matrix);
 
 							scene.add(cylinder);
-							cylinder.visible=false;
+							cylinder.visible=false;*/
 						}
 					});
 				});
 			});
-			var total = new THREE.Mesh(totalGeom,material);
-			total.name=analyte.name;
-			total.matrixAutoUpdate = false;
-			scene.add(total);
+
+			var mesh = makeCylinderMesh("Gold", color, list);
+			scene.add(mesh);
 		});
 	}
 
 	function cylinderMesh(pointX, pointY, width) {
-			var direction = new THREE.Vector3().subVectors(pointY, pointX);
-			var orientation = new THREE.Matrix4();
-			orientation.lookAt(pointX, pointY, new THREE.Object3D().up);
-			orientation.multiply(new THREE.Matrix4().set(1, 0, 0, 0,
-				0, 0, 1, 0,
-				0, -1, 0, 0,
-				0, 0, 0, 1));
-			var edgeGeometry = new THREE.CylinderGeometry(width, width, direction.length(), 8, 1);
-			var edge = new THREE.Mesh(edgeGeometry);
-			edge.applyMatrix(orientation);
-			edge.position.x = (pointY.x + pointX.x) / 2;
-			edge.position.y = (pointY.y + pointX.y) / 2;
-			edge.position.z = (pointY.z + pointX.z) / 2;
-			return edge;
+		var direction = new THREE.Vector3().subVectors(pointY, pointX);
+		var orientation = new THREE.Matrix4();
+
+		var transform = new THREE.Matrix4();
+		transform.makeTranslation((pointY.x + pointX.x) / 2, (pointY.y + pointX.y) / 2, (pointY.z + pointX.z) / 2);
+
+		orientation.lookAt(pointX, pointY, new THREE.Object3D().up);
+		orientation.multiply(new THREE.Matrix4().set(1, 0, 0, 0,
+			0, 0, 1, 0,
+			0, -1, 0, 0,
+			0, 0, 0, 1));
+		var edgeGeometry = new THREE.CylinderGeometry(width, width, direction.length(), 8, 1);
+		edgeGeometry.applyMatrix(orientation);
+		edgeGeometry.applyMatrix(transform);
+		return edgeGeometry;
 	}
+
+	function makeCylinderMesh(name, color, cylinders) {
+		var vertices = [];
+		var faces = [];
+
+		// Make a couple cylinders per mineral type.
+		cylinders.forEach(function (cylinder) {
+			var faceOffset = vertices.length/3;
+
+			cylinder.vertices.forEach(function (vert) {
+				vertices.push(vert.x, vert.y, vert.z);
+			});
+
+			cylinder.faces.forEach(function (face) {
+				faces.push(faceOffset + face.a, faceOffset + face.b, faceOffset + face.c);
+			});
+		});
+
+		vertices = new Float32Array(vertices);
+		faces = new Uint32Array(faces);
+
+		var geometry = new THREE.BufferGeometry();
+		geometry.addAttribute('position', new THREE.BufferAttribute(vertices, 3));
+		geometry.addAttribute('index', new THREE.BufferAttribute(faces, 3));
+		geometry.computeVertexNormals();
+
+		var material = new THREE.MeshBasicMaterial({
+			color: color
+		});
+
+		// Buffer sizes are limited by uint16s, so we need to break up the buffers into
+		//   multiple draw calls when the buffer is too long.
+		var maxBufferLength = (1 << 16) - 1;
+		if (vertices.length >= maxBufferLength) {
+			//console.log("There are " + numberWithCommas(vertices.length) + " vertices. Switching to drawCalls.");
+			for (var i = 0; i < vertices.length / maxBufferLength; i += 1) {
+				geometry.addDrawCall(i*maxBufferLength, maxBufferLength);
+			}
+		}
+
+		return new THREE.Mesh(geometry, material);
+	}
+
 	function addSurveyLines(){
 		var material = new THREE.LineBasicMaterial({color:colors.black});
 		property.holes.forEach(function(hole){
