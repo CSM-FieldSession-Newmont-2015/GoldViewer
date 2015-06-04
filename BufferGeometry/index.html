@@ -1,0 +1,47 @@
+<html>
+	<title>Playing with WebGL</title>
+	<head>
+		<meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+		<meta content="utf-8" http-equiv="encoding">
+
+		<script src="../js/three.js" type="text/javascript"></script>
+		<script src="index.js" type="text/javascript"></script>
+
+		<script id="vertexShader" type="x-shader/x-vertex">
+uniform vec3 mineralColor;
+
+varying vec3 vColor;
+
+// Autodefined by threejs.
+//attribute vec3 positon;
+//attribute vec3 color;
+
+// @@name@@
+void main(void) {
+	vec3 newPosition = position;
+
+	gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
+
+	// Base the color off of how far we moved it.
+	vColor = mineralColor;
+}
+		</script>
+
+		<script id="fragmentShader" type="x-shader/x-fragment">
+varying vec3 vColor;
+
+// @@name@@
+void main(void) {
+	gl_FragColor = vec4(vColor, 1.0);
+}
+		</script>
+
+	</head>
+
+	<body onload="start()" style="margin: 0;">
+		<canvas id="glcanvas" height="640" width="400">
+			<p>Your browser doesn't seem to support the HTML5 canvas element.</p>
+		</canvas>
+	</body>
+
+</html>
