@@ -14,7 +14,6 @@ var colors = {
 	white: 0xffffff,
 };
 
-
 function View(property) {
 
 	var camera                = null;
@@ -33,7 +32,7 @@ function View(property) {
 	var container             = document.createElement('div');
 	var maxDimension          = Math.max(property.box.size.x, property.box.size.y, property.box.size.z);
 
-	var cylinders=[];
+	var cylinders = [];
 
 	this.start = function () {
 		init();
@@ -46,18 +45,19 @@ function View(property) {
 		document.body.appendChild(container);
 		setupControls();
 		setupStats();
+		setupWindowListeners();
 
 		addBoundingBox();
 		addAxisLabels();
 		addReticle();
 		addSurveyLines();
-		addMinerals();
+		setTimeout(addMinerals, 2000);
 		addRandomTerrain();
 	}
 
 	function setupWindowListeners() {
 		// Resize the camera when the window is resized.
-		window.addEventListener('resize', function (event) {
+		window.addEventListener('resize', function resizeEventListener(event) {
 			camera.aspect = window.innerWidth / window.innerHeight;
 			camera.updateProjectionMatrix();
 
@@ -71,7 +71,7 @@ function View(property) {
 			renderer.setSize(window.innerWidth, window.innerHeight);
 		});
 
-		document.addEventListener('mousemove', function (event) {
+		document.addEventListener('mousemove', function mousemouseEventListener(event) {
 			event.preventDefault();
 
 			mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -143,22 +143,22 @@ function View(property) {
 	}
 
 	function addMinerals() {
-		property.analytes.forEach(function (analyte) {
+		property.analytes.forEach(function forEachAnalytes(analyte) {
 			var color = new THREE.Color(parseInt(analyte.color,16));
 			var list = [];
 
 			var material = new THREE.MeshBasicMaterial({ color: colors.pink });
 
-			property.holes.forEach(function (hole) {
-				hole.minerals.forEach(function (mineral) {
-					mineral.intervals.forEach(function (interval) {
-
+			property.holes.forEach(function forEachHole(hole) {
+				hole.minerals.forEach(function forEachMineral(mineral) {
+					mineral.intervals.forEach(function forEachInterval(interval) {
 						cylinder = cylinderMesh(interval.path.start, interval.path.end, maxDimension/500);
 						list.push(cylinder);
 						var cylinderObject = new THREE.Mesh(cylinder, material);
 						cylinders.push(cylinderObject);
 						cylinderObject.oreConcentration=interval.value;
 						cylinderObject.oreType=mineral.type;
+						cylinderObject.holeId=hole.id;
 
 						scene.add(cylinderObject);
 						cylinderObject.visible=false;
@@ -169,13 +169,15 @@ function View(property) {
 			var mesh = makeCylinderMesh("Gold", color, list);
 			scene.add(mesh);
 		});
+		console.log(cylinders.length);
 	}
 
 	function cylinderMesh(pointX, pointY, width) {
 		var direction = new THREE.Vector3().subVectors(pointY, pointX);
 		var orientation = new THREE.Matrix4();
-
 		var transform = new THREE.Matrix4();
+
+		var matrix = new THREE.Matrix4();
 		transform.makeTranslation((pointY.x + pointX.x) / 2, (pointY.y + pointX.y) / 2, (pointY.z + pointX.z) / 2);
 
 		orientation.lookAt(pointX, pointY, new THREE.Object3D().up);
@@ -184,9 +186,9 @@ function View(property) {
 			0, 0, 1, 0,
 			0, -1, 0, 0,
 			0, 0, 0, 1));
-		var edgeGeometry = new THREE.CylinderGeometry(width, width, direction.length(), 8, 1);
-		edgeGeometry.applyMatrix(orientation);
-		edgeGeometry.applyMatrix(transform);
+		var edgeGeometry = new THREE.CylinderGeometry(width, width, direction.length(), 4, 1);
+		matrix.multiplyMatrices( transform,orientation );
+		edgeGeometry.applyMatrix(matrix);
 		return edgeGeometry;
 	}
 
@@ -195,14 +197,14 @@ function View(property) {
 		var faces = [];
 
 		// Make a couple cylinders per mineral type.
-		cylinders.forEach(function (cylinder) {
+		cylinders.forEach(function cylindersForEach(cylinder) {
 			var faceOffset = vertices.length/3;
 
-			cylinder.vertices.forEach(function (vert) {
+			cylinder.vertices.forEach(function vertsForEach(vert) {
 				vertices.push(vert.x, vert.y, vert.z);
 			});
 
-			cylinder.faces.forEach(function (face) {
+			cylinder.faces.forEach(function facesForEach(face) {
 				faces.push(faceOffset + face.a, faceOffset + face.b, faceOffset + face.c);
 			});
 		});
@@ -219,23 +221,26 @@ function View(property) {
 			color: color
 		});
 
+
+		//TODO: this doesn't work
 		// Buffer sizes are limited by uint16s, so we need to break up the buffers into
 		//   multiple draw calls when the buffer is too long.
-		var maxBufferLength = (1 << 16) - 1;
+		/*var maxBufferLength = (1 << 16) - 1;
 		if (vertices.length >= maxBufferLength) {
+			console.log(vertices.length+" Using draw calls");
 			for (var i = 0; i < vertices.length / maxBufferLength; i += 1) {
 				geometry.addDrawCall(i*maxBufferLength, maxBufferLength);
 			}
-		}
+		}*/
 
 		return new THREE.Mesh(geometry, material);
 	}
 
 	function addSurveyLines() {
 		var material = new THREE.LineBasicMaterial({color:colors.black});
-		property.holes.forEach(function (hole) {
+		property.holes.forEach(function holesForEach(hole) {
 			geometry = new THREE.Geometry();
-			hole.surveyPoints.forEach(function (point) {
+			hole.surveyPoints.forEach(function pointsForEach(point) {
 				geometry.vertices.push(point);
 			});
 
@@ -245,7 +250,7 @@ function View(property) {
 
 	function addAxisLabels() {
 		// Need this function for creating multi-line text sprites.
-		CanvasRenderingContext2D.prototype.wrapText = function (text, x, y, maxWidth, lineHeight) {
+		CanvasRenderingContext2D.prototype.wrapText = function wrapText(text, x, y, maxWidth, lineHeight) {
 			var lines = text.split("\n");
 
 			for (var i = 0; i < lines.length; i++) {
@@ -272,11 +277,11 @@ function View(property) {
 		};
 
 		// Formats numbers with a km or m prefix.
-		var kFormatter = function (num) {
-			return (num > 999 ? (num/1000) + ' k' : num) + "m";
+		function kFormatter(num) {
+			return (num > 1000 ? (num/1000) + ' k' : num) + "m";
 		};
 
-		var makeLabel = function (name, x, y, z) {
+		function makeLabel(name, x, y, z) {
 			var sprite = makeTextSprite(name);
 			sprite.position.set(x, y, z);
 			return sprite;
@@ -295,8 +300,8 @@ function View(property) {
 
 		for (; i < labelsPerAxis; i += 1, positions.add(positionsDelta)) {
 			var x = parseFloat(Math.floor(positions.x).toPrecision(2));
-			var y = parseFloat(Math.floor(positions.y).toPrecision(2))
-;			var z = parseFloat(Math.floor(positions.z).toPrecision(2));
+			var y = parseFloat(Math.floor(positions.y).toPrecision(2));
+			var z = parseFloat(Math.floor(positions.z).toPrecision(2));
 			scene.add(makeLabel(kFormatter(x), x, 0, 0));
 			scene.add(makeLabel(kFormatter(y), 0, y, 0));
 			scene.add(makeLabel(kFormatter(z), 0, 0, z));
@@ -367,7 +372,7 @@ function View(property) {
 				intersected = intersects[0].object;
 				//set sprite to be in front of the orthographic camera so it is visible
 				sceneOrtho.remove(tooltipSprite);
-				tooltipSprite = makeTextSprite(intersected.oreType+"\n"+intersected.oreConcentration+" g/ton", {fontsize: 18, size: 256}); //Create a basic tooltip display sprite TODO: Make tooltip display info about current drillhole
+				tooltipSprite = makeTextSprite(intersected.holeId+"\n"+intersected.oreType+"\n"+intersected.oreConcentration+" g/ton", {fontsize: 18, size: 256}); //Create a basic tooltip display sprite TODO: Make tooltip display info about current drillhole
 				tooltipSprite.scale.set(250,250,1);
 				tooltipSprite.position.z=0;
 				tooltipSprite.position.x=tooltipSpriteLocation.x;
@@ -423,6 +428,20 @@ function View(property) {
 		renderer.sortObjects = false;
 		renderer.autoClear=false;
 		container.appendChild(renderer.domElement);
+
+		// Load GL stuff.
+		gl = renderer.context;
+		if (null === gl.getExtension("OES_element_index_uint")) {
+			console.error(
+				"Could not to load OES_element_index_uint. Is it supported?\n"
+				+ "Note, some vertices may not render.");
+			var msg = [];
+			msg.push("Supported extensions:");
+			gl.getSupportedExtensions().forEach(function (ext) {
+				msg.push("\t" + ext);
+			});
+			console.debug(msg.join('\n'));
+		}
 	}
 
 	function setupControls() {

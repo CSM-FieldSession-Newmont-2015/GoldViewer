@@ -72,7 +72,11 @@ $(document).ready(function() {
 			//prevent arrow key scrolling
 			if(event.keyCode>=38 && event.keyCode<=40)
 				event.preventDefault();
-			document.getElementById('viewFrame').contentWindow.controls.onKeyDown(event);
+			var contentWindowControls = document.getElementById('viewFrame').contentWindow.controls;
+			// This gets real old, real fast.
+			if (contentWindowControls) {
+				contentWindowControls.onKeyDown(event);
+			}
 		});
 	});
 
