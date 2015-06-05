@@ -16,13 +16,13 @@
 		<script type="text/javascript" src="/scripts/MiningProperty.js"></script>
 		<script type="text/javascript" src="/scripts/View.js"></script>
 		<script>
-			property = miningPropertyFromURL("/data/jsondh/examples/rocklea.json");
-			console.log(JSON.stringify({
-					name: property.name,
-					holes: property.holes.length,
-					analytes: property.analytes
-				}));
+			property = miningPropertyFromURL("/data/jsondh/examples/edrc053.json");
+			console.log("\n"
+					+   "name:     " + property.name + "\n"
+					+   "holes:    " + property.holes.length + "\n"
+					+   "analytes: " + JSON.stringify(property.analytes) + "\n");
 			view = new View(property);
+			view.start();
 		</script>
 	</body>
 </html>

@@ -17,84 +17,51 @@ var colors = {
 
 function View(property){
 
-	var container, stats;
-	var camera, cameraOrtho, scene, sceneOrtho, controls, raycaster, renderer;
-	var maxDimension;
-	var mouse = new THREE.Vector2();
-	var INTERSECTED;
-	var reticle;
-	var size = property.box.size;
-	var maxDimension = Math.max(size.x, size.y, size.z);
-	var stats;
-
-	var tooltipSprite, tooltipSpriteLocation = new THREE.Vector2();
+	var camera                = null;
+	var cameraOrtho           = null;
+	var controls              = null;
+	var intersected           = null;
+	var renderer              = null;
+	var reticle               = null;
+	var stats                 = null;
+	var tooltipSprite         = null;
+	var scene                 = new THREE.Scene;
+	var sceneOrtho            = new THREE.Scene();
+	var mouse                 = new THREE.Vector2();
+	var tooltipSpriteLocation = new THREE.Vector2();
+	var raycaster             = new THREE.Raycaster();
+	var container             = document.createElement('div');
+	var maxDimension          = Math.max(property.box.size.x, property.box.size.y, property.box.size.z);
 
 	var cylinders=[];
 
-	init();
-	render();
+	this.start = function () {
+		init();
+		render();
+	}
 
 	function init() {
 
-		raycaster = new THREE.Raycaster();
 
-		container = document.createElement('div');
+		setupCamera();
+		setupRenderer();
 		document.body.appendChild(container);
+		setupControls();
+		setupStats();
 
-		var width = window.innerWidth;		//used to make the camera declarations prettier
-		var height = window.innerHeight;
-		maxDimension = Math.max(property.box.size.x, property.box.size.y, property.box.size.z);
-
-		var center = property.box.center;
-
-		//Sets up the camera object for the 3d scene
-		camera = new THREE.PerspectiveCamera(45, width / height, 0.1, maxDimension*700);
-		camera.up.set(0,0,1);
-		camera.position.set(Math.max(maxDimension/5, size.x*1.2), Math.max(maxDimension/5,size.y*1.2), Math.max(maxDimension/5, size.z*1.2));
-		camera.lookAt(center);
-
-		//Sets up the 2d orthographic camera for tooltips
-		cameraOrtho = new THREE.OrthographicCamera( width/-2, width/2, height/2, height/-2, 1, 1000);
-		cameraOrtho.position.z = 1;
-		cameraOrtho.position.x = 0;
-		cameraOrtho.position.y = 0;
-
-		sceneOrtho = new THREE.Scene();
-
-
-		scene = new THREE.Scene;
-		scene.add(new THREE.AmbientLight(colors.soft_white));
-
-		controls = new THREE.OrbitControls(camera);
-		controls.zoomSpeed = 3.0;
-		controls.minDistance = maxDimension / 100;
-		controls.maxDistance = maxDimension * 2;
-		controls.target = property.box.center;
-
-		renderer = new THREE.WebGLRenderer({antialias: true});
-		renderer.setSize(window.innerWidth, window.innerHeight);
-		renderer.setClearColor(colors.background, 1);
-		renderer.sortObjects = false;
-		renderer.autoClear=false;
-		container.appendChild(renderer.domElement);
-
-		var property_boundary = new THREE.Mesh(new THREE.BoxGeometry(size.x, size.y, size.z));
-		var box = new THREE.EdgesHelper(property_boundary, colors.axes);
-		box.applyMatrix(new THREE.Matrix4().makeTranslation(center.x, center.y, center.z));
-		scene.add(box);
-
-		stats = new Stats();
-		stats.domElement.style.position = 'absolute';
-		stats.domElement.style.right = '0px';
-		stats.domElement.style.bottom = '0px';
-		container.appendChild(stats.domElement);
-
-		addReticle();
-
-		addSurveyLines();
-		setTimeout(addMinerals, 2000);
-		//addRandomTerrain();
+		addBoundingBox();
 		labelAxis();
+		addReticle();
+		addSurveyLines();
+		addMinerals();
+		addRandomTerrain();
+	}
+
+	function addBoundingBox() {
+		var property_boundary = new THREE.Mesh(new THREE.BoxGeometry(property.box.size.x, property.box.size.y, property.box.size.z));
+		var box = new THREE.EdgesHelper(property_boundary, colors.axes);
+		box.applyMatrix(new THREE.Matrix4().makeTranslation(property.box.center.x, property.box.center.y, property.box.center.z));
+		scene.add(box);
 	}
 
 	function addRandomTerrain() {
@@ -137,9 +104,6 @@ function View(property){
 			scene.add(new THREE.Line(lineGeometry, material));
 			meshGeometry.merge(lineGeometry);
 		}
-
-		var mesh = new THREE.Mesh(meshGeometry, material);
-		// scene.add(mesh);
 	}
 
 	function addReticle(){
@@ -153,25 +117,25 @@ function View(property){
 	}
 
 	function addMinerals(){
-		console.log(property);
 		property.analytes.forEach(function(analyte){
 			var color = new THREE.Color(parseInt(analyte.color,16));
-			var list=[];
+			var list = [];
+
+			var material = new THREE.MeshBasicMaterial({ color: colors.pink });
 
 			property.holes.forEach(function(hole){
 				hole.minerals.forEach(function(mineral){
 					mineral.intervals.forEach(function(interval){
-						if(mineral.type === analyte.name){
-							cylinder = cylinderMesh(interval.path.start, interval.path.end, maxDimension/3000);
-							list.push(cylinder);
-							var cylinderObject = new THREE.Mesh(cylinder);
-							cylinders.push(cylinderObject);
-							cylinderObject.oreConcentration=interval.value;
-							cylinderObject.oreType=mineral.type;
+					
+						cylinder = cylinderMesh(interval.path.start, interval.path.end, maxDimension/3000);
+						list.push(cylinder);
+						var cylinderObject = new THREE.Mesh(cylinder, material);
+						cylinders.push(cylinderObject);
+						cylinderObject.oreConcentration=interval.value;
+						cylinderObject.oreType=mineral.type;
 
-							scene.add(cylinderObject);
-							cylinderObject.visible=false;
-						}
+						scene.add(cylinderObject);
+						cylinderObject.visible=false;
 					});
 				});
 			});
@@ -233,7 +197,6 @@ function View(property){
 		//   multiple draw calls when the buffer is too long.
 		var maxBufferLength = (1 << 16) - 1;
 		if (vertices.length >= maxBufferLength) {
-			//console.log("There are " + numberWithCommas(vertices.length) + " vertices. Switching to drawCalls.");
 			for (var i = 0; i < vertices.length / maxBufferLength; i += 1) {
 				geometry.addDrawCall(i*maxBufferLength, maxBufferLength);
 			}
@@ -353,50 +316,50 @@ function View(property){
 		var intersects = raycaster.intersectObjects(cylinders);
 
 		if (intersects.length > 0) {
-			if (INTERSECTED != intersects[0].object) {
-				if (INTERSECTED) {
-					var material = INTERSECTED.material;
+			if (intersected != intersects[0].object) {
+				if (intersected) {
+					var material = intersected.material;
 					if (material.emissive) {
-						material.emissive.setHex(INTERSECTED.currentHex);
+						material.emissive.setHex(intersected.currentHex);
 					} else {
-						material.color.setHex(INTERSECTED.currentHex);
+						material.color.setHex(intersected.currentHex);
 					}
 				}
-				INTERSECTED = intersects[0].object;
+				intersected = intersects[0].object;
 				//set sprite to be in front of the orthographic camera so it is visible
 				sceneOrtho.remove(tooltipSprite);
-				tooltipSprite = makeTextSprite(INTERSECTED.oreType+"\n"+INTERSECTED.oreConcentration+" g/ton", {fontsize: 18, size: 256}); //Create a basic tooltip display sprite TODO: Make tooltip display info about current drillhole
+				tooltipSprite = makeTextSprite(intersected.oreType+"\n"+intersected.oreConcentration+" g/ton", {fontsize: 18, size: 256}); //Create a basic tooltip display sprite TODO: Make tooltip display info about current drillhole
 				tooltipSprite.scale.set(250,250,1);
 				tooltipSprite.position.z=0;
 				tooltipSprite.position.x=tooltipSpriteLocation.x;
 				tooltipSprite.position.y=tooltipSpriteLocation.y;
 				sceneOrtho.add(tooltipSprite);
 
-				material = INTERSECTED.material;
+				material = intersected.material;
 				if (material.emissive) {
-					INTERSECTED.currentHex = INTERSECTED.material.emissive.getHex();
+					intersected.currentHex = intersected.material.emissive.getHex();
 					material.emissive.setHex(0xff0000);
 				}
 				else {
-					INTERSECTED.currentHex = material.color.getHex();
+					intersected.currentHex = material.color.getHex();
 					material.color.setHex(0xff0000);
 				}
 
 			}
 
 		} else {
-			if (INTERSECTED) {
-				material = INTERSECTED.material;
+			if (intersected) {
+				material = intersected.material;
 
 				if (material.emissive) {
-					material.emissive.setHex(INTERSECTED.currentHex);
+					material.emissive.setHex(intersected.currentHex);
 				} else {
-					material.color.setHex(INTERSECTED.currentHex);
+					material.color.setHex(intersected.currentHex);
 				}
 			}
 			//set sprite to be behind the ortographic camer so it is not visible
 			sceneOrtho.remove(tooltipSprite);
-			INTERSECTED = null;
+			intersected = null;
 		}
 	}
 
@@ -436,32 +399,87 @@ function View(property){
 
 		renderer.setSize(window.innerWidth, window.innerHeight);
 	});
+
+	function setupCamera(){
+
+		//Sets up the camera object for the 3d scene
+		camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, maxDimension*700);
+		camera.up.set(0,0,1);
+		camera.position.set(Math.max(maxDimension/5, property.box.size.x*1.2), Math.max(maxDimension/5,property.box.size.y*1.2), Math.max(maxDimension/5, property.box.size.z*1.2));
+		camera.lookAt(property.box.center);
+
+		//Sets up the 2d orthographic camera for tooltips
+		cameraOrtho = new THREE.OrthographicCamera( window.innerWidth/-2, window.innerWidth/2, window.innerHeight/2, window.innerHeight/-2, 1, 1000);
+		cameraOrtho.position.z = 1;
+		cameraOrtho.position.x = 0;
+		cameraOrtho.position.y = 0;
+
+	}
+
+	function setupRenderer(){
+
+		renderer = new THREE.WebGLRenderer({antialias: false});
+		renderer.setSize(window.innerWidth, window.innerHeight);
+		renderer.setClearColor(colors.background, 1);
+		renderer.sortObjects = false;
+		renderer.autoClear=false;
+		container.appendChild(renderer.domElement);
+
+	}
+
+	function setupControls(){
+
+		if(camera === null){
+			console.error("Initialize camera before controls, Fool.");
+			return;
+		}
+		controls = new THREE.OrbitControls(camera);
+		controls.zoomSpeed = 3.0;
+		controls.minDistance = maxDimension / 100;
+		controls.maxDistance = maxDimension * 2;
+		controls.target = property.box.center;
+
+	}
+
+	function setupStats(){
+
+		if(container === null){
+			console.error("Please initialize the container before Stats, Fool.");
+			return;
+		}
+		stats = new Stats();
+		stats.domElement.style.position = 'absolute';
+		stats.domElement.style.right = '0px';
+		stats.domElement.style.bottom = '0px';
+		container.appendChild(stats.domElement);
+
+	}
 }
 
 //Need this function for creating multi-line text sprites
 CanvasRenderingContext2D.prototype.wrapText = function (text, x, y, maxWidth, lineHeight) {
 
-    var lines = text.split("\n");
+	var lines = text.split("\n");
 
-    for (var i = 0; i < lines.length; i++) {
+	for (var i = 0; i < lines.length; i++) {
 
-        var words = lines[i].split(' ');
-        var line = '';
+		var words = lines[i].split(' ');
+		var line = '';
 
-        for (var n = 0; n < words.length; n++) {
-            var testLine = line + words[n] + ' ';
-            var metrics = this.measureText(testLine);
-            var testWidth = metrics.width;
-            if (testWidth > maxWidth && n > 0) {
-                this.fillText(line, x, y);
-                line = words[n] + ' ';
-                y += lineHeight;
-            } else {
-                line = testLine;
-            }
-        }
+		for (var n = 0; n < words.length; n++) {
+			var testLine = line + words[n] + ' ';
+			var metrics = this.measureText(testLine);
+			var testWidth = metrics.width;
+			if (testWidth > maxWidth && n > 0) {
+				this.fillText(line, x, y);
+				line = words[n] + ' ';
+				y += lineHeight;
+			} else {
+				line = testLine;
+			}
+		}
 
-        this.fillText(line, x, y);
-        y += lineHeight;
-    }
-};
+		this.fillText(line, x, y);
+		y += lineHeight;
+	}
+}
