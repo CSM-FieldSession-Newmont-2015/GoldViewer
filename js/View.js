@@ -25,7 +25,7 @@ function View(property){
 	var reticle               = null;
 	var stats                 = null;
 	var tooltipSprite         = null;
-	var scene                 = new THREE.Scene;
+	var scene                 = new THREE.Scene();
 	var sceneOrtho            = new THREE.Scene();
 	var mouse                 = new THREE.Vector2();
 	var tooltipSpriteLocation = new THREE.Vector2();
@@ -126,7 +126,7 @@ function View(property){
 			property.holes.forEach(function(hole){
 				hole.minerals.forEach(function(mineral){
 					mineral.intervals.forEach(function(interval){
-					
+
 						cylinder = cylinderMesh(interval.path.start, interval.path.end, maxDimension/3000);
 						list.push(cylinder);
 						var cylinderObject = new THREE.Mesh(cylinder, material);
