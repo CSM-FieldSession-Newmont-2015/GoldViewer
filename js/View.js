@@ -15,7 +15,7 @@ var colors = {
 };
 
 
-function View(property){
+function View(property) {
 
 	var camera                = null;
 	var cameraOrtho           = null;
@@ -106,7 +106,7 @@ function View(property){
 		}
 	}
 
-	function addReticle(){
+	function addReticle() {
 		reticle = new THREE.Mesh(
 			new THREE.SphereGeometry(maxDimension / 1000),
 			new THREE.MeshLambertMaterial({ color: colors.black }));
@@ -116,16 +116,16 @@ function View(property){
 		scene.add(reticle);
 	}
 
-	function addMinerals(){
-		property.analytes.forEach(function(analyte){
+	function addMinerals() {
+		property.analytes.forEach(function (analyte) {
 			var color = new THREE.Color(parseInt(analyte.color,16));
 			var list = [];
 
 			var material = new THREE.MeshBasicMaterial({ color: colors.pink });
 
-			property.holes.forEach(function(hole){
-				hole.minerals.forEach(function(mineral){
-					mineral.intervals.forEach(function(interval){
+			property.holes.forEach(function (hole) {
+				hole.minerals.forEach(function (mineral) {
+					mineral.intervals.forEach(function (interval) {
 
 						cylinder = cylinderMesh(interval.path.start, interval.path.end, maxDimension/3000);
 						list.push(cylinder);
@@ -205,11 +205,11 @@ function View(property){
 		return new THREE.Mesh(geometry, material);
 	}
 
-	function addSurveyLines(){
+	function addSurveyLines() {
 		var material = new THREE.LineBasicMaterial({color:colors.black});
-		property.holes.forEach(function(hole){
+		property.holes.forEach(function (hole) {
 			geometry = new THREE.Geometry();
-			hole.surveyPoints.forEach(function(point){
+			hole.surveyPoints.forEach(function (point) {
 				geometry.vertices.push(point);
 			});
 
@@ -217,7 +217,7 @@ function View(property){
 		});
 	}
 
-	function labelAxis(){
+	function labelAxis() {
 		var axis_format = {
 			fontsize: 400,
 			size: 2048 // This should be a power of 2!
@@ -238,7 +238,7 @@ function View(property){
 		spriteZ.position.set(0, 0, 1.5 * property.box.size.z);
 		scene.add(spriteZ);
 
-		for(var i=0; i< property.box.size.x;i+=property.box.size.x/10){
+		for (var i=0; i< property.box.size.x;i+=property.box.size.x/10) {
 			interval=Math.floor(i);
 			interval=parseFloat(interval.toPrecision(2));
 			var spriteLabel = makeTextSprite(kFormatter(interval), axis_format);
@@ -246,7 +246,7 @@ function View(property){
 			scene.add(spriteLabel);
 		}
 
-		for(var i=0; i< property.box.size.y;i+=property.box.size.y/10){
+		for (var i=0; i< property.box.size.y;i+=property.box.size.y/10) {
 			interval=Math.floor(i);
 			interval=parseFloat(interval.toPrecision(2));
 			var spriteLabel = makeTextSprite(kFormatter(interval), axis_format);
@@ -254,7 +254,7 @@ function View(property){
 			scene.add(spriteLabel);
 		}
 
-		for(var i=0; i< property.box.size.z;i+=property.box.size.z/3){
+		for (var i=0; i< property.box.size.z;i+=property.box.size.z/3) {
 			interval=Math.floor(i);
 			interval=parseFloat(interval.toPrecision(2));
 			var spriteLabel = makeTextSprite(kFormatter(interval), axis_format);
@@ -263,7 +263,7 @@ function View(property){
 		}
 	}
 
-	function render(){
+	function render() {
 		requestAnimationFrame(render);
 		controls.update();
 
@@ -311,7 +311,7 @@ function View(property){
 
 
 
-	function checkMouseIntercept(){
+	function checkMouseIntercept() {
 		raycaster.setFromCamera(mouse, camera);
 		var intersects = raycaster.intersectObjects(cylinders);
 
@@ -400,7 +400,7 @@ function View(property){
 		renderer.setSize(window.innerWidth, window.innerHeight);
 	});
 
-	function setupCamera(){
+	function setupCamera() {
 
 		//Sets up the camera object for the 3d scene
 		camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, maxDimension*700);
@@ -416,7 +416,7 @@ function View(property){
 
 	}
 
-	function setupRenderer(){
+	function setupRenderer() {
 
 		renderer = new THREE.WebGLRenderer({antialias: false});
 		renderer.setSize(window.innerWidth, window.innerHeight);
@@ -427,9 +427,9 @@ function View(property){
 
 	}
 
-	function setupControls(){
+	function setupControls() {
 
-		if(camera === null){
+		if (camera === null) {
 			console.error("Initialize camera before controls, Fool.");
 			return;
 		}
@@ -441,9 +441,9 @@ function View(property){
 
 	}
 
-	function setupStats(){
+	function setupStats() {
 
-		if(container === null){
+		if (container === null) {
 			console.error("Please initialize the container before Stats, Fool.");
 			return;
 		}
