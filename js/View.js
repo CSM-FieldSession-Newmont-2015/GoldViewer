@@ -428,6 +428,20 @@ function View(property) {
 		renderer.sortObjects = false;
 		renderer.autoClear=false;
 		container.appendChild(renderer.domElement);
+
+		// Load GL stuff.
+		gl = renderer.context;
+		if (null === gl.getExtension("OES_element_index_uint")) {
+			console.error(
+				"Could not to load OES_element_index_uint. Is it supported?\n"
+				+ "Note, some vertices may not render.");
+			var msg = [];
+			msg.push("Supported extensions:");
+			gl.getSupportedExtensions().forEach(function (ext) {
+				msg.push("\t" + ext);
+			});
+			console.debug(msg.join('\n'));
+		}
 	}
 
 	function setupControls() {
