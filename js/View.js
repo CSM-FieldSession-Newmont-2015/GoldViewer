@@ -14,7 +14,6 @@ var colors = {
 	white: 0xffffff,
 };
 
-
 function View(property) {
 
 	var camera                = null;
@@ -33,7 +32,7 @@ function View(property) {
 	var container             = document.createElement('div');
 	var maxDimension          = Math.max(property.box.size.x, property.box.size.y, property.box.size.z);
 
-	var cylinders=[];
+	var cylinders = [];
 
 	this.start = function () {
 		init();
@@ -58,7 +57,7 @@ function View(property) {
 
 	function setupWindowListeners() {
 		// Resize the camera when the window is resized.
-		window.addEventListener('resize', function (event) {
+		window.addEventListener('resize', function resizeEventListener(event) {
 			camera.aspect = window.innerWidth / window.innerHeight;
 			camera.updateProjectionMatrix();
 
@@ -72,7 +71,7 @@ function View(property) {
 			renderer.setSize(window.innerWidth, window.innerHeight);
 		});
 
-		document.addEventListener('mousemove', function (event) {
+		document.addEventListener('mousemove', function mousemouseEventListener(event) {
 			event.preventDefault();
 
 			mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -144,17 +143,15 @@ function View(property) {
 	}
 
 	function addMinerals() {
-		console.log("addMinerals");
-		property.analytes.forEach(function (analyte) {
+		property.analytes.forEach(function forEachAnalytes(analyte) {
 			var color = new THREE.Color(parseInt(analyte.color,16));
 			var list = [];
 
 			var material = new THREE.MeshBasicMaterial({ color: colors.pink });
 
-			property.holes.forEach(function (hole) {
-				hole.minerals.forEach(function (mineral) {
-					mineral.intervals.forEach(function (interval) {
-
+			property.holes.forEach(function forEachHole(hole) {
+				hole.minerals.forEach(function forEachMineral(mineral) {
+					mineral.intervals.forEach(function forEachInterval(interval) {
 						cylinder = cylinderMesh(interval.path.start, interval.path.end, maxDimension/500);
 						list.push(cylinder);
 						var cylinderObject = new THREE.Mesh(cylinder, material);
@@ -200,14 +197,14 @@ function View(property) {
 		var faces = [];
 
 		// Make a couple cylinders per mineral type.
-		cylinders.forEach(function (cylinder) {
+		cylinders.forEach(function cylindersForEach(cylinder) {
 			var faceOffset = vertices.length/3;
 
-			cylinder.vertices.forEach(function (vert) {
+			cylinder.vertices.forEach(function vertsForEach(vert) {
 				vertices.push(vert.x, vert.y, vert.z);
 			});
 
-			cylinder.faces.forEach(function (face) {
+			cylinder.faces.forEach(function facesForEach(face) {
 				faces.push(faceOffset + face.a, faceOffset + face.b, faceOffset + face.c);
 			});
 		});
@@ -241,9 +238,9 @@ function View(property) {
 
 	function addSurveyLines() {
 		var material = new THREE.LineBasicMaterial({color:colors.black});
-		property.holes.forEach(function (hole) {
+		property.holes.forEach(function holesForEach(hole) {
 			geometry = new THREE.Geometry();
-			hole.surveyPoints.forEach(function (point) {
+			hole.surveyPoints.forEach(function pointsForEach(point) {
 				geometry.vertices.push(point);
 			});
 
@@ -253,7 +250,7 @@ function View(property) {
 
 	function addAxisLabels() {
 		// Need this function for creating multi-line text sprites.
-		CanvasRenderingContext2D.prototype.wrapText = function (text, x, y, maxWidth, lineHeight) {
+		CanvasRenderingContext2D.prototype.wrapText = function wrapText(text, x, y, maxWidth, lineHeight) {
 			var lines = text.split("\n");
 
 			for (var i = 0; i < lines.length; i++) {
@@ -280,11 +277,11 @@ function View(property) {
 		};
 
 		// Formats numbers with a km or m prefix.
-		var kFormatter = function (num) {
-			return (num > 999 ? (num/1000) + ' k' : num) + "m";
+		function kFormatter(num) {
+			return (num > 1000 ? (num/1000) + ' k' : num) + "m";
 		};
 
-		var makeLabel = function (name, x, y, z) {
+		function makeLabel(name, x, y, z) {
 			var sprite = makeTextSprite(name);
 			sprite.position.set(x, y, z);
 			return sprite;
@@ -303,7 +300,7 @@ function View(property) {
 
 		for (; i < labelsPerAxis; i += 1, positions.add(positionsDelta)) {
 			var x = parseFloat(Math.floor(positions.x).toPrecision(2));
-			var y = parseFloat(Math.floor(positions.y).toPrecision(2));			
+			var y = parseFloat(Math.floor(positions.y).toPrecision(2));
 			var z = parseFloat(Math.floor(positions.z).toPrecision(2));
 			scene.add(makeLabel(kFormatter(x), x, 0, 0));
 			scene.add(makeLabel(kFormatter(y), 0, y, 0));
