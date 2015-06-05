@@ -52,7 +52,7 @@ function View(property) {
 		addAxisLabels();
 		addReticle();
 		addSurveyLines();
-		addMinerals();
+		setTimeout(addMinerals, 2000);
 		addRandomTerrain();
 	}
 
@@ -144,6 +144,7 @@ function View(property) {
 	}
 
 	function addMinerals() {
+		console.log("addMinerals");
 		property.analytes.forEach(function (analyte) {
 			var color = new THREE.Color(parseInt(analyte.color,16));
 			var list = [];
@@ -160,6 +161,7 @@ function View(property) {
 						cylinders.push(cylinderObject);
 						cylinderObject.oreConcentration=interval.value;
 						cylinderObject.oreType=mineral.type;
+						cylinderObject.holeId=hole.id;
 
 						scene.add(cylinderObject);
 						cylinderObject.visible=false;
@@ -170,13 +172,15 @@ function View(property) {
 			var mesh = makeCylinderMesh("Gold", color, list);
 			scene.add(mesh);
 		});
+		console.log(cylinders.length);
 	}
 
 	function cylinderMesh(pointX, pointY, width) {
 		var direction = new THREE.Vector3().subVectors(pointY, pointX);
 		var orientation = new THREE.Matrix4();
-
 		var transform = new THREE.Matrix4();
+
+		var matrix = new THREE.Matrix4();
 		transform.makeTranslation((pointY.x + pointX.x) / 2, (pointY.y + pointX.y) / 2, (pointY.z + pointX.z) / 2);
 
 		orientation.lookAt(pointX, pointY, new THREE.Object3D().up);
@@ -185,9 +189,9 @@ function View(property) {
 			0, 0, 1, 0,
 			0, -1, 0, 0,
 			0, 0, 0, 1));
-		var edgeGeometry = new THREE.CylinderGeometry(width, width, direction.length(), 8, 1);
-		edgeGeometry.applyMatrix(orientation);
-		edgeGeometry.applyMatrix(transform);
+		var edgeGeometry = new THREE.CylinderGeometry(width, width, direction.length(), 4, 1);
+		matrix.multiplyMatrices( transform,orientation );
+		edgeGeometry.applyMatrix(matrix);
 		return edgeGeometry;
 	}
 
@@ -220,14 +224,17 @@ function View(property) {
 			color: color
 		});
 
+
+		//TODO: this doesn't work
 		// Buffer sizes are limited by uint16s, so we need to break up the buffers into
 		//   multiple draw calls when the buffer is too long.
-		var maxBufferLength = (1 << 16) - 1;
+		/*var maxBufferLength = (1 << 16) - 1;
 		if (vertices.length >= maxBufferLength) {
+			console.log(vertices.length+" Using draw calls");
 			for (var i = 0; i < vertices.length / maxBufferLength; i += 1) {
 				geometry.addDrawCall(i*maxBufferLength, maxBufferLength);
 			}
-		}
+		}*/
 
 		return new THREE.Mesh(geometry, material);
 	}
@@ -368,7 +375,7 @@ function View(property) {
 				intersected = intersects[0].object;
 				//set sprite to be in front of the orthographic camera so it is visible
 				sceneOrtho.remove(tooltipSprite);
-				tooltipSprite = makeTextSprite(intersected.oreType+"\n"+intersected.oreConcentration+" g/ton", {fontsize: 18, size: 256}); //Create a basic tooltip display sprite TODO: Make tooltip display info about current drillhole
+				tooltipSprite = makeTextSprite(intersected.holeId+"\n"+intersected.oreType+"\n"+intersected.oreConcentration+" g/ton", {fontsize: 18, size: 256}); //Create a basic tooltip display sprite TODO: Make tooltip display info about current drillhole
 				tooltipSprite.scale.set(250,250,1);
 				tooltipSprite.position.z=0;
 				tooltipSprite.position.x=tooltipSpriteLocation.x;
