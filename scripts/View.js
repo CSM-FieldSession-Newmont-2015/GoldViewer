@@ -93,53 +93,8 @@ function View(property){
 
 		addSurveyLines();
 		setTimeout(addMinerals, 2000);
-		addRandomTerrain();
+		addTerrain(scene, property);
 		labelAxis();
-	}
-
-	function addRandomTerrain() {
-		var maxX = property.box.size.x;
-		var maxY = property.box.size.y;
-
-		// Draw 100 lines on each side.
-		var dx = maxX / 100.0;
-		var dy = maxY / 100.0;
-		var minZ = property.box.center.z + property.box.size.z/2;
-		var maxdz = property.box.size.z / 5.0;
-
-		var meshGeometry = new THREE.Geometry();
-		var material = new THREE.LineBasicMaterial({
-			color: colors.terrain_frame,
-		});
-
-		var heights = [];
-
-		// Draw lines along the y axis.
-		for (var x = 0; x < maxX; x += dx) {
-			var lineGeometry = new THREE.Geometry();
-			heights[x] = [];
-			for (var y = 0; y < maxY; y += dy) {
-				var z = maxdz * Math.random() + minZ;
-				heights[x][y] = z;
-				lineGeometry.vertices.push(new THREE.Vector3(x, y, z));
-			}
-			scene.add(new THREE.Line(lineGeometry, material));
-			meshGeometry.merge(lineGeometry);
-		}
-
-		// And then along the x axis.
-		for (var y = 0; y < maxY; y += dy) {
-			var lineGeometry = new THREE.Geometry();
-			for (var x = 0; x < maxX; x += dx) {
-				var z = heights[x][y];
-				lineGeometry.vertices.push(new THREE.Vector3(x, y, z));
-			}
-			scene.add(new THREE.Line(lineGeometry, material));
-			meshGeometry.merge(lineGeometry);
-		}
-
-		var mesh = new THREE.Mesh(meshGeometry, material);
-		// scene.add(mesh);
 	}
 
 	function addReticle(){
