@@ -46,6 +46,7 @@ function View(property) {
 		document.body.appendChild(container);
 		setupControls();
 		setupStats();
+		setupWindowListeners();
 
 		addBoundingBox();
 		addAxisLabels();
@@ -295,8 +296,8 @@ function View(property) {
 
 		for (; i < labelsPerAxis; i += 1, positions.add(positionsDelta)) {
 			var x = parseFloat(Math.floor(positions.x).toPrecision(2));
-			var y = parseFloat(Math.floor(positions.y).toPrecision(2))
-;			var z = parseFloat(Math.floor(positions.z).toPrecision(2));
+			var y = parseFloat(Math.floor(positions.y).toPrecision(2));			
+			var z = parseFloat(Math.floor(positions.z).toPrecision(2));
 			scene.add(makeLabel(kFormatter(x), x, 0, 0));
 			scene.add(makeLabel(kFormatter(y), 0, y, 0));
 			scene.add(makeLabel(kFormatter(z), 0, 0, z));
