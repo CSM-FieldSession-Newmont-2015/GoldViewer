@@ -41,8 +41,6 @@ function View(property) {
 	}
 
 	function init() {
-
-
 		setupCamera();
 		setupRenderer();
 		document.body.appendChild(container);
@@ -50,11 +48,39 @@ function View(property) {
 		setupStats();
 
 		addBoundingBox();
-		labelAxis();
+		addAxisLabels();
 		addReticle();
 		addSurveyLines();
 		addMinerals();
 		addRandomTerrain();
+	}
+
+	function setupWindowListeners() {
+		// Resize the camera when the window is resized.
+		window.addEventListener('resize', function (event) {
+			camera.aspect = window.innerWidth / window.innerHeight;
+			camera.updateProjectionMatrix();
+
+			cameraOrtho.left= - window.innerWidth / 2;
+			cameraOrtho.right=  window.innerWidth / 2;
+			cameraOrtho.top= window.innerHeight / 2;
+			cameraOrtho.bottom=- window.innerHeight / 2;
+
+			cameraOrtho.updateProjectionMatrix();
+
+			renderer.setSize(window.innerWidth, window.innerHeight);
+		});
+
+		document.addEventListener('mousemove', function (event) {
+			event.preventDefault();
+
+			mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+			mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+
+			//this will update the mouse position as well as make the tooltipSprite follow the mouse
+			tooltipSpriteLocation.x=event.clientX-(window.innerWidth/2);
+			tooltipSpriteLocation.y=-event.clientY+(window.innerHeight/2)+20;
+		}, false);
 	}
 
 	function addBoundingBox() {
@@ -127,7 +153,7 @@ function View(property) {
 				hole.minerals.forEach(function (mineral) {
 					mineral.intervals.forEach(function (interval) {
 
-						cylinder = cylinderMesh(interval.path.start, interval.path.end, maxDimension/3000);
+						cylinder = cylinderMesh(interval.path.start, interval.path.end, maxDimension/500);
 						list.push(cylinder);
 						var cylinderObject = new THREE.Mesh(cylinder, material);
 						cylinders.push(cylinderObject);
@@ -217,49 +243,63 @@ function View(property) {
 		});
 	}
 
-	function labelAxis() {
-		var axis_format = {
-			fontsize: 400,
-			size: 2048 // This should be a power of 2!
+	function addAxisLabels() {
+		// Need this function for creating multi-line text sprites.
+		CanvasRenderingContext2D.prototype.wrapText = function (text, x, y, maxWidth, lineHeight) {
+			var lines = text.split("\n");
+
+			for (var i = 0; i < lines.length; i++) {
+				var words = lines[i].split(' ');
+				var line = '';
+
+				for (var n = 0; n < words.length; n++) {
+					var testLine = line + words[n] + ' ';
+					var metrics = this.measureText(testLine);
+					var testWidth = metrics.width;
+
+					if (testWidth > maxWidth && n > 0) {
+						this.fillText(line, x, y);
+						line = words[n] + ' ';
+						y += lineHeight;
+					} else {
+						line = testLine;
+					}
+				}
+
+				this.fillText(line, x, y);
+				y += lineHeight;
+			}
 		};
-		function kFormatter(num) {
+
+		// Formats numbers with a km or m prefix.
+		var kFormatter = function (num) {
 			return (num > 999 ? (num/1000) + ' k' : num) + "m";
-		}
+		};
 
-		var spriteX = makeTextSprite("X", axis_format);
-		spriteX.position.set(property.box.size.x, 0, 0);
-		scene.add(spriteX);
+		var makeLabel = function (name, x, y, z) {
+			var sprite = makeTextSprite(name);
+			sprite.position.set(x, y, z);
+			return sprite;
+		};
 
-		var spriteY = makeTextSprite("Y", axis_format);
-		spriteY.position.set(0, property.box.size.y, 0);
-		scene.add(spriteY);
+		scene.add(makeLabel("X", 1.1 * property.box.size.x, 0, 0));
+		scene.add(makeLabel("Y", 0, 1.1 * property.box.size.y, 0));
+		scene.add(makeLabel("Z", 0, 0, 1.1 * property.box.size.z));
 
-		var spriteZ = makeTextSprite("Z", axis_format);
-		spriteZ.position.set(0, 0, 1.5 * property.box.size.z);
-		scene.add(spriteZ);
+		var i = 0;
+		var positions = new THREE.Vector3();
+		var labelsPerAxis = 5;
+		var positionsDelta = property.box.size.clone().divideScalar(labelsPerAxis);
+		// Don't draw one at 0m.
+		positions.add(positionsDelta);
 
-		for (var i=0; i< property.box.size.x;i+=property.box.size.x/10) {
-			interval=Math.floor(i);
-			interval=parseFloat(interval.toPrecision(2));
-			var spriteLabel = makeTextSprite(kFormatter(interval), axis_format);
-			spriteLabel.position.set(interval, 0, 0);
-			scene.add(spriteLabel);
-		}
-
-		for (var i=0; i< property.box.size.y;i+=property.box.size.y/10) {
-			interval=Math.floor(i);
-			interval=parseFloat(interval.toPrecision(2));
-			var spriteLabel = makeTextSprite(kFormatter(interval), axis_format);
-			spriteLabel.position.set(0, interval, 0);
-			scene.add(spriteLabel);
-		}
-
-		for (var i=0; i< property.box.size.z;i+=property.box.size.z/3) {
-			interval=Math.floor(i);
-			interval=parseFloat(interval.toPrecision(2));
-			var spriteLabel = makeTextSprite(kFormatter(interval), axis_format);
-			spriteLabel.position.set(0, 0, interval);
-			scene.add(spriteLabel);
+		for (; i < labelsPerAxis; i += 1, positions.add(positionsDelta)) {
+			var x = parseFloat(Math.floor(positions.x).toPrecision(2));
+			var y = parseFloat(Math.floor(positions.y).toPrecision(2))
+;			var z = parseFloat(Math.floor(positions.z).toPrecision(2));
+			scene.add(makeLabel(kFormatter(x), x, 0, 0));
+			scene.add(makeLabel(kFormatter(y), 0, y, 0));
+			scene.add(makeLabel(kFormatter(z), 0, 0, z));
 		}
 	}
 
@@ -285,10 +325,11 @@ function View(property) {
 
 	function makeTextSprite(message, parameters) {
 		if (parameters === undefined) parameters = {};
-		var fontface = parameters.hasOwnProperty("fontface") ? parameters["fontface"] : "Arial";
-		var fontsize = parameters.hasOwnProperty("fontsize") ? parameters["fontsize"] : 18;
-		var size = parameters.hasOwnProperty("size") ? parameters["size"] : 100;
-		var textColor = parameters.hasOwnProperty("textColor") ? parameters["textColor"] : { r: 0, g: 0, b: 0, a: 1.0 };
+		var fontface  = parameters.hasOwnProperty("fontface") ? parameters["fontface"] : "Arial";
+		var fontsize  = parameters.hasOwnProperty("fontsize") ? parameters["fontsize"] : 80;
+		var size      = parameters.hasOwnProperty("size") ? parameters["size"] : 512;
+		var textColor = parameters.hasOwnProperty("textColor") ?
+			parameters["textColor"] : { r: 0, g: 0, b: 0, a: 1.0 };
 
 		var canvas = document.createElement('canvas');
 		canvas.width = size;
@@ -305,11 +346,9 @@ function View(property) {
 
 		var spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
 		var sprite = new THREE.Sprite(spriteMaterial);
-		sprite.scale.set(maxDimension/50, maxDimension/50,maxDimension/50);
+		sprite.scale.set(maxDimension/10, maxDimension/10,maxDimension/10);
 		return sprite;
 	}
-
-
 
 	function checkMouseIntercept() {
 		raycaster.setFromCamera(mouse, camera);
@@ -363,45 +402,7 @@ function View(property) {
 		}
 	}
 
-
-
-	window.addEventListener('resize', function (event) {
-
-		camera.aspect = window.innerWidth / window.innerHeight;
-		camera.updateProjectionMatrix();
-
-		renderer.setSize(window.innerWidth, window.innerHeight);
-	});
-
-	document.addEventListener('mousemove', onDocumentMouseMove, false);
-	function onDocumentMouseMove(event) {
-
-		event.preventDefault();
-
-		mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-		mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
-
-		//this will update the mouse position as well as make the tooltipSprite follow the mouse
-		tooltipSpriteLocation.x=event.clientX-(window.innerWidth/2);
-		tooltipSpriteLocation.y=-event.clientY+(window.innerHeight/2)+20;
-	}
-	// Resize the camera when the window is resized.
-	window.addEventListener('resize', function (event) {
-		camera.aspect = window.innerWidth / window.innerHeight;
-		camera.updateProjectionMatrix();
-
-		cameraOrtho.left= - window.innerWidth / 2;
-		cameraOrtho.right=  window.innerWidth / 2;
-		cameraOrtho.top= window.innerHeight / 2;
-		cameraOrtho.bottom=- window.innerHeight / 2;
-
-		cameraOrtho.updateProjectionMatrix();
-
-		renderer.setSize(window.innerWidth, window.innerHeight);
-	});
-
 	function setupCamera() {
-
 		//Sets up the camera object for the 3d scene
 		camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, maxDimension*700);
 		camera.up.set(0,0,1);
@@ -413,22 +414,18 @@ function View(property) {
 		cameraOrtho.position.z = 1;
 		cameraOrtho.position.x = 0;
 		cameraOrtho.position.y = 0;
-
 	}
 
 	function setupRenderer() {
-
 		renderer = new THREE.WebGLRenderer({antialias: false});
 		renderer.setSize(window.innerWidth, window.innerHeight);
 		renderer.setClearColor(colors.background, 1);
 		renderer.sortObjects = false;
 		renderer.autoClear=false;
 		container.appendChild(renderer.domElement);
-
 	}
 
 	function setupControls() {
-
 		if (camera === null) {
 			console.error("Initialize camera before controls, Fool.");
 			return;
@@ -438,11 +435,9 @@ function View(property) {
 		controls.minDistance = maxDimension / 100;
 		controls.maxDistance = maxDimension * 2;
 		controls.target = property.box.center;
-
 	}
 
 	function setupStats() {
-
 		if (container === null) {
 			console.error("Please initialize the container before Stats, Fool.");
 			return;
@@ -452,34 +447,5 @@ function View(property) {
 		stats.domElement.style.right = '0px';
 		stats.domElement.style.bottom = '0px';
 		container.appendChild(stats.domElement);
-
-	}
-}
-
-//Need this function for creating multi-line text sprites
-CanvasRenderingContext2D.prototype.wrapText = function (text, x, y, maxWidth, lineHeight) {
-
-	var lines = text.split("\n");
-
-	for (var i = 0; i < lines.length; i++) {
-
-		var words = lines[i].split(' ');
-		var line = '';
-
-		for (var n = 0; n < words.length; n++) {
-			var testLine = line + words[n] + ' ';
-			var metrics = this.measureText(testLine);
-			var testWidth = metrics.width;
-			if (testWidth > maxWidth && n > 0) {
-				this.fillText(line, x, y);
-				line = words[n] + ' ';
-				y += lineHeight;
-			} else {
-				line = testLine;
-			}
-		}
-
-		this.fillText(line, x, y);
-		y += lineHeight;
 	}
 }
