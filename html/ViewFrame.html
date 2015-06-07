@@ -15,9 +15,7 @@
 		<script type="text/javascript" src="../js/MiningProperty.js"></script>
 		<script type="text/javascript" src="../js/View.js"></script>
 		<script>
-			property = miningPropertyFromURL("../data/jsondh/examples/rocklea.json");
-			console.log(property.name + "\n" + property.description);
-			view = new View(property);
+			view = new View("../data/jsondh/examples/rocklea.json");
 			view.start();
 		</script>
 	</body>

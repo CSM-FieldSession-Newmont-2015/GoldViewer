@@ -14,7 +14,21 @@ var colors = {
 	white: 0xffffff,
 };
 
-function View(property) {
+function loadJSON(url) {
+	var json = null;
+	$.ajax({
+		'async':    false,
+		'global':   false,
+		'url':      url,
+		'dataType': "json",
+		'success':  function (data) {
+			json = data;
+		}
+	});
+	return json;
+}
+
+function View(projectURL) {
 
 	var camera                = null;
 	var cameraOrtho           = null;
@@ -24,13 +38,19 @@ function View(property) {
 	var reticle               = null;
 	var stats                 = null;
 	var tooltipSprite         = null;
+	var projectJSON           = null;
+	var property              = null;
+	var holes                 = null;
+	var maxDimension          = null;
+	var activeMeshWorkers     = 0;
+	var minerals              = {};
+	var finishedParsing       = false;
 	var scene                 = new THREE.Scene();
 	var sceneOrtho            = new THREE.Scene();
 	var mouse                 = new THREE.Vector2();
 	var tooltipSpriteLocation = new THREE.Vector2();
 	var raycaster             = new THREE.Raycaster();
 	var container             = document.createElement('div');
-	var maxDimension          = Math.max(property.box.size.x, property.box.size.y, property.box.size.z);
 
 	var cylinders = [];
 
@@ -40,6 +60,11 @@ function View(property) {
 	}
 
 	function init() {
+
+		projectJSON = loadJSON(projectURL);
+		property = getProperty(projectJSON);
+
+		maxDimension = Math.max(property.box.size.x, property.box.size.y, property.box.size.z);
 		setupCamera();
 		setupRenderer();
 		document.body.appendChild(container);
@@ -51,8 +76,42 @@ function View(property) {
 		addAxisLabels();
 		addReticle();
 		addSurveyLines();
-		setTimeout(addMinerals, 2000);
 		addRandomTerrain();
+		getMinerals();
+	}
+
+	function getProperty(projectJSON){
+		var boxMin = vec3FromArray(projectJSON["boxMin"]);
+		var boxMax = vec3FromArray(projectJSON["boxMax"]);
+		var size   = boxMax.clone().sub(boxMin);
+		var center = size.clone().multiplyScalar(0.5).add(boxMin);
+
+		var property = {
+			name: projectJSON["projectName"],
+			description: projectJSON["description"],
+  			numHoles: projectJSON["numHoles"],
+			epsg: projectJSON["projectionEPSG"],
+			originShift: projectJSON["originShift"],
+			boxMin: boxMin,
+			boxMax: boxMax,
+  			longLatMin: vec3FromArray(projectJSON["longLatMin"]),
+  			longLatMax: vec3FromArray(projectJSON["longLatMax"]),
+  			desurveyMethod: projectJSON["desurveyMethod"],
+  			analytes: projectJSON["analytes"],
+  			formatVersion: projectJSON["formatVersion"],
+			box: {
+				size:   size,
+				center: center
+			}
+		};
+
+		property.analytes.forEach(function (analyte){
+			var color = analyte.color.split("#");
+			color = "0x"+color[1];
+			analyte.color = color;
+		});
+
+		return property;
 	}
 
 	function setupWindowListeners() {
@@ -140,6 +199,55 @@ function View(property) {
 		reticle.position.y = controls.target.y;
 		reticle.position.z = controls.target.z;
 		scene.add(reticle);
+	}
+
+	function getMinerals() {
+		var mineralWorker = new Worker('../js/MineralWorker.js');
+		mineralWorker.addEventListener('message', function(e){
+			if(e.data == 'finished'){
+				finishedParsing = true;
+			}else{
+			delegate(e.data);
+			}
+		});
+		mineralWorker.postMessage(projectJSON);
+	}
+
+	function delegate(meshlessData){
+
+		var meshWorker = new Worker('../js/MeshWorker.js');
+		meshWorker.addEventListener('message', function(e){
+			activeMeshWorkers -= 1;
+			addToMinerals(e.data);
+		});
+		activeMeshWorkers += 1;
+		meshWorker.postMessage(meshlessData);
+	}
+
+	function addToMinerals(data){
+		var parsed = JSON.parse(data);
+		Object.keys(parsed).forEach(function(mineral){
+			if(!(mineral in minerals)){
+				minerals[mineral] = [];
+			}
+			Array.prototype.push.apply(minerals[mineral], parsed[mineral]);
+		});
+
+		console.log(activeMeshWorkers);
+
+		if(activeMeshWorkers == 0 && finishedParsing){
+			console.log("finished with it");
+			sortMinerals();
+			console.log("got here!");
+		}
+	}
+
+	function sortMinerals(){
+		Object.keys(minerals).forEach(function(mineral){
+			minerals[mineral].sort(function(a, b){
+				return a.value - b.value;
+			});
+		});
 	}
 
 	function addMinerals() {
@@ -237,8 +345,12 @@ function View(property) {
 	}
 
 	function addSurveyLines() {
+
+		holes = getHoles();
+		console.log(holes);
+
 		var material = new THREE.LineBasicMaterial({color:colors.black});
-		property.holes.forEach(function holesForEach(hole) {
+		holes.holes.forEach(function holesForEach(hole) {
 			geometry = new THREE.Geometry();
 			hole.surveyPoints.forEach(function pointsForEach(point) {
 				geometry.vertices.push(point);
@@ -246,6 +358,44 @@ function View(property) {
 
 			scene.add(new THREE.Line(geometry, material));
 		});
+	}
+		
+	function getHoles(){
+		var holeData = {
+			holes: [],
+			expectedHoles: projectJSON["numHoles"]
+		};
+
+		holeData.holes = [];
+		projectJSON["holes"].forEach(function (hole) {
+			holeData.holes.push(parseHoleData(hole));
+		});
+
+		holeData.expectedHoles = projectJSON["numHoles"];
+		if (holeData.holes.length != holeData.expectedHoles) {
+			console.log("Expected " + expectedHoles + "holes, but found " + this.holes.length + " holes.");
+		}
+
+		return holeData;
+	}
+
+	function parseHoleData(jsonHole) {
+		var hole = {};
+
+		// The metadata can be used for tooltips and debuggin.
+		hole.id = jsonHole["id"];
+		hole.name = jsonHole["name"];
+		hole.traceColor = jsonHole["traceColor"];
+
+		var surveys = jsonHole["interpolatedDownholeSurveys"];
+		hole.surveyPoints = [];
+		for (var i = 0; i < surveys.length; i += 1 ) {
+
+			var location = vec3FromArray(surveys[i]["location"]);
+			hole.surveyPoints.push(location);
+		}
+
+		return hole;
 	}
 
 	function addAxisLabels() {
