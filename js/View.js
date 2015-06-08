@@ -6,7 +6,7 @@
 
 var colors = {
 	axes: 0x5d5d5d,
-	background: 0xeeeeee,
+	background: 0xdedede,
 	black: 0x000000,
 	pink: 0xff00ff,
 	soft_white: 0x404040,
@@ -90,7 +90,7 @@ This is the layout of the minerals object:
 			"value": Number,
 			"hole": String,
 			"depth": {
-				"start": Number, 
+				"start": Number,
 				"end":   Number
 			},
 			"path": {
@@ -105,7 +105,7 @@ This is the layout of the minerals object:
 
 	function getMinerals() {
 
-		holesJSON = projectJSON["holes"];		
+		holesJSON = projectJSON["holes"];
 		holesJSON.forEach(function(hole){
 
 			hole["downholeDataValues"].forEach(function(mineral){
@@ -134,6 +134,7 @@ This is the layout of the minerals object:
 					currentID += 1;
 				});
 			});
+
 		});
 		sortMinerals();
 		delegate(minerals);
@@ -250,6 +251,7 @@ function cylinderMesh(pointX, pointY, width) {
 		});
 		console.log(cylinders.length);
 	}
+
 /*
 	function cylinderMesh(pointX, pointY, width) {
 		var direction = new THREE.Vector3().subVectors(pointY, pointX);
@@ -265,7 +267,7 @@ function cylinderMesh(pointX, pointY, width) {
 			0, 0, 1, 0,
 			0, -1, 0, 0,
 			0, 0, 0, 1));
-		var edgeGeometry = new THREE.CylinderGeometry(width, width, direction.length(), 4, 1);
+		var edgeGeometry = new THREE.CylinderGeometry(width, width, direction.length(), 6, 1);
 		matrix.multiplyMatrices( transform,orientation );
 		edgeGeometry.applyMatrix(matrix);
 		return edgeGeometry;
@@ -299,7 +301,6 @@ function cylinderMesh(pointX, pointY, width) {
 		var vertices = [];
 		var faces = [];
 
-		// Make a couple cylinders per mineral type.
 		cylinders.forEach(function cylindersForEach(cylinder) {
 			var faceOffset = vertices.length/3;
 
@@ -313,15 +314,19 @@ function cylinderMesh(pointX, pointY, width) {
 		});
 
 		vertices = new Float32Array(vertices);
+		// We enable an extension which allows us to index faces with 32-bit integers,
+		//   instead of 16-bit shorts.
 		faces = new Uint32Array(faces);
 
 		var geometry = new THREE.BufferGeometry();
+		// Both of these attributes are defined by three.js.
 		geometry.addAttribute('position', new THREE.BufferAttribute(vertices, 3));
 		geometry.addAttribute('index', new THREE.BufferAttribute(faces, 3));
 		geometry.computeVertexNormals();
 
-		var material = new THREE.MeshBasicMaterial({
-			color: color
+		var material = new THREE.MeshPhongMaterial({
+			color: color,
+			shading: THREE.FlatShading
 		});
 
 		return new THREE.Mesh(geometry, material);
@@ -341,7 +346,7 @@ function cylinderMesh(pointX, pointY, width) {
 			scene.add(new THREE.Line(geometry, material));
 		});
 	}
-		
+
 	function getHoles(){
 		holes = [];
 		projectJSON["holes"].forEach(function (hole) {
@@ -428,6 +433,17 @@ function cylinderMesh(pointX, pointY, width) {
 		}
 	}
 
+	function addLights() {
+		var ambientLight = new THREE.AmbientLight(colors.soft_white);
+		scene.add(ambientLight);
+
+		var light = new THREE.DirectionalLight(0x020202, 10.0);
+		light.position.set(0, 0, 3.0 * property.box.size.z);
+		light.castShadows = true;
+		light.shadowDarkness = 0.5;
+		scene.add(light);
+	}
+
 	function render() {
 		requestAnimationFrame(render);
 		controls.update();
@@ -436,7 +452,8 @@ function cylinderMesh(pointX, pointY, width) {
 
 		camera.updateMatrixWorld();
 
-		checkMouseIntercept();
+		// TODO: Only do this when the mouse is clicked.
+		//checkMouseIntercept();
 
 		reticle.position.x = controls.target.x;
 		reticle.position.y = controls.target.y;
