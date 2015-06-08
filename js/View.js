@@ -6,7 +6,7 @@
 
 var colors = {
 	axes: 0x5d5d5d,
-	background: 0xeeeeee,
+	background: 0xdedede,
 	black: 0x000000,
 	pink: 0xff00ff,
 	soft_white: 0x404040,
@@ -51,8 +51,8 @@ function View(property) {
 		addAxisLabels();
 		addReticle();
 		addSurveyLines();
-		setTimeout(addMinerals, 2000);
-		addRandomTerrain();
+		addLights();
+		addMinerals();
 	}
 
 	function setupWindowListeners() {
@@ -90,52 +90,19 @@ function View(property) {
 		scene.add(box);
 	}
 
-	function addRandomTerrain() {
-		var maxX = property.box.size.x;
-		var maxY = property.box.size.y;
-
-		// Draw 100 lines on each side.
-		var dx = maxX / 100.0;
-		var dy = maxY / 100.0;
-		var minZ = property.box.center.z + property.box.size.z/2;
-		var maxdz = property.box.size.z / 5.0;
-
-		var meshGeometry = new THREE.Geometry();
-		var material = new THREE.LineBasicMaterial({
-			color: colors.terrain_frame,
-		});
-
-		var heights = [];
-
-		// Draw lines along the y axis.
-		for (var x = 0; x < maxX; x += dx) {
-			var lineGeometry = new THREE.Geometry();
-			heights[x] = [];
-			for (var y = 0; y < maxY; y += dy) {
-				var z = maxdz * Math.random() + minZ;
-				heights[x][y] = z;
-				lineGeometry.vertices.push(new THREE.Vector3(x, y, z));
-			}
-			scene.add(new THREE.Line(lineGeometry, material));
-			meshGeometry.merge(lineGeometry);
-		}
-
-		// And then along the x axis.
-		for (var y = 0; y < maxY; y += dy) {
-			var lineGeometry = new THREE.Geometry();
-			for (var x = 0; x < maxX; x += dx) {
-				var z = heights[x][y];
-				lineGeometry.vertices.push(new THREE.Vector3(x, y, z));
-			}
-			scene.add(new THREE.Line(lineGeometry, material));
-			meshGeometry.merge(lineGeometry);
-		}
-	}
-
 	function addReticle() {
 		reticle = new THREE.Mesh(
-			new THREE.SphereGeometry(maxDimension / 1000),
-			new THREE.MeshLambertMaterial({ color: colors.black }));
+			new THREE.SphereGeometry(
+				maxDimension / 1000, // Radius
+				// These two values determine how smooth the sphere looks.
+				20, // widthSegments
+				20  // heightSegments
+				),
+			new THREE.MeshLambertMaterial({
+				color: colors.black,
+				transparent: true,
+				opacity: 0.6 // Chosen through several trials of intense rigor.
+			}));
 		reticle.position.x = controls.target.x;
 		reticle.position.y = controls.target.y;
 		reticle.position.z = controls.target.z;
@@ -152,7 +119,7 @@ function View(property) {
 			property.holes.forEach(function forEachHole(hole) {
 				hole.minerals.forEach(function forEachMineral(mineral) {
 					mineral.intervals.forEach(function forEachInterval(interval) {
-						cylinder = cylinderMesh(interval.path.start, interval.path.end, maxDimension/500);
+						cylinder = cylinderMesh(interval.path.start, interval.path.end, property.box.size.z / 5);
 						list.push(cylinder);
 						var cylinderObject = new THREE.Mesh(cylinder, material);
 						cylinders.push(cylinderObject);
@@ -169,7 +136,6 @@ function View(property) {
 			var mesh = makeCylinderMesh("Gold", color, list);
 			scene.add(mesh);
 		});
-		console.log(cylinders.length);
 	}
 
 	function cylinderMesh(pointX, pointY, width) {
@@ -186,7 +152,7 @@ function View(property) {
 			0, 0, 1, 0,
 			0, -1, 0, 0,
 			0, 0, 0, 1));
-		var edgeGeometry = new THREE.CylinderGeometry(width, width, direction.length(), 4, 1);
+		var edgeGeometry = new THREE.CylinderGeometry(width, width, direction.length(), 6, 1);
 		matrix.multiplyMatrices( transform,orientation );
 		edgeGeometry.applyMatrix(matrix);
 		return edgeGeometry;
@@ -196,7 +162,6 @@ function View(property) {
 		var vertices = [];
 		var faces = [];
 
-		// Make a couple cylinders per mineral type.
 		cylinders.forEach(function cylindersForEach(cylinder) {
 			var faceOffset = vertices.length/3;
 
@@ -210,28 +175,20 @@ function View(property) {
 		});
 
 		vertices = new Float32Array(vertices);
+		// We enable an extension which allows us to index faces with 32-bit integers,
+		//   instead of 16-bit shorts.
 		faces = new Uint32Array(faces);
 
 		var geometry = new THREE.BufferGeometry();
+		// Both of these attributes are defined by three.js.
 		geometry.addAttribute('position', new THREE.BufferAttribute(vertices, 3));
 		geometry.addAttribute('index', new THREE.BufferAttribute(faces, 3));
 		geometry.computeVertexNormals();
 
-		var material = new THREE.MeshBasicMaterial({
-			color: color
+		var material = new THREE.MeshPhongMaterial({
+			color: color,
+			shading: THREE.FlatShading
 		});
-
-
-		//TODO: this doesn't work
-		// Buffer sizes are limited by uint16s, so we need to break up the buffers into
-		//   multiple draw calls when the buffer is too long.
-		/*var maxBufferLength = (1 << 16) - 1;
-		if (vertices.length >= maxBufferLength) {
-			console.log(vertices.length+" Using draw calls");
-			for (var i = 0; i < vertices.length / maxBufferLength; i += 1) {
-				geometry.addDrawCall(i*maxBufferLength, maxBufferLength);
-			}
-		}*/
 
 		return new THREE.Mesh(geometry, material);
 	}
@@ -308,6 +265,17 @@ function View(property) {
 		}
 	}
 
+	function addLights() {
+		var ambientLight = new THREE.AmbientLight(colors.soft_white);
+		scene.add(ambientLight);
+
+		var light = new THREE.DirectionalLight(0x020202, 10.0);
+		light.position.set(0, 0, 3.0 * property.box.size.z);
+		light.castShadows = true;
+		light.shadowDarkness = 0.5;
+		scene.add(light);
+	}
+
 	function render() {
 		requestAnimationFrame(render);
 		controls.update();
@@ -316,7 +284,8 @@ function View(property) {
 
 		camera.updateMatrixWorld();
 
-		checkMouseIntercept();
+		// TODO: Only do this when the mouse is clicked.
+		//checkMouseIntercept();
 
 		reticle.position.x = controls.target.x;
 		reticle.position.y = controls.target.y;
