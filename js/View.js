@@ -72,12 +72,12 @@ function View(projectURL) {
 		setupStats();
 		setupWindowListeners();
 
+		getMinerals();
 		addBoundingBox();
 		addAxisLabels();
 		addReticle();
 		addSurveyLines();
 		addRandomTerrain();
-		getMinerals();
 	}
 
 	function getProperty(projectJSON){
@@ -223,6 +223,29 @@ function View(projectURL) {
 		activeMeshWorkers += 1;
 		meshWorker.postMessage(meshlessData);
 	}
+
+/*
+This is the layout of the minerals object:
+{
+	MineralString: [			//i.e. 'Au'
+		{
+			"value": Number,
+			"hole": String,
+			"depth": {
+				"start": Number, 
+				"end":   Number
+			},
+			"path": {
+				"start": THREE.Vector3,
+				"end": THREE.Vector3
+			}
+
+		}
+	]
+}
+
+
+*/
 
 	function addToMinerals(data){
 		var parsed = JSON.parse(data);
