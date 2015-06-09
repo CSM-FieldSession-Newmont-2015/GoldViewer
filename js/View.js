@@ -625,6 +625,14 @@ function cylinderMesh(pointX, pointY, width) {
 			tooltipSpriteLocation.x=event.clientX-(window.innerWidth/2);
 			tooltipSpriteLocation.y=-event.clientY+(window.innerHeight/2)+20;
 		}, false);
+
+		document.addEventListener("mousedown", function mousedownEventListener(event) {
+			event.preventDefault();
+
+			if (controls.autoRotate) {
+				controls.autoRotate = false;
+			}
+		})
 	}
 
 	function addBoundingBox() {
@@ -692,7 +700,10 @@ function cylinderMesh(pointX, pointY, width) {
 		//Sets up the camera object for the 3d scene
 		camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, maxDimension*700);
 		camera.up.set(0,0,1);
-		camera.position.set(Math.max(maxDimension/5, property.box.size.x*1.2), Math.max(maxDimension/5,property.box.size.y*1.2), Math.max(maxDimension/5, property.box.size.z*1.2));
+		camera.position.set(
+			1.5 * maxDimension,
+			1.5 * maxDimension,
+			1.5 * maxDimension + property.box.center.z - 0.5 * property.box.size.z);
 		camera.lookAt(property.box.center);
 
 		//Sets up the 2d orthographic camera for tooltips
@@ -735,6 +746,7 @@ function cylinderMesh(pointX, pointY, width) {
 		controls.minDistance = maxDimension / 100;
 		controls.maxDistance = maxDimension * 2;
 		controls.target = property.box.center;
+		controls.autoRotate = true;
 	}
 
 	function setupStats() {
