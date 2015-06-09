@@ -74,13 +74,16 @@ function View(projectURL) {
 		setupStats();
 		setupWindowListeners();
 
+		// Do this first, since it takes so long.
+		getMinerals();
+
 		addBoundingBox();
 		addSurveyLines();
 		addAxisLabels();
 		addReticle();
 		addRandomTerrain();
 		addLights();
-		getMinerals();
+		addSurveyLines();
 	}
 
 	/*
@@ -141,44 +144,24 @@ function View(projectURL) {
 		delegate(minerals);
 	}
 
-function calcGeometry(intervalData){
+	function calcGeometry(intervalData){
 
-	var floats = new Float32Array(intervalData[0]);
-	var vec1 = vec3FromArray(floats);
-	var vec2 = vec3FromArray([floats[3], floats[4], floats[5]]);
+		var floats = new Float32Array(intervalData[0]);
+		var vec1 = vec3FromArray(floats);
+		var vec2 = vec3FromArray([floats[3], floats[4], floats[5]]);
 
-	var geometry = cylinderMesh(vec1, vec2, determineWidth(intervalData[1]));
-	console.log(geometry.attributes);
-	postMessage([geometry.attributes.position.array.buffer, geometry.attributes.normal.array.buffer, geometry.attributes.uv.array.buffer, intervalData[2]], [geometry.attributes.position.array.buffer, geometry.attributes.normal.array.buffer, geometry.attributes.uv.array.buffer]);
-}
+		var geometry = cylinderMesh(vec1, vec2, determineWidth(intervalData[1]));
+		console.log(geometry.attributes);
+		postMessage([geometry.attributes.position.array.buffer, geometry.attributes.normal.array.buffer, geometry.attributes.uv.array.buffer, intervalData[2]], [geometry.attributes.position.array.buffer, geometry.attributes.normal.array.buffer, geometry.attributes.uv.array.buffer]);
+	}
 
-function cylinderMesh(pointX, pointY, width) {
-
-	var direction = new THREE.Vector3().subVectors(pointY, pointX);
-	var orientation = new THREE.Matrix4();
-
-	var transform = new THREE.Matrix4();
-	transform.makeTranslation((pointY.x + pointX.x) / 2, (pointY.y + pointX.y) / 2, (pointY.z + pointX.z) / 2);
-
-	orientation.lookAt(pointX, pointY, new THREE.Object3D().up);
-	orientation.multiply(new THREE.Matrix4().set
-		(1, 0, 0, 0,
-		0, 0, 1, 0,
-		0, -1, 0, 0,
-		0, 0, 0, 1));
-	var edgeGeometry = new THREE.CylinderGeometry(width, width, direction.length(), 6, 1);
-	edgeGeometry.applyMatrix(orientation);
-	edgeGeometry.applyMatrix(transform);
-
-	return new THREE.BufferGeometry().fromGeometry(edgeGeometry);
-}
 	function makeMesh(e){
 		var data = e.data;
 		var basic = new THREE.MeshBasicMaterial({color: colors.pink});
 		returnedGeometry += 1;
 		var geometry = new THREE.BufferGeometry();
 		geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(e.data[0]), 3 ));
-		geometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array(e.data[1]), 3 ));
+		//geometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array(e.data[1]), 3 ));
 		var mesh = new THREE.Mesh(geometry, basic);
 		meshes[data[3]] = mesh;
 		mesh.visible = false;
@@ -224,34 +207,23 @@ function cylinderMesh(pointX, pointY, width) {
 		});
 	}
 
-	function addMinerals() {
-		property.analytes.forEach(function forEachAnalytes(analyte) {
-			var color = new THREE.Color(parseInt(analyte.color,16));
-			var list = [];
-
-			var material = new THREE.MeshBasicMaterial({ color: colors.pink });
-
-			property.holes.forEach(function forEachHole(hole) {
-				hole.minerals.forEach(function forEachMineral(mineral) {
-					mineral.intervals.forEach(function forEachInterval(interval) {
-						cylinder = cylinderMesh(interval.path.start, interval.path.end, maxDimension/500);
-						list.push(cylinder);
-						var cylinderObject = new THREE.Mesh(cylinder, material);
-						cylinders.push(cylinderObject);
-						cylinderObject.oreConcentration=interval.value;
-						cylinderObject.oreType=mineral.type;
-						cylinderObject.holeId=hole.id;
-
-						scene.add(cylinderObject);
-						cylinderObject.visible=false;
-					});
-				});
-			});
-
-			var mesh = makeCylinderMesh("Gold", color, list);
-			scene.add(mesh);
-		});
-		console.log(cylinders.length);
+	function addReticle() {
+		reticle = new THREE.Mesh(
+			new THREE.SphereGeometry(
+				maxDimension / 1000, // Radius
+				// These two values determine how smooth the sphere looks.
+				20, // widthSegments
+				20  // heightSegments
+				),
+			new THREE.MeshLambertMaterial({
+				color: colors.black,
+				transparent: true,
+				opacity: 0.6 // Chosen through several trials of intense rigor.
+			}));
+		reticle.position.x = controls.target.x;
+		reticle.position.y = controls.target.y;
+		reticle.position.z = controls.target.z;
+		scene.add(reticle);
 	}
 
 	function makeBigMeshes() {
@@ -271,49 +243,11 @@ function cylinderMesh(pointX, pointY, width) {
 			var geometry = new THREE.BufferGeometry();
 			geometry.addAttribute('position', new THREE.BufferAttribute(mesh['vertices'], 3));
 			//geometry.addAttribute('normal', new THREE.BufferAttribute(mesh['normals'], 3));
-			var mesh = new THREE.Mesh(geometry, new THREE.MeshPhongMaterial({
-				color: (1 << 25) * Math.random(),
-				colors: THREE.FaceColors
-			}));
+			var mesh = new THREE.Mesh(geometry);
 			scene.add(mesh);
 
 		});
 		console.log('done');
-	}
-
-	function makeCylinderMesh(color, cylinders) {
-		var vertices = [];
-		var faces = [];
-
-		cylinders.forEach(function cylindersForEach(cylinder) {
-			var faceOffset = vertices.length/3;
-
-			cylinder.vertices.forEach(function vertsForEach(vert) {
-				vertices.push(vert.x, vert.y, vert.z);
-			});
-
-			cylinder.faces.forEach(function facesForEach(face) {
-				faces.push(faceOffset + face.a, faceOffset + face.b, faceOffset + face.c);
-			});
-		});
-
-		vertices = new Float32Array(vertices);
-		// We enable an extension which allows us to index faces with 32-bit integers,
-		//   instead of 16-bit shorts.
-		faces = new Uint32Array(faces);
-
-		var geometry = new THREE.BufferGeometry();
-		// Both of these attributes are defined by three.js.
-		geometry.addAttribute('position', new THREE.BufferAttribute(vertices, 3));
-		geometry.addAttribute('index', new THREE.BufferAttribute(faces, 3));
-		geometry.computeVertexNormals();
-
-		var material = new THREE.MeshPhongMaterial({
-			color: color,
-			shading: THREE.FlatShading
-		});
-
-		return new THREE.Mesh(geometry, material);
 	}
 
 	function addSurveyLines() {
@@ -442,7 +376,7 @@ function cylinderMesh(pointX, pointY, width) {
 		var ambientLight = new THREE.AmbientLight(colors.soft_white);
 		scene.add(ambientLight);
 
-		var light = new THREE.PointLight(0xffffff, 20.0 * maxDimension);
+		var light = new THREE.PointLight(0xffffff, 100.0, 20.0 * maxDimension);
 		light.position.set(0, 0, 3.0 * property.box.size.z + property.box.center.z - property.box.size.z / 2);
 		scene.add(light);
 	}
@@ -743,3 +677,4 @@ function cylinderMesh(pointX, pointY, width) {
 		container.appendChild(stats.domElement);
 	}
 }
+
