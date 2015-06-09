@@ -30,7 +30,7 @@ function View(property) {
 	var mouse                 = new THREE.Vector2();
 	var tooltipSpriteLocation = new THREE.Vector2();
 	var raycaster             = new THREE.Raycaster();
-	var container             = document.createElement('div');
+	var container             = $('#viewFrame');
 	var maxDimension          = Math.max(property.box.size.x, property.box.size.y, property.box.size.z);
 
 	var cylinders=[];
@@ -41,9 +41,10 @@ function View(property) {
 	}
 
 	function init() {
-		setupCamera();
+	    container.contents().find('body').html('<div></div>');
+	    container = container.contents().find('div:first').get(0);
+	    setupCamera();
 		setupRenderer();
-		document.body.appendChild(container);
 		setupControls();
 		setupStats();
 
@@ -430,7 +431,7 @@ function View(property) {
 			console.error("Initialize camera before controls, Fool.");
 			return;
 		}
-		controls = new THREE.OrbitControls(camera);
+		controls = new THREE.OrbitControls(camera, $('#viewFrame').contents().find('div').get(0));
 		controls.zoomSpeed = 3.0;
 		controls.minDistance = maxDimension / 100;
 		controls.maxDistance = maxDimension * 2;

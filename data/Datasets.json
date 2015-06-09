@@ -1,0 +1,19 @@
+﻿{
+    "dataset": [
+        {
+            "name": "Mt Pleasant South",
+            "description": "Drillholes south of and covering older pits around Mt Plesant.",
+            "thumbnail": "data/images/ClientLogo.png",
+            "url": "data/jsondh/examples/mt_pleasant_south.json",
+            "terrain": "data/jsondh/examples/mt_pleasant_south_terrain.json"
+        },
+        {
+            "name": "Mt Pleasant West",
+            "description": "Holes with Au and As located 25km west of Mt Pleasant in Western Australia.",
+            "thumbnail": "data/images/ClientLogo.png",
+            "url": "data/jsondh/examples/mt_pleasant_west.json",
+            "terrain": "data/jsondh/examples/mt_pleasant_west_terrain.json"
+        }
+    ]
+}
+

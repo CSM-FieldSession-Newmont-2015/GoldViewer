@@ -1,0 +1,25 @@
+﻿{
+    "tag": "div",
+    "class": "dataset",
+    "data-url": "${url}",
+    "style": "width:300px; float:left",
+    "children": [
+        {
+            "tag": "div",
+            "class": "thumbnail",
+            "style": "function() { if (this [ 'thumbnail' ] === undefined) return ('display: none'); }",
+            "children": [
+                { "tag": "img", "src": "${thumbnail}", "align": "center" }
+            ]
+        },
+        {
+            "tag": "div",
+            "style": "clear:left",
+            "class": "text",
+            "children": [
+                { "tag": "span", "html": "${name}", "style": "font-weight:bold" },
+                { "tag": "div", "html": "${description}", "style": "font-size:small" }
+            ]
+        }
+    ]
+}

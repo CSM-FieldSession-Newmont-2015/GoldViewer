@@ -1,26 +1,57 @@
 ﻿var property;
 var scene;
-var segments = 14;
-var northwest = new google.maps.LatLng(36.628581, -118.341994);
-var southeast = new google.maps.LatLng(36.528581, -118.241994);
+var segments = 10;
+var currentRow = 0;
+
+var latLngMin;
+var latLngMax;
+var dx;
+var dy;
+var maxX;
+var maxY;
+var geometry;
+
+var map
+var elevator;
 
 function addTerrain(_scene, _property) {
     scene = _scene;
     property = _property;
-    var dx = (southeast.lng() - northwest.lng()) / segments;
-    var dy = (southeast.lat() - northwest.lat()) / segments;
-    var elevator = new google.maps.ElevationService();
-    var path = [];
 
-    for (var i = 0; i <= segments; i += 2) {
-        path.push(new google.maps.LatLng(northwest.lat() + i * dy, northwest.lng()), new google.maps.LatLng(northwest.lat() + i * dy, southeast.lng()));
-        path.push(new google.maps.LatLng(northwest.lat() + (i + 1) * dy, southeast.lng()), new google.maps.LatLng(northwest.lat() + (i + 1) * dy, northwest.lng()));
-    }
+    latLngMin = new google.maps.LatLng(property.longLatMin.y, property.longLatMin.x);
+    latLngMax = new google.maps.LatLng(property.longLatMax.y, property.longLatMax.x);
+    dx = (latLngMax.lng() - latLngMin.lng()) / segments;
+    dy = (latLngMax.lat() - latLngMin.lat()) / segments;
+    maxX = property.box.size.x;
+    maxY = property.box.size.y;
+    geometry = new THREE.PlaneGeometry(maxX, maxY, segments, segments);
+
+    /*
+    var mapOptions = {
+        zoom: 8,
+        center: new google.maps.LatLng((latLngMax.lng() - latLngMin.lng()) / 2 + latLngMin.lng(), (latLngMax.lat() - latLngMin.lat()) / 2 + latLngMin.lat())
+    };
+
+    var mapOptions = {
+        zoom: 8,
+        center: new google.maps.LatLng(-34.397, 150.644)
+    };
+
+    map = google.maps.Map(document.getElementById('GoogleMap'), mapOptions);
+    //        .setSize(600, 600)
+    //        .setCenter((latLngMax.lng() - latLngMin.lng()) / 2, (latLngMax.lat() - latLngMin.lat()) / 2);
+    map.fitBounds(new google.maps.LatLngBounds(latLngMin, latLngMax));
+    map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
+*/
+    elevator = new google.maps.ElevationService();
+
+    var path = [];
+    path.push(new google.maps.LatLng(latLngMin.lat() + currentRow * dy, latLngMin.lng()), new google.maps.LatLng(latLngMin.lat() + currentRow * dy, latLngMax.lng()));
 
     // Create a PathElevationRequest object using this array.
     var pathRequest = {
         'path': path,
-        'samples': (segments + 1) * (segments + 1)
+        'samples': segments + 1
     }
 
     // Initiate the path request.
@@ -31,68 +62,40 @@ function plotTerrain(results, status) {
     if (status != google.maps.ElevationStatus.OK) {
         return;
     }
+
     var elevations = results;
-    var maxX = property.box.size.x;
-    var maxY = property.box.size.y;
-    var geometry = new THREE.PlaneGeometry(maxX, maxY, segments, segments);
 
-    for (var i = 0; i < segments; i += 2) {
-        for (var j = 0; j <= segments; j++) {
-            geometry.vertices[(segments + 1) * i + j].z = elevations[(segments + 1) * i + j].elevation - elevations[0].elevation;
-        }
-        for (var j = segments; j >= 0; j--) {
-            geometry.vertices[(segments + 1) * (i + 1) + j].z = elevations[(segments + 1) * (i + 1) + j].elevation - elevations[0].elevation;
-        }
-    }
-    for (var j = 0; j <= segments; j++) {
-        geometry.vertices[(segments + 1) * segments + j].z = elevations[(segments + 1) * segments + j].elevation - elevations[0].elevation;
+    for (var i = 0; i <= segments; i++) {
+        geometry.vertices[(segments + 1) * currentRow + i].z = elevations[i].elevation;
     }
 
-    var material = new THREE.MeshBasicMaterial({ color: colors.terrain_frame, side: THREE.DoubleSide, wireframe: true });
-    var plane = new THREE.Mesh(geometry, material);
-    plane.position.x += property.box.size.x/2;
-    plane.position.y += property.box.size.y/2;
-    scene.add(plane);
+    if (currentRow < segments) {
+        setTimeout(function () { }, 200);
+            currentRow++;
 
-/*
-    // Draw 100 lines on each side.
-    var dx = maxX / 100.0;
-    var dy = maxY / 100.0;
-    var minZ = property.box.center.z + property.box.size.z / 2;
-    var maxdz = property.box.size.z / 5.0;
+            var path = [];
 
-    var meshGeometry = new THREE.Geometry();
-    var material = new THREE.LineBasicMaterial({
-        color: colors.terrain_frame,
-    });
+            path.push(new google.maps.LatLng(latLngMin.lat() + currentRow * dy, latLngMin.lng()), new google.maps.LatLng(latLngMin.lat() + currentRow * dy, latLngMax.lng()));
 
-    var heights = [];
+            // Create a PathElevationRequest object using this array.
+            var pathRequest = {
+                'path': path,
+                'samples': segments + 1
+            }
 
-    // Draw lines along the y axis.
-    for (var x = 0; x < maxX; x += dx) {
-        var lineGeometry = new THREE.Geometry();
-        heights[x] = [];
-        for (var y = 0; y < maxY; y += dy) {
-            var z = maxdz * Math.random() + minZ;
-            heights[x][y] = z;
-            lineGeometry.vertices.push(new THREE.Vector3(x, y, z));
-        }
-        scene.add(new THREE.Line(lineGeometry, material));
-        meshGeometry.merge(lineGeometry);
+            // Initiate the path request.
+            elevator.getElevationAlongPath(pathRequest, plotTerrain);
+//        }, 200);
+    } else {
+        var material = new THREE.MeshBasicMaterial({ color: colors.terrain_frame, side: THREE.DoubleSide, wireframe: true });
+        //var texture = THREE.ImageUtils.loadTexture('../js/avatar.jpg');//map.getMapUrl());
+        //var material = new THREE.MeshBasicMaterial({
+        //    map: texture
+        //});
+//        scene.add(new THREE.AmbientLight(0xeeeeee));
+        var plane = new THREE.Mesh(geometry, material);
+        plane.position.x += property.box.size.x / 2;
+        plane.position.y += property.box.size.y / 2;
+        scene.add(plane);
     }
-
-    // And then along the x axis.
-    for (var y = 0; y < maxY; y += dy) {
-        var lineGeometry = new THREE.Geometry();
-        for (var x = 0; x < maxX; x += dx) {
-            var z = heights[x][y];
-            lineGeometry.vertices.push(new THREE.Vector3(x, y, z));
-        }
-        scene.add(new THREE.Line(lineGeometry, material));
-        meshGeometry.merge(lineGeometry);
-    }
-
-    var mesh = new THREE.Mesh(meshGeometry, material);
-    // scene.add(mesh);
-*/
 }

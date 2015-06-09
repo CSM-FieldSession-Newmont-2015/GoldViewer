@@ -2,27 +2,6 @@
 	<head>
 		<title>Newmont WebGL Demo</title>
 		<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
-        <script type="text/javascript" src="http://code.jquery.com/jquery-1.10.2.js"></script>
-        <script src="https://www.google.com/jsapi"></script>
-        <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=true"></script>
-        <script type="text/javascript" src="../js/libs/three.js"></script>
-        <script type="text/javascript" src="../js/libs/OrbitControls.js"></script>
-        <script type="text/javascript" src="../js/libs/stats.min.js"></script>
-        <script type="text/javascript" src="../js/MiningProperty.js"></script>
-        <script type="text/javascript" src="../js/Elevation.js"></script>
-        <script type="text/javascript" src="../js/View.js"></script>
-        <script>
-            $(function () {
-                property = miningPropertyFromURL("../data/jsondh/examples/mt_pleasant_west.json");
-                console.log(property.name + "\n" + property.description);
-                view = new View(property);
-                view.start();
-            });
-        </script>
-<html>
-	<head>
-		<title>Newmont WebGL Demo</title>
-		<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
 		<style>
 			body { margin: 0; }
 			canvas { width: 100%; height: 100% }
