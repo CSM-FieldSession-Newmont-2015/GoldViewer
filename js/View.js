@@ -79,30 +79,31 @@ function View(projectURL) {
 		addAxisLabels();
 		addReticle();
 		addRandomTerrain();
+		addLights();
 		getMinerals();
 	}
 
-/*
-This is the layout of the minerals object:
-{
-	MineralString: [			//i.e. 'Au'
-		{
-			"value": Number,
-			"hole": String,
-			"depth": {
-				"start": Number,
-				"end":   Number
-			},
-			"path": {
-				"start": THREE.Vector3,
-				"end": THREE.Vector3
-			},
-			"mesh": THREE.Mesh
-		}
-	]
-}
-*/
-
+	/*
+	This is the layout of the minerals object:
+	{
+		//e. g. 'Au', 'Ag', etc.
+		MineralString: [
+			{
+				"value": Number,
+				"hole": String,
+				"depth": {
+					"start": Number,
+					"end":   Number
+				},
+				"path": {
+					"start": THREE.Vector3,
+					"end": THREE.Vector3
+				},
+				"mesh": THREE.Mesh
+			}
+		]
+	}
+	*/
 	function getMinerals() {
 
 		holesJSON = projectJSON["holes"];
@@ -139,6 +140,7 @@ This is the layout of the minerals object:
 		sortMinerals();
 		delegate(minerals);
 	}
+
 function calcGeometry(intervalData){
 
 	var floats = new Float32Array(intervalData[0]);
@@ -252,28 +254,6 @@ function cylinderMesh(pointX, pointY, width) {
 		console.log(cylinders.length);
 	}
 
-/*
-	function cylinderMesh(pointX, pointY, width) {
-		var direction = new THREE.Vector3().subVectors(pointY, pointX);
-		var orientation = new THREE.Matrix4();
-		var transform = new THREE.Matrix4();
-
-		var matrix = new THREE.Matrix4();
-		transform.makeTranslation((pointY.x + pointX.x) / 2, (pointY.y + pointX.y) / 2, (pointY.z + pointX.z) / 2);
-
-		orientation.lookAt(pointX, pointY, new THREE.Object3D().up);
-		orientation.multiply(new THREE.Matrix4().set
-			(1, 0, 0, 0,
-			0, 0, 1, 0,
-			0, -1, 0, 0,
-			0, 0, 0, 1));
-		var edgeGeometry = new THREE.CylinderGeometry(width, width, direction.length(), 6, 1);
-		matrix.multiplyMatrices( transform,orientation );
-		edgeGeometry.applyMatrix(matrix);
-		return edgeGeometry;
-	}
-*/
-
 	function makeBigMeshes() {
 		Object.keys(minerals).forEach(function(mineral){
 			setTimeout(1);
@@ -282,15 +262,19 @@ function cylinderMesh(pointX, pointY, width) {
 			var norms = [];
 			console.log(mineral);
 			minerals[mineral].intervals.forEach(function(interval){
-				//Array.prototype.push.apply(verts, meshes[interval['id']].geometry.attributes.position.array);
+				Array.prototype.push.apply(verts, meshes[interval['id']].geometry.attributes.position.array);
+				// Normals don't work.
 				//Array.prototype.push.apply(norms, meshes[interval['id']].geometry.attributes.normal.array);
 			});
 			minerals[mineral].mesh.vertices = new Float32Array(verts);
-			minerals[mineral].mesh.normals = new Float32Array(norms);
+			//minerals[mineral].mesh.normals = new Float32Array(norms);
 			var geometry = new THREE.BufferGeometry();
 			geometry.addAttribute('position', new THREE.BufferAttribute(mesh['vertices'], 3));
-			geometry.addAttribute('normal', new THREE.BufferAttribute(mesh['normals'], 3));
-			var mesh = new THREE.Mesh(geometry);
+			//geometry.addAttribute('normal', new THREE.BufferAttribute(mesh['normals'], 3));
+			var mesh = new THREE.Mesh(geometry, new THREE.MeshPhongMaterial({
+				color: (1 << 25) * Math.random(),
+				colors: THREE.FaceColors
+			}));
 			scene.add(mesh);
 
 		});
@@ -458,10 +442,8 @@ function cylinderMesh(pointX, pointY, width) {
 		var ambientLight = new THREE.AmbientLight(colors.soft_white);
 		scene.add(ambientLight);
 
-		var light = new THREE.DirectionalLight(0x020202, 10.0);
-		light.position.set(0, 0, 3.0 * property.box.size.z);
-		light.castShadows = true;
-		light.shadowDarkness = 0.5;
+		var light = new THREE.PointLight(0xffffff, 20.0 * maxDimension);
+		light.position.set(0, 0, 3.0 * property.box.size.z + property.box.center.z - property.box.size.z / 2);
 		scene.add(light);
 	}
 

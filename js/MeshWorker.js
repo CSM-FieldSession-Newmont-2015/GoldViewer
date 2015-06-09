@@ -18,7 +18,7 @@ var matrix4 = new THREE.Matrix4().set
 		0, 0, 0, 1);
 
 function determineWidth(value){
-	return 3;
+	return Math.log(value + 1) * 2.0;
 }
 
 // Convert [a, b, c, d..] into {x: a, y: b, z: c}.
@@ -46,7 +46,6 @@ function calcGeometry(intervalData){
 	var vec2 = vec3FromArray([floats[3], floats[4], floats[5]]);
 
 	var geometry = cylinderMesh(vec1, vec2, determineWidth(intervalData[1]));
-	//console.log(geometry);
 	postMessage([geometry.attributes.position.array.buffer, geometry.attributes.normal.array.buffer, geometry.attributes.uv.array.buffer, intervalData[2]], [geometry.attributes.position.array.buffer, geometry.attributes.normal.array.buffer, geometry.attributes.uv.array.buffer]);
 }
 
