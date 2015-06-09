@@ -42,8 +42,10 @@ function View(projectURL) {
 	var property              = null;
 	var holes                 = null;
 	var maxDimension          = null;
-	var activeMeshWorkers     = 0;
 	var minerals              = {};
+	var meshes                = [];
+	var returnedGeometry      = 0;
+	var currentID             = 0;
 	var finishedParsing       = false;
 	var scene                 = new THREE.Scene();
 	var sceneOrtho            = new THREE.Scene();
@@ -72,156 +74,12 @@ function View(projectURL) {
 		setupStats();
 		setupWindowListeners();
 
-		getMinerals();
 		addBoundingBox();
+		addSurveyLines();
 		addAxisLabels();
 		addReticle();
-		addSurveyLines();
 		addRandomTerrain();
-	}
-
-	function getProperty(projectJSON){
-		var boxMin = vec3FromArray(projectJSON["boxMin"]);
-		var boxMax = vec3FromArray(projectJSON["boxMax"]);
-		var size   = boxMax.clone().sub(boxMin);
-		var center = size.clone().multiplyScalar(0.5).add(boxMin);
-
-		var property = {
-			name: projectJSON["projectName"],
-			description: projectJSON["description"],
-  			numHoles: projectJSON["numHoles"],
-			epsg: projectJSON["projectionEPSG"],
-			originShift: projectJSON["originShift"],
-			boxMin: boxMin,
-			boxMax: boxMax,
-  			longLatMin: vec3FromArray(projectJSON["longLatMin"]),
-  			longLatMax: vec3FromArray(projectJSON["longLatMax"]),
-  			desurveyMethod: projectJSON["desurveyMethod"],
-  			analytes: projectJSON["analytes"],
-  			formatVersion: projectJSON["formatVersion"],
-			box: {
-				size:   size,
-				center: center
-			}
-		};
-
-		property.analytes.forEach(function (analyte){
-			var color = analyte.color.split("#");
-			color = "0x"+color[1];
-			analyte.color = color;
-		});
-
-		return property;
-	}
-
-	function setupWindowListeners() {
-		// Resize the camera when the window is resized.
-		window.addEventListener('resize', function resizeEventListener(event) {
-			camera.aspect = window.innerWidth / window.innerHeight;
-			camera.updateProjectionMatrix();
-
-			cameraOrtho.left= - window.innerWidth / 2;
-			cameraOrtho.right=  window.innerWidth / 2;
-			cameraOrtho.top= window.innerHeight / 2;
-			cameraOrtho.bottom=- window.innerHeight / 2;
-
-			cameraOrtho.updateProjectionMatrix();
-
-			renderer.setSize(window.innerWidth, window.innerHeight);
-		});
-
-		document.addEventListener('mousemove', function mousemouseEventListener(event) {
-			event.preventDefault();
-
-			mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-			mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
-
-			//this will update the mouse position as well as make the tooltipSprite follow the mouse
-			tooltipSpriteLocation.x=event.clientX-(window.innerWidth/2);
-			tooltipSpriteLocation.y=-event.clientY+(window.innerHeight/2)+20;
-		}, false);
-	}
-
-	function addBoundingBox() {
-		var property_boundary = new THREE.Mesh(new THREE.BoxGeometry(property.box.size.x, property.box.size.y, property.box.size.z));
-		var box = new THREE.EdgesHelper(property_boundary, colors.axes);
-		box.applyMatrix(new THREE.Matrix4().makeTranslation(property.box.center.x, property.box.center.y, property.box.center.z));
-		scene.add(box);
-	}
-
-	function addRandomTerrain() {
-		var maxX = property.box.size.x;
-		var maxY = property.box.size.y;
-
-		// Draw 100 lines on each side.
-		var dx = maxX / 100.0;
-		var dy = maxY / 100.0;
-		var minZ = property.box.center.z + property.box.size.z/2;
-		var maxdz = property.box.size.z / 5.0;
-
-		var meshGeometry = new THREE.Geometry();
-		var material = new THREE.LineBasicMaterial({
-			color: colors.terrain_frame,
-		});
-
-		var heights = [];
-
-		// Draw lines along the y axis.
-		for (var x = 0; x < maxX; x += dx) {
-			var lineGeometry = new THREE.Geometry();
-			heights[x] = [];
-			for (var y = 0; y < maxY; y += dy) {
-				var z = maxdz * Math.random() + minZ;
-				heights[x][y] = z;
-				lineGeometry.vertices.push(new THREE.Vector3(x, y, z));
-			}
-			scene.add(new THREE.Line(lineGeometry, material));
-			meshGeometry.merge(lineGeometry);
-		}
-
-		// And then along the x axis.
-		for (var y = 0; y < maxY; y += dy) {
-			var lineGeometry = new THREE.Geometry();
-			for (var x = 0; x < maxX; x += dx) {
-				var z = heights[x][y];
-				lineGeometry.vertices.push(new THREE.Vector3(x, y, z));
-			}
-			scene.add(new THREE.Line(lineGeometry, material));
-			meshGeometry.merge(lineGeometry);
-		}
-	}
-
-	function addReticle() {
-		reticle = new THREE.Mesh(
-			new THREE.SphereGeometry(maxDimension / 1000),
-			new THREE.MeshLambertMaterial({ color: colors.black }));
-		reticle.position.x = controls.target.x;
-		reticle.position.y = controls.target.y;
-		reticle.position.z = controls.target.z;
-		scene.add(reticle);
-	}
-
-	function getMinerals() {
-		var mineralWorker = new Worker('../js/MineralWorker.js');
-		mineralWorker.addEventListener('message', function(e){
-			if(e.data == 'finished'){
-				finishedParsing = true;
-			}else{
-			delegate(e.data);
-			}
-		});
-		mineralWorker.postMessage(projectJSON);
-	}
-
-	function delegate(meshlessData){
-
-		var meshWorker = new Worker('../js/MeshWorker.js');
-		meshWorker.addEventListener('message', function(e){
-			activeMeshWorkers -= 1;
-			addToMinerals(e.data);
-		});
-		activeMeshWorkers += 1;
-		meshWorker.postMessage(meshlessData);
+		getMinerals();
 	}
 
 /*
@@ -238,36 +96,126 @@ This is the layout of the minerals object:
 			"path": {
 				"start": THREE.Vector3,
 				"end": THREE.Vector3
-			}
-
+			},
+			"mesh": THREE.Mesh
 		}
 	]
 }
-
-
 */
 
-	function addToMinerals(data){
-		var parsed = JSON.parse(data);
-		Object.keys(parsed).forEach(function(mineral){
-			if(!(mineral in minerals)){
-				minerals[mineral] = [];
-			}
-			Array.prototype.push.apply(minerals[mineral], parsed[mineral]);
+	function getMinerals() {
+
+		holesJSON = projectJSON["holes"];		
+		holesJSON.forEach(function(hole){
+
+			hole["downholeDataValues"].forEach(function(mineral){
+				if(minerals[mineral["name"]] === undefined){
+					minerals[mineral["name"]] = {};
+					minerals[mineral["name"]].intervals = [];
+					minerals[mineral["name"]]["mesh"] = {
+						vertices: null,
+						normals: null
+					}
+				}
+				mineral["intervals"].forEach(function(interval){
+					data = {
+						mineral: mineral["name"],
+						value: interval["value"],
+						depth: {
+							start : interval["from"],
+							end   : interval["to"]
+						},
+						path: new Float32Array(interval["path"][0].concat(interval["path"][1])),
+						hole      : hole["id"],
+						id : currentID
+					};
+					minerals[mineral["name"]].intervals.push(data);
+					meshes[currentID] = data;
+					currentID += 1;
+				});
+			});
 		});
+		sortMinerals();
+		delegate(minerals);
+	}
+function calcGeometry(intervalData){
 
-		console.log(activeMeshWorkers);
+	var floats = new Float32Array(intervalData[0]);
+	var vec1 = vec3FromArray(floats);
+	var vec2 = vec3FromArray([floats[3], floats[4], floats[5]]);
 
-		if(activeMeshWorkers == 0 && finishedParsing){
-			console.log("finished with it");
-			sortMinerals();
-			console.log("got here!");
+	var geometry = cylinderMesh(vec1, vec2, determineWidth(intervalData[1]));
+	console.log(geometry.attributes);
+	postMessage([geometry.attributes.position.array.buffer, geometry.attributes.normal.array.buffer, geometry.attributes.uv.array.buffer, intervalData[2]], [geometry.attributes.position.array.buffer, geometry.attributes.normal.array.buffer, geometry.attributes.uv.array.buffer]);
+}
+
+function cylinderMesh(pointX, pointY, width) {
+
+	var direction = new THREE.Vector3().subVectors(pointY, pointX);
+	var orientation = new THREE.Matrix4();
+
+	var transform = new THREE.Matrix4();
+	transform.makeTranslation((pointY.x + pointX.x) / 2, (pointY.y + pointX.y) / 2, (pointY.z + pointX.z) / 2);
+
+	orientation.lookAt(pointX, pointY, new THREE.Object3D().up);
+	orientation.multiply(new THREE.Matrix4().set
+		(1, 0, 0, 0,
+		0, 0, 1, 0,
+		0, -1, 0, 0,
+		0, 0, 0, 1));
+	var edgeGeometry = new THREE.CylinderGeometry(width, width, direction.length(), 6, 1);
+	edgeGeometry.applyMatrix(orientation);
+	edgeGeometry.applyMatrix(transform);
+
+	return new THREE.BufferGeometry().fromGeometry(edgeGeometry);
+}
+	function makeMesh(e){
+		var data = e.data;
+		var basic = new THREE.MeshBasicMaterial({color: colors.pink});
+		returnedGeometry += 1;
+		var geometry = new THREE.BufferGeometry();
+		geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(e.data[0]), 3 ));
+		geometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array(e.data[1]), 3 ));
+		var mesh = new THREE.Mesh(geometry, basic);
+		meshes[data[3]] = mesh;
+		mesh.visible = false;
+		//scene.add(mesh);
+		if(returnedGeometry%1000 == 0)
+			console.log(returnedGeometry/1000);
+		if(returnedGeometry >= currentID){
+			setTimeout(makeBigMeshes(), 2000);
 		}
+	}
+
+	function delegate(meshlessData){
+
+		var workers = [];
+		for(var i = 0; i < 4; i += 1){
+			var newWorker = new Worker('../js/MeshWorker.js');
+			newWorker.addEventListener('message', makeMesh);
+			workers.push(newWorker);
+		}
+		var index = 0;
+		Object.keys(minerals).forEach(function(mineral){
+			minerals[mineral].intervals.forEach(function(interval){
+				workers[index%4].postMessage([interval.path.buffer, interval.value, interval.id], [interval.path.buffer]);
+				index += 1;
+			});
+		});
+		return;
+	}
+
+	function addMineralsToScene(){
+		minerals['Au'].forEach(function(interval){
+			console.log(interval.mesh);
+			var material = new THREE.MeshBasicMaterial({ color: colors.pink });
+			//scene.add(new THREE.Mesh(interval.mesh, material));
+		})
 	}
 
 	function sortMinerals(){
 		Object.keys(minerals).forEach(function(mineral){
-			minerals[mineral].sort(function(a, b){
+			minerals[mineral].intervals.sort(function(a, b){
 				return a.value - b.value;
 			});
 		});
@@ -302,7 +250,7 @@ This is the layout of the minerals object:
 		});
 		console.log(cylinders.length);
 	}
-
+/*
 	function cylinderMesh(pointX, pointY, width) {
 		var direction = new THREE.Vector3().subVectors(pointY, pointX);
 		var orientation = new THREE.Matrix4();
@@ -322,8 +270,32 @@ This is the layout of the minerals object:
 		edgeGeometry.applyMatrix(matrix);
 		return edgeGeometry;
 	}
+*/
 
-	function makeCylinderMesh(name, color, cylinders) {
+	function makeBigMeshes() {
+		Object.keys(minerals).forEach(function(mineral){
+			setTimeout(1);
+			var mesh = minerals[mineral]["mesh"];
+			var verts = [];
+			var norms = [];
+			console.log(mineral);
+			minerals[mineral].intervals.forEach(function(interval){
+				//Array.prototype.push.apply(verts, meshes[interval['id']].geometry.attributes.position.array);
+				//Array.prototype.push.apply(norms, meshes[interval['id']].geometry.attributes.normal.array);
+			});
+			minerals[mineral].mesh.vertices = new Float32Array(verts);
+			minerals[mineral].mesh.normals = new Float32Array(norms);
+			var geometry = new THREE.BufferGeometry();
+			geometry.addAttribute('position', new THREE.BufferAttribute(mesh['vertices'], 3));
+			geometry.addAttribute('normal', new THREE.BufferAttribute(mesh['normals'], 3));
+			var mesh = new THREE.Mesh(geometry);
+			scene.add(mesh);
+
+		});
+		console.log('done');
+	}
+
+	function makeCylinderMesh(color, cylinders) {
 		var vertices = [];
 		var faces = [];
 
@@ -352,28 +324,15 @@ This is the layout of the minerals object:
 			color: color
 		});
 
-
-		//TODO: this doesn't work
-		// Buffer sizes are limited by uint16s, so we need to break up the buffers into
-		//   multiple draw calls when the buffer is too long.
-		/*var maxBufferLength = (1 << 16) - 1;
-		if (vertices.length >= maxBufferLength) {
-			console.log(vertices.length+" Using draw calls");
-			for (var i = 0; i < vertices.length / maxBufferLength; i += 1) {
-				geometry.addDrawCall(i*maxBufferLength, maxBufferLength);
-			}
-		}*/
-
 		return new THREE.Mesh(geometry, material);
 	}
 
 	function addSurveyLines() {
 
-		holes = getHoles();
-		console.log(holes);
+		getHoles();
 
-		var material = new THREE.LineBasicMaterial({color:colors.black});
-		holes.holes.forEach(function holesForEach(hole) {
+		var material = new THREE.LineBasicMaterial({transparent: true, opacity: 0.9, color:colors.black});
+		holes.forEach(function holesForEach(hole) {
 			geometry = new THREE.Geometry();
 			hole.surveyPoints.forEach(function pointsForEach(point) {
 				geometry.vertices.push(point);
@@ -384,22 +343,10 @@ This is the layout of the minerals object:
 	}
 		
 	function getHoles(){
-		var holeData = {
-			holes: [],
-			expectedHoles: projectJSON["numHoles"]
-		};
-
-		holeData.holes = [];
+		holes = [];
 		projectJSON["holes"].forEach(function (hole) {
-			holeData.holes.push(parseHoleData(hole));
+			holes.push(parseHoleData(hole));
 		});
-
-		holeData.expectedHoles = projectJSON["numHoles"];
-		if (holeData.holes.length != holeData.expectedHoles) {
-			console.log("Expected " + expectedHoles + "holes, but found " + this.holes.length + " holes.");
-		}
-
-		return holeData;
 	}
 
 	function parseHoleData(jsonHole) {
@@ -578,6 +525,129 @@ This is the layout of the minerals object:
 			sceneOrtho.remove(tooltipSprite);
 			intersected = null;
 		}
+	}
+
+	function getProperty(projectJSON){
+		var boxMin = vec3FromArray(projectJSON["boxMin"]);
+		var boxMax = vec3FromArray(projectJSON["boxMax"]);
+		var size   = boxMax.clone().sub(boxMin);
+		var center = size.clone().multiplyScalar(0.5).add(boxMin);
+
+		var property = {
+			name: projectJSON["projectName"],
+			description: projectJSON["description"],
+  			numHoles: projectJSON["numHoles"],
+			epsg: projectJSON["projectionEPSG"],
+			originShift: projectJSON["originShift"],
+			boxMin: boxMin,
+			boxMax: boxMax,
+  			longLatMin: vec3FromArray(projectJSON["longLatMin"]),
+  			longLatMax: vec3FromArray(projectJSON["longLatMax"]),
+  			desurveyMethod: projectJSON["desurveyMethod"],
+  			analytes: projectJSON["analytes"],
+  			formatVersion: projectJSON["formatVersion"],
+			box: {
+				size:   size,
+				center: center
+			}
+		};
+
+		property.analytes.forEach(function (analyte){
+			var color = analyte.color.split("#");
+			color = "0x"+color[1];
+			analyte.color = color;
+		});
+
+		return property;
+	}
+
+	function setupWindowListeners() {
+		// Resize the camera when the window is resized.
+		window.addEventListener('resize', function resizeEventListener(event) {
+			camera.aspect = window.innerWidth / window.innerHeight;
+			camera.updateProjectionMatrix();
+
+			cameraOrtho.left= - window.innerWidth / 2;
+			cameraOrtho.right=  window.innerWidth / 2;
+			cameraOrtho.top= window.innerHeight / 2;
+			cameraOrtho.bottom=- window.innerHeight / 2;
+
+			cameraOrtho.updateProjectionMatrix();
+
+			renderer.setSize(window.innerWidth, window.innerHeight);
+		});
+
+		document.addEventListener('mousemove', function mousemouseEventListener(event) {
+			event.preventDefault();
+
+			mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+			mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+
+			//this will update the mouse position as well as make the tooltipSprite follow the mouse
+			tooltipSpriteLocation.x=event.clientX-(window.innerWidth/2);
+			tooltipSpriteLocation.y=-event.clientY+(window.innerHeight/2)+20;
+		}, false);
+	}
+
+	function addBoundingBox() {
+		var property_boundary = new THREE.Mesh(new THREE.BoxGeometry(property.box.size.x, property.box.size.y, property.box.size.z));
+		var box = new THREE.EdgesHelper(property_boundary, colors.axes);
+		box.applyMatrix(new THREE.Matrix4().makeTranslation(property.box.center.x, property.box.center.y, property.box.center.z));
+		scene.add(box);
+	}
+
+	function addRandomTerrain() {
+		var maxX = property.box.size.x;
+		var maxY = property.box.size.y;
+
+		// Draw 100 lines on each side.
+		var dx = maxX / 100.0;
+		var dy = maxY / 100.0;
+		var minZ = property.box.center.z + property.box.size.z/2;
+		var maxdz = property.box.size.z / 5.0;
+
+		var meshGeometry = new THREE.Geometry();
+		var material = new THREE.LineBasicMaterial({
+			color: colors.terrain_frame,
+			transparent: true,
+			opacity: 0.8
+		});
+
+		var heights = [];
+
+		// Draw lines along the y axis.
+		for (var x = 0; x < maxX; x += dx) {
+			var lineGeometry = new THREE.Geometry();
+			heights[x] = [];
+			for (var y = 0; y < maxY; y += dy) {
+				var z = maxdz * Math.random() + minZ;
+				heights[x][y] = z;
+				lineGeometry.vertices.push(new THREE.Vector3(x, y, z));
+			}
+			scene.add(new THREE.Line(lineGeometry, material));
+			meshGeometry.merge(lineGeometry);
+		}
+
+		// And then along the x axis.
+		for (var y = 0; y < maxY; y += dy) {
+			var lineGeometry = new THREE.Geometry();
+			for (var x = 0; x < maxX; x += dx) {
+				var z = heights[x][y];
+				lineGeometry.vertices.push(new THREE.Vector3(x, y, z));
+			}
+			scene.add(new THREE.Line(lineGeometry, material));
+			meshGeometry.merge(lineGeometry);
+		}
+	}
+
+	function addReticle() {
+		reticle = new THREE.Mesh(
+			new THREE.SphereGeometry(maxDimension / 1000),
+			new THREE.MeshLambertMaterial({ color: colors.black }));
+		reticle.position.x = controls.target.x;
+		reticle.position.y = controls.target.y;
+		reticle.position.z = controls.target.z;
+		scene.add(reticle);
 	}
 
 	function setupCamera() {

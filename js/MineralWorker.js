@@ -15,15 +15,11 @@ function vec3FromArray(array) {
 }
 
 function getMinerals(propertyJSON){
-	var meshlessData = {};
-	var holes = propertyJSON["holes"];
-	var intervals = 0;
-
 	holes.forEach(function(hole){
 
 		hole["downholeDataValues"].forEach(function(mineral){
-			if(meshlessData[mineral["name"]] === undefined){
-				meshlessData[mineral["name"]] = [];
+			if(minerals[mineral["name"]] === undefined){
+				minerals[mineral["name"]] = [];
 			}
 			mineral["intervals"].forEach(function(interval){
 				data = {
@@ -38,22 +34,8 @@ function getMinerals(propertyJSON){
 					},
 					hole      : hole["id"]
 				};
-				meshlessData[mineral["name"]].push(data);
-				intervals += 1;
+				minerals[mineral["name"]].push(data);
 			});
-
-			// Every 1000 intervals, we're going to spawn a
-			//  worker to calculate the meshes of given intervals.
-			//  This is a heavy garbage-collection process, and
-			//  garbage collection only happens when workers terminate.
-			if(intervals > 1 * 10000){
-				intervals = 0;
-				postMessage(meshlessData);
-				meshlessData = {};
-			}
 		});
 	});
-
-	postMessage(meshlessData);
-	close();
 }
