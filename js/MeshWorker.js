@@ -1,4 +1,4 @@
-importScripts('/js/libs/three.js');
+importScripts('libs/three.js');
 
 var started = false;
 var busy = false;
