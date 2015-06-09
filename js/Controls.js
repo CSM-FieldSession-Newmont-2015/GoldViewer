@@ -1,10 +1,52 @@
 /* global $ */
 
 $(document).ready(function() {
-	$.get("html/CommandBar.html", function (data) {
+	$.get("html/Menu.html", function (data) {
 		$("#divCommandBar").append(data);
-		$("ul#CommandBar").menu();
+		$("ul#CommandBar").menu({
+		    select: function (event, ui) {
+		        switch(ui.item.attr('id')) {
+		        case 'menuDatasets':
+		            $('#dialogDatasets').dialog({
+		                resizable: true,
+		                height: 480,
+                        width: 640,
+		                modal: true,
+		                buttons: {
+		                    Cancel: function () {
+		                        $(this).dialog("close");
+		                    }
+		                },
+		                open: function (event, ui) {
+		                    $.getJSON('data/DatasetTemplate.json', function (template) {
+		                        $.getJSON('data/Datasets.json', function (data) {
+		                            $('#templateContainer').html('');
+		                            $('#templateContainer').json2html(data.dataset, template);
+		                            $('.dataset').each(function (data) {
+		                                $(this).click(function () {
+		                                    property = miningPropertyFromURL($(this).attr('data-url'));
+		                                    console.log(property.name + "\n" + property.description);
+		                                    view = new View(property);
+		                                    view.start();
+		                                    $('#dialogDatasets').dialog("close");
+		                                });
+		                            });
+		                        })
+                                    .fail(function () {
+                                        console.log("Failed to load data/Datasets.json");
+                                    });
+		                    })
+		                        .fail(function () {
+		                            console.log("Failed to load data/DatasetTemplate.json");
+		                        });
+		                }
+		            });
+		            break;
+		        }
+		    }
+		});
 	});
+
 	$.get("html/ControlBar.html", function (data) {
 		$("div#ControlBar").append(data);
 		$("#zoomIn").button({
@@ -72,11 +114,7 @@ $(document).ready(function() {
 			//prevent arrow key scrolling
 			if(event.keyCode>=38 && event.keyCode<=40)
 				event.preventDefault();
-			var contentWindowControls = document.getElementById('viewFrame').contentWindow.controls;
-			// This gets real old, real fast.
-			if (contentWindowControls) {
-				contentWindowControls.onKeyDown(event);
-			}
+			document.getElementById('viewFrame').contentWindow.controls.onKeyDown(event);
 		});
 	});
 

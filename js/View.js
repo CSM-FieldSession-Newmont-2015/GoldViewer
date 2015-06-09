@@ -52,7 +52,8 @@ function View(projectURL) {
 	var mouse                 = new THREE.Vector2();
 	var tooltipSpriteLocation = new THREE.Vector2();
 	var raycaster             = new THREE.Raycaster();
-	var container             = document.createElement('div');
+	var container             = $('#viewFrame');
+	var maxDimension          = 0;
 
 	var cylinders = [];
 
@@ -62,14 +63,14 @@ function View(projectURL) {
 	}
 
 	function init() {
-
 		projectJSON = loadJSON(projectURL);
 		property = getProperty(projectJSON);
 
 		maxDimension = Math.max(property.box.size.x, property.box.size.y, property.box.size.z);
+	    container.contents().find('body').html('<div></div>');
+	    container = container.contents().find('div:first').get(0);
 		setupCamera();
 		setupRenderer();
-		document.body.appendChild(container);
 		setupControls();
 		setupStats();
 		setupWindowListeners();
@@ -81,9 +82,9 @@ function View(projectURL) {
 		addSurveyLines();
 		addAxisLabels();
 		addReticle();
-		addRandomTerrain();
 		addLights();
 		addSurveyLines();
+		addTerrain(scene, property);
 	}
 
 	/*
@@ -657,7 +658,7 @@ function View(projectURL) {
 			console.error("Initialize camera before controls, Fool.");
 			return;
 		}
-		controls = new THREE.OrbitControls(camera);
+		controls = new THREE.OrbitControls(camera, $('#viewFrame').contents().find('div').get(0));
 		controls.zoomSpeed = 3.0;
 		controls.minDistance = maxDimension / 100;
 		controls.maxDistance = maxDimension * 2;
