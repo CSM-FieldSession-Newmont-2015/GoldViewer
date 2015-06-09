@@ -402,7 +402,8 @@ function cylinderMesh(pointX, pointY, width) {
 		};
 
 		// Formats numbers with a km or m prefix.
-		function kFormatter(num) {
+		function formatKm(num) {
+			num = parseFloat(Math.floor(num).toPrecision(2));
 			return (num > 1000 ? (num/1000) + ' k' : num) + "m";
 		};
 
@@ -412,25 +413,45 @@ function cylinderMesh(pointX, pointY, width) {
 			return sprite;
 		};
 
-		scene.add(makeLabel("X", 1.1 * property.box.size.x, 0, 0));
-		scene.add(makeLabel("Y", 0, 1.1 * property.box.size.y, 0));
-		scene.add(makeLabel("Z", 0, 0, 1.1 * property.box.size.z));
+		// Our box is offset from the origin.
+		var base = property.box.center.z - property.box.size.z / 2;
 
-		var i = 0;
-		var positions = new THREE.Vector3();
-		var labelsPerAxis = 5;
-		var positionsDelta = property.box.size.clone().divideScalar(labelsPerAxis);
-		// Don't draw one at 0m.
-		positions.add(positionsDelta);
+		// Force a scope.
+		(function () {
+			// Lay out the X-axis labels. Ensure they are at least a minimum distance apart.
+			// This minimum distance is set in makeTextSprite, with the "sprite.scale.set(*)" line.
+			var markerDistance = Math.max(property.box.size.x / 5 - 1, maxDimension/20);
+			for (var x = markerDistance; x < property.box.size.x; x += markerDistance) {
+				scene.add(makeLabel(formatKm(x), x, 0, base));
+			}
+			// Write out the axis name a littlebit after the last label.
+			x -= markerDistance / 2;
+			scene.add(makeLabel("X", x, 0, base));
+		})();
 
-		for (; i < labelsPerAxis; i += 1, positions.add(positionsDelta)) {
-			var x = parseFloat(Math.floor(positions.x).toPrecision(2));
-			var y = parseFloat(Math.floor(positions.y).toPrecision(2));
-			var z = parseFloat(Math.floor(positions.z).toPrecision(2));
-			scene.add(makeLabel(kFormatter(x), x, 0, 0));
-			scene.add(makeLabel(kFormatter(y), 0, y, 0));
-			scene.add(makeLabel(kFormatter(z), 0, 0, z));
-		}
+		(function () {
+			// Lay out the Y-axis labels. Ensure they are at least a minimum distance apart.
+			// This minimum distance is set in makeTextSprite, with the "sprite.scale.set(*)" line.
+			var markerDistance = Math.max(property.box.size.y / 5 - 1, maxDimension/20);
+			for (var y = markerDistance; y < property.box.size.y; y += markerDistance) {
+				scene.add(makeLabel(formatKm(y), 0, y, base));
+			}
+			// Write out the axis name a littlebit after the last label.
+			y -= markerDistance / 2;
+			scene.add(makeLabel("Y", 0, y, base));
+		})();
+
+		(function () {
+			// Lay out the Z-axis labels. Ensure they are at least a minimum distance apart.
+			// This minimum distance is set in makeTextSprite, with the "sprite.scale.set(*)" line.
+			var markerDistance = Math.max(property.box.size.z / 5 - 1, maxDimension/20);
+			for (var z = markerDistance; z < property.box.size.z; z += markerDistance) {
+				scene.add(makeLabel(formatKm(z), 0, 0, z + base));
+			}
+			// Write out the axis name a littlebit after the last label.
+			z -= markerDistance / 2;
+			scene.add(makeLabel("Z", 0, 0, z + base));
+		})();
 	}
 
 	function addLights() {
