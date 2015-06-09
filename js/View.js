@@ -178,7 +178,7 @@ function View(projectURL) {
 
 		var workers = [];
 		for(var i = 0; i < 4; i += 1){
-			var newWorker = new Worker('../js/MeshWorker.js');
+			var newWorker = new Worker('js/MeshWorker.js');
 			newWorker.addEventListener('message', makeMesh);
 			workers.push(newWorker);
 		}
