@@ -1,47 +1,49 @@
 /* global $ */
+/* global view */
+/* global View */
 
 $(document).ready(function() {
 	$.get("html/Menu.html", function (data) {
 		$("#divCommandBar").append(data);
 		$("ul#CommandBar").menu({
-		    select: function (event, ui) {
-		        switch(ui.item.attr('id')) {
-		        case 'menuDatasets':
-		            $('#dialogDatasets').dialog({
-		                resizable: true,
-		                height: 480,
-                        width: 640,
-		                modal: true,
-		                buttons: {
-		                    Cancel: function () {
-		                        $(this).dialog("close");
-		                    }
-		                },
-		                open: function (event, ui) {
-		                    $.getJSON('data/DatasetTemplate.json', function (template) {
-		                        $.getJSON('data/Datasets.json', function (data) {
-		                            $('#templateContainer').html('');
-		                            $('#templateContainer').json2html(data.dataset, template);
-		                            $('.dataset').each(function (data) {
-		                                $(this).click(function () {
-		                                    view = new View($(this).attr('data-url'));
-		                                    view.start();
-		                                    $('#dialogDatasets').dialog("close");
-		                                });
-		                            });
-		                        })
-                                    .fail(function () {
-                                        console.log("Failed to load data/Datasets.json");
-                                    });
-		                    })
-		                        .fail(function () {
-		                            console.log("Failed to load data/DatasetTemplate.json");
-		                        });
-		                }
-		            });
-		            break;
-		        }
-		    }
+			select: function (event, ui) {
+				switch(ui.item.attr('id')) {
+				case 'menuDatasets':
+					$('#dialogDatasets').dialog({
+						resizable: true,
+						height: 480,
+						width: 640,
+						modal: true,
+						buttons: {
+							Cancel: function () {
+								$(this).dialog("close");
+							}
+						},
+						open: function (event, ui) {
+							$.getJSON('data/DatasetTemplate.json', function (template) {
+								$.getJSON('data/Datasets.json', function (data) {
+									$('#templateContainer').html('');
+									$('#templateContainer').json2html(data.dataset, template);
+									$('.dataset').each(function (data) {
+										$(this).click(function () {
+											view = new View($(this).attr('data-url'));
+											view.start();
+											$('#dialogDatasets').dialog("close");
+										});
+									});
+								})
+									.fail(function () {
+										console.log("Failed to load data/Datasets.json");
+									});
+							})
+								.fail(function () {
+									console.log("Failed to load data/DatasetTemplate.json");
+								});
+						}
+					});
+					break;
+				}
+			}
 		});
 	});
 
@@ -54,7 +56,10 @@ $(document).ready(function() {
 			}
 		});
 		$( "#zoomIn" ).click(function() {
-			document.getElementById('viewFrame').contentWindow.controls.dollyIn(1.25);
+		var controls = document.getElementById('viewFrame').contentWindow.controls;
+		if (controls) {
+			controls.dollyIn(1.25);
+		}
 		});
 		$("#zoomOut").button({
 			text: false,
@@ -63,7 +68,10 @@ $(document).ready(function() {
 			}
 		});
 		$( "#zoomOut" ).click(function() {
-		  document.getElementById('viewFrame').contentWindow.controls.dollyIn(.75);
+			var controls = document.getElementById('viewFrame').contentWindow.controls;
+			if (controls) {
+				controls.dollyIn(.75);
+			}
 		});
 		$("#panLeft").button({
 			text: false,
@@ -72,7 +80,10 @@ $(document).ready(function() {
 			}
 		});
 		$( "#panLeft" ).click(function() {
-		  document.getElementById('viewFrame').contentWindow.controls.panLeft(1);
+			var controls = document.getElementById('viewFrame').contentWindow.controls;
+			if (controls) {
+				controls.panLeft(1);
+			}
 		});
 
 		$("#panRight").button({
@@ -82,7 +93,10 @@ $(document).ready(function() {
 			}
 		});
 		$( "#panRight" ).click(function() {
-		  document.getElementById('viewFrame').contentWindow.controls.panLeft(-1);
+			var controls = document.getElementById('viewFrame').contentWindow.controls;
+			if (controls) {
+				controls.panLeft(-1);
+			}
 		});
 
 		$("#panUp").button({
@@ -92,7 +106,10 @@ $(document).ready(function() {
 			}
 		});
 		$( "#panUp" ).click(function() {
-		  document.getElementById('viewFrame').contentWindow.controls.panUp(1);
+			var controls = document.getElementById('viewFrame').contentWindow.controls;
+			if (controls) {
+				controls.panUp(1);
+			}
 		});
 		$("#panDown").button({
 			text: false,
@@ -101,18 +118,23 @@ $(document).ready(function() {
 			}
 		});
 		$( "#panDown" ).click(function() {
-		  document.getElementById('viewFrame').contentWindow.controls.panUp(-1);
+			var controls = document.getElementById('viewFrame').contentWindow.controls;
+			if (controls) {
+				controls.panUp(-1);
+			}
 		});
-
 
 		$("#toggleButton").button();
 		$("#radioDemo").buttonset();
 
 		$(document).keydown(function(event) {
-			//prevent arrow key scrolling
+			// Prevent arrow key scrolling
 			if(event.keyCode>=38 && event.keyCode<=40)
 				event.preventDefault();
-			document.getElementById('viewFrame').contentWindow.controls.onKeyDown(event);
+			var controls = document.getElementById('viewFrame').contentWindow.controls;
+			if (controls) {
+				controls.onKeyDown(event);
+			}
 		});
 	});
 

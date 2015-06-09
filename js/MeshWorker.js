@@ -1,8 +1,10 @@
+/* global THREE */
+
 importScripts('libs/three.js');
 
 var started = false;
 var busy = false;
-setInterval(function() {closeIfIdle()}, 3000);
+setInterval(function() { closeIfIdle(); }, 3000);
 
 self.addEventListener('message', function(e) {
 	busy = true;
@@ -36,32 +38,42 @@ function closeIfIdle(){
 	busy = false;
 }
 
-//intervalData should be in the form [[Float, Float, Float, Float, Float, Float], Float, Int]
-//giving the starting point, ending point, the ore concentration, and interval ID
-
+// `intervalData` should be in the form [[Float]*6, Float, Int],
+// giving the starting point, ending point, the ore concentration, and interval ID.
 function calcGeometry(intervalData){
 
 	var floats = new Float32Array(intervalData[0]);
 	var vec1 = vec3FromArray(floats);
 	var vec2 = vec3FromArray([floats[3], floats[4], floats[5]]);
 
-	var geometry = cylinderMesh(vec1, vec2, determineWidth(intervalData[1]));
-	postMessage([geometry.attributes.position.array.buffer, geometry.attributes.normal.array.buffer, geometry.attributes.uv.array.buffer, intervalData[2]], [geometry.attributes.position.array.buffer, geometry.attributes.normal.array.buffer, geometry.attributes.uv.array.buffer]);
+	var geometry = makeCylinderGeometry(vec1, vec2, determineWidth(intervalData[1]));
+	postMessage(
+		[
+			geometry.attributes.position.array.buffer,
+			geometry.attributes.normal.array.buffer,
+			geometry.attributes.uv.array.buffer,
+			intervalData[2]
+		],
+		[
+			geometry.attributes.position.array.buffer,
+			geometry.attributes.normal.array.buffer,
+			geometry.attributes.uv.array.buffer
+		]);
 }
 
-function cylinderMesh(pointX, pointY, width) {
-
-	var direction = new THREE.Vector3().subVectors(pointY, pointX);
-	var orientation = new THREE.Matrix4();
+function makeCylinderGeometry(pointA, pointB, width) {
 
 	var transform = new THREE.Matrix4();
-	transform.makeTranslation((pointY.x + pointX.x) / 2, (pointY.y + pointX.y) / 2, (pointY.z + pointX.z) / 2);
+	transform.makeTranslation((pointB.x + pointA.x) / 2, (pointB.y + pointA.y) / 2, (pointB.z + pointA.z) / 2);
 
-	orientation.lookAt(pointX, pointY, new THREE.Object3D().up);
+	var orientation = new THREE.Matrix4();
+	orientation.lookAt(pointA, pointB, new THREE.Object3D().up);
 	orientation.multiply(matrix4);
-	var edgeGeometry = new THREE.CylinderGeometry(width, width, direction.length(), cylinderEdges, 1);
-	edgeGeometry.applyMatrix(orientation);
-	edgeGeometry.applyMatrix(transform);
 
-	return new THREE.BufferGeometry().fromGeometry(edgeGeometry);
+	var direction = new THREE.Vector3().subVectors(pointB, pointA);
+	var geometry = new THREE.CylinderGeometry(width, width, direction.length(), cylinderEdges, 1);
+	geometry.applyMatrix(orientation);
+	geometry.applyMatrix(transform);
+
+	return new THREE.BufferGeometry().fromGeometry(geometry);
 }

@@ -1,6 +1,5 @@
-// Visual Studio Code uses these to hush warnings about
-//   variable names it can't find declared.
-/* global dat */
+/* global $ */
+/* global colors */
 /* global Stats */
 /* global THREE */
 
@@ -29,46 +28,38 @@ function loadJSON(url) {
 }
 
 function View(projectURL) {
-
 	var camera                = null;
 	var cameraOrtho           = null;
 	var controls              = null;
-	var intersected           = null;
 	var renderer              = null;
 	var reticle               = null;
 	var stats                 = null;
-	var tooltipSprite         = null;
 	var projectJSON           = null;
 	var property              = null;
 	var holes                 = null;
-	var maxDimension          = null;
 	var minerals              = {};
 	var meshes                = [];
 	var returnedGeometry      = 0;
 	var currentID             = 0;
-	var finishedParsing       = false;
 	var scene                 = new THREE.Scene();
 	var sceneOrtho            = new THREE.Scene();
 	var mouse                 = new THREE.Vector2();
 	var tooltipSpriteLocation = new THREE.Vector2();
-	var raycaster             = new THREE.Raycaster();
 	var container             = $('#viewFrame');
 	var maxDimension          = 0;
-
-	var cylinders = [];
 
 	this.start = function () {
 		init();
 		render();
-	}
+	};
 
 	function init() {
 		projectJSON = loadJSON(projectURL);
 		property = getProperty(projectJSON);
 
 		maxDimension = Math.max(property.box.size.x, property.box.size.y, property.box.size.z);
-	    container.contents().find('body').html('<div></div>');
-	    container = container.contents().find('div:first').get(0);
+		container.contents().find('body').html('<div></div>');
+		container = container.contents().find('div:first').get(0);
 		setupCamera();
 		setupRenderer();
 		setupControls();
@@ -110,7 +101,7 @@ function View(projectURL) {
 	*/
 	function getMinerals() {
 
-		holesJSON = projectJSON["holes"];
+		var holesJSON = projectJSON["holes"];
 		holesJSON.forEach(function(hole){
 
 			hole["downholeDataValues"].forEach(function(mineral){
@@ -120,10 +111,10 @@ function View(projectURL) {
 					minerals[mineral["name"]]["mesh"] = {
 						vertices: null,
 						normals: null
-					}
+					};
 				}
 				mineral["intervals"].forEach(function(interval){
-					data = {
+					var data = {
 						mineral: mineral["name"],
 						value: interval["value"],
 						depth: {
@@ -145,23 +136,13 @@ function View(projectURL) {
 		delegate(minerals);
 	}
 
-	function calcGeometry(intervalData){
-
-		var floats = new Float32Array(intervalData[0]);
-		var vec1 = vec3FromArray(floats);
-		var vec2 = vec3FromArray([floats[3], floats[4], floats[5]]);
-
-		var geometry = cylinderMesh(vec1, vec2, determineWidth(intervalData[1]));
-		console.log(geometry.attributes);
-		postMessage([geometry.attributes.position.array.buffer, geometry.attributes.normal.array.buffer, geometry.attributes.uv.array.buffer, intervalData[2]], [geometry.attributes.position.array.buffer, geometry.attributes.normal.array.buffer, geometry.attributes.uv.array.buffer]);
-	}
-
 	function makeMesh(e){
 		var data = e.data;
 		var basic = new THREE.MeshBasicMaterial({color: colors.pink});
 		returnedGeometry += 1;
 		var geometry = new THREE.BufferGeometry();
 		geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(e.data[0]), 3 ));
+		// Normals are expensive and we don't have them working yet.
 		//geometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array(e.data[1]), 3 ));
 		var mesh = new THREE.Mesh(geometry, basic);
 		meshes[data[3]] = mesh;
@@ -190,14 +171,6 @@ function View(projectURL) {
 			});
 		});
 		return;
-	}
-
-	function addMineralsToScene(){
-		minerals['Au'].forEach(function(interval){
-			console.log(interval.mesh);
-			var material = new THREE.MeshBasicMaterial({ color: colors.pink });
-			//scene.add(new THREE.Mesh(interval.mesh, material));
-		})
 	}
 
 	function sortMinerals(){
@@ -232,7 +205,7 @@ function View(projectURL) {
 			setTimeout(1);
 			var mesh = minerals[mineral]["mesh"];
 			var verts = [];
-			var norms = [];
+			//var norms = [];
 			console.log(mineral);
 			minerals[mineral].intervals.forEach(function(interval){
 				Array.prototype.push.apply(verts, meshes[interval['id']].geometry.attributes.position.array);
@@ -244,7 +217,7 @@ function View(projectURL) {
 			var geometry = new THREE.BufferGeometry();
 			geometry.addAttribute('position', new THREE.BufferAttribute(mesh['vertices'], 3));
 			//geometry.addAttribute('normal', new THREE.BufferAttribute(mesh['normals'], 3));
-			var mesh = new THREE.Mesh(geometry);
+			mesh = new THREE.Mesh(geometry);
 			scene.add(mesh);
 
 		});
@@ -430,58 +403,6 @@ function View(projectURL) {
 		return sprite;
 	}
 
-	function checkMouseIntercept() {
-		raycaster.setFromCamera(mouse, camera);
-		var intersects = raycaster.intersectObjects(cylinders);
-
-		if (intersects.length > 0) {
-			if (intersected != intersects[0].object) {
-				if (intersected) {
-					var material = intersected.material;
-					if (material.emissive) {
-						material.emissive.setHex(intersected.currentHex);
-					} else {
-						material.color.setHex(intersected.currentHex);
-					}
-				}
-				intersected = intersects[0].object;
-				//set sprite to be in front of the orthographic camera so it is visible
-				sceneOrtho.remove(tooltipSprite);
-				tooltipSprite = makeTextSprite(intersected.holeId+"\n"+intersected.oreType+"\n"+intersected.oreConcentration+" g/ton", {fontsize: 18, size: 256}); //Create a basic tooltip display sprite TODO: Make tooltip display info about current drillhole
-				tooltipSprite.scale.set(250,250,1);
-				tooltipSprite.position.z=0;
-				tooltipSprite.position.x=tooltipSpriteLocation.x;
-				tooltipSprite.position.y=tooltipSpriteLocation.y;
-				sceneOrtho.add(tooltipSprite);
-
-				material = intersected.material;
-				if (material.emissive) {
-					intersected.currentHex = intersected.material.emissive.getHex();
-					material.emissive.setHex(0xff0000);
-				}
-				else {
-					intersected.currentHex = material.color.getHex();
-					material.color.setHex(0xff0000);
-				}
-
-			}
-
-		} else {
-			if (intersected) {
-				material = intersected.material;
-
-				if (material.emissive) {
-					material.emissive.setHex(intersected.currentHex);
-				} else {
-					material.color.setHex(intersected.currentHex);
-				}
-			}
-			//set sprite to be behind the ortographic camer so it is not visible
-			sceneOrtho.remove(tooltipSprite);
-			intersected = null;
-		}
-	}
-
 	function getProperty(projectJSON){
 		var boxMin = vec3FromArray(projectJSON["boxMin"]);
 		var boxMax = vec3FromArray(projectJSON["boxMax"]);
@@ -491,16 +412,16 @@ function View(projectURL) {
 		var property = {
 			name: projectJSON["projectName"],
 			description: projectJSON["description"],
-  			numHoles: projectJSON["numHoles"],
+			numHoles: projectJSON["numHoles"],
 			epsg: projectJSON["projectionEPSG"],
 			originShift: projectJSON["originShift"],
 			boxMin: boxMin,
 			boxMax: boxMax,
-  			longLatMin: vec3FromArray(projectJSON["longLatMin"]),
-  			longLatMax: vec3FromArray(projectJSON["longLatMax"]),
-  			desurveyMethod: projectJSON["desurveyMethod"],
-  			analytes: projectJSON["analytes"],
-  			formatVersion: projectJSON["formatVersion"],
+			longLatMin: vec3FromArray(projectJSON["longLatMin"]),
+			longLatMax: vec3FromArray(projectJSON["longLatMax"]),
+			desurveyMethod: projectJSON["desurveyMethod"],
+			analytes: projectJSON["analytes"],
+			formatVersion: projectJSON["formatVersion"],
 			box: {
 				size:   size,
 				center: center
@@ -545,11 +466,10 @@ function View(projectURL) {
 
 		document.addEventListener("mousedown", function mousedownEventListener(event) {
 			event.preventDefault();
-
 			if (controls.autoRotate) {
 				controls.autoRotate = false;
 			}
-		})
+		});
 	}
 
 	function addBoundingBox() {
@@ -557,50 +477,6 @@ function View(projectURL) {
 		var box = new THREE.EdgesHelper(property_boundary, colors.axes);
 		box.applyMatrix(new THREE.Matrix4().makeTranslation(property.box.center.x, property.box.center.y, property.box.center.z));
 		scene.add(box);
-	}
-
-	function addRandomTerrain() {
-		var maxX = property.box.size.x;
-		var maxY = property.box.size.y;
-
-		// Draw 100 lines on each side.
-		var dx = maxX / 100.0;
-		var dy = maxY / 100.0;
-		var minZ = property.box.center.z + property.box.size.z/2;
-		var maxdz = property.box.size.z / 5.0;
-
-		var meshGeometry = new THREE.Geometry();
-		var material = new THREE.LineBasicMaterial({
-			color: colors.terrain_frame,
-			transparent: true,
-			opacity: 0.8
-		});
-
-		var heights = [];
-
-		// Draw lines along the y axis.
-		for (var x = 0; x < maxX; x += dx) {
-			var lineGeometry = new THREE.Geometry();
-			heights[x] = [];
-			for (var y = 0; y < maxY; y += dy) {
-				var z = maxdz * Math.random() + minZ;
-				heights[x][y] = z;
-				lineGeometry.vertices.push(new THREE.Vector3(x, y, z));
-			}
-			scene.add(new THREE.Line(lineGeometry, material));
-			meshGeometry.merge(lineGeometry);
-		}
-
-		// And then along the x axis.
-		for (var y = 0; y < maxY; y += dy) {
-			var lineGeometry = new THREE.Geometry();
-			for (var x = 0; x < maxX; x += dx) {
-				var z = heights[x][y];
-				lineGeometry.vertices.push(new THREE.Vector3(x, y, z));
-			}
-			scene.add(new THREE.Line(lineGeometry, material));
-			meshGeometry.merge(lineGeometry);
-		}
 	}
 
 	function addReticle() {
@@ -639,14 +515,13 @@ function View(projectURL) {
 		container.appendChild(renderer.domElement);
 
 		// Load GL stuff.
-		gl = renderer.context;
-		if (null === gl.getExtension("OES_element_index_uint")) {
+		var gl = renderer.context;
+		if (!gl.getExtension("OES_element_index_uint")) {
 			console.error(
-				"Could not to load OES_element_index_uint. Is it supported?\n"
-				+ "Note, some vertices may not render.");
+				"Could not to load OES_element_index_uint. Is it supported?\n");
 			var msg = [];
 			msg.push("Supported extensions:");
-			gl.getSupportedExtensions().forEach(function (ext) {
+			gl.getSupportedExtensions().sort().forEach(function (ext) {
 				msg.push("\t" + ext);
 			});
 			console.debug(msg.join('\n'));
@@ -677,5 +552,13 @@ function View(projectURL) {
 		stats.domElement.style.bottom = '0px';
 		container.appendChild(stats.domElement);
 	}
+
+	// Convert [a, b, c, d..] into {x: a, y: b, z: c}.
+	//   Disregard anything after the third element.
+	//   Anything missing is assumed to be 0.
+	function vec3FromArray(array) {
+		return new THREE.Vector3(array[0], array[1], array[2]);
+	}
+
 }
 

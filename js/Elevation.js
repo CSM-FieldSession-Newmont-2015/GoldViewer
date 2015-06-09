@@ -1,4 +1,8 @@
-﻿var property;
+﻿/* global colors */
+/* global google */
+/* global THREE */
+
+var property;
 var scene;
 var segments = 10;
 var currentRow = 0;
@@ -11,91 +15,79 @@ var maxX;
 var maxY;
 var geometry;
 
-var map
+var map;
 var elevator;
 
 function addTerrain(_scene, _property) {
-    scene = _scene;
-    property = _property;
+	scene = _scene;
+	property = _property
 
-    latLngMin = new google.maps.LatLng(property.longLatMin.y, property.longLatMin.x);
-    latLngMax = new google.maps.LatLng(property.longLatMax.y, property.longLatMax.x);
-    dx = (latLngMax.lng() - latLngMin.lng()) / segments;
-    dy = (latLngMax.lat() - latLngMin.lat()) / segments;
-    maxX = property.box.size.x;
-    maxY = property.box.size.y;
-    geometry = new THREE.PlaneGeometry(maxX, maxY, segments, segments);
+	latLngMin = new google.maps.LatLng(property.longLatMin.y, property.longLatMin.x);
+	latLngMax = new google.maps.LatLng(property.longLatMax.y, property.longLatMax.x);
 
-    /*
-    var mapOptions = {
-        zoom: 8,
-        center: new google.maps.LatLng((latLngMax.lng() - latLngMin.lng()) / 2 + latLngMin.lng(), (latLngMax.lat() - latLngMin.lat()) / 2 + latLngMin.lat())
-    };
+	dx = (latLngMax.lng() - latLngMin.lng()) / segments;
+	dy = (latLngMax.lat() - latLngMin.lat()) / segments;
 
-    var mapOptions = {
-        zoom: 8,
-        center: new google.maps.LatLng(-34.397, 150.644)
-    };
+	maxX = property.box.size.x;
+	maxY = property.box.size.y;
 
-    map = google.maps.Map(document.getElementById('GoogleMap'), mapOptions);
-    //        .setSize(600, 600)
-    //        .setCenter((latLngMax.lng() - latLngMin.lng()) / 2, (latLngMax.lat() - latLngMin.lat()) / 2);
-    map.fitBounds(new google.maps.LatLngBounds(latLngMin, latLngMax));
-    map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
-*/
-    elevator = new google.maps.ElevationService();
+	geometry = new THREE.PlaneGeometry(maxX, maxY, segments, segments);
 
-    var path = [];
-    path.push(new google.maps.LatLng(latLngMin.lat() + currentRow * dy, latLngMin.lng()), new google.maps.LatLng(latLngMin.lat() + currentRow * dy, latLngMax.lng()));
+	elevator = new google.maps.ElevationService();
 
-    // Create a PathElevationRequest object using this array.
-    var pathRequest = {
-        'path': path,
-        'samples': segments + 1
-    }
+	var path = [];
+	path.push(new google.maps.LatLng(latLngMin.lat() + currentRow * dy, latLngMin.lng()), new google.maps.LatLng(latLngMin.lat() + currentRow * dy, latLngMax.lng()));
 
-    // Initiate the path request.
-    elevator.getElevationAlongPath(pathRequest, plotTerrain);
+	// Create a PathElevationRequest object using this array.
+	var pathRequest = {
+		'path': path,
+		'samples': segments + 1
+	};
+
+	// Initiate the path request.
+	elevator.getElevationAlongPath(pathRequest, plotTerrain);
 }
 
 function plotTerrain(results, status) {
-    if (status != google.maps.ElevationStatus.OK) {
-        return;
-    }
+	if (status != google.maps.ElevationStatus.OK) {
+		console.error("Google ElevationStatus] " + status);
+		return;
+	}
 
-    var elevations = results;
+	var elevations = results;
 
-    for (var i = 0; i <= segments; i++) {
-        geometry.vertices[(segments + 1) * currentRow + i].z = elevations[i].elevation;
-    }
+	for (var i = 0; i <= segments; i++) {
+		geometry.vertices[(segments + 1) * currentRow + i].z = elevations[i].elevation;
+	}
 
-    if (currentRow < segments) {
-        setTimeout(function () { }, 200);
-            currentRow++;
+	if (currentRow < segments) {
+		// Do nothing for a while, because Google has rate limits.
+		setTimeout(function () { }, 200);
+		currentRow++;
 
-            var path = [];
+		var path = [];
 
-            path.push(new google.maps.LatLng(latLngMin.lat() + currentRow * dy, latLngMin.lng()), new google.maps.LatLng(latLngMin.lat() + currentRow * dy, latLngMax.lng()));
+		path.push(new google.maps.LatLng(latLngMin.lat() + currentRow * dy, latLngMin.lng()), new google.maps.LatLng(latLngMin.lat() + currentRow * dy, latLngMax.lng()));
 
-            // Create a PathElevationRequest object using this array.
-            var pathRequest = {
-                'path': path,
-                'samples': segments + 1
-            }
+		// Create a PathElevationRequest object using this array.
+		var pathRequest = {
+			'path': path,
+			'samples': segments + 1
+		};
 
-            // Initiate the path request.
-            elevator.getElevationAlongPath(pathRequest, plotTerrain);
-//        }, 200);
-    } else {
-        var material = new THREE.MeshBasicMaterial({ color: colors.terrain_frame, side: THREE.DoubleSide, wireframe: true });
-        //var texture = THREE.ImageUtils.loadTexture('../js/avatar.jpg');//map.getMapUrl());
-        //var material = new THREE.MeshBasicMaterial({
-        //    map: texture
-        //});
-//        scene.add(new THREE.AmbientLight(0xeeeeee));
-        var plane = new THREE.Mesh(geometry, material);
-        plane.position.x += property.box.size.x / 2;
-        plane.position.y += property.box.size.y / 2;
-        scene.add(plane);
-    }
+		// Initiate the path request.
+		elevator.getElevationAlongPath(pathRequest, plotTerrain);
+	} else {
+		var material = new THREE.MeshBasicMaterial({
+			color: colors.terrain_frame,
+			side: THREE.DoubleSide,
+			wireframe: true
+		});
+
+		var plane = new THREE.Mesh(geometry, material);
+		plane.position.x += property.box.size.x / 2;
+		plane.position.y += property.box.size.y / 2;
+
+		scene.add(plane);
+	}
 }
