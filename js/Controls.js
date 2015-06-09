@@ -24,9 +24,7 @@ $(document).ready(function() {
 		                            $('#templateContainer').json2html(data.dataset, template);
 		                            $('.dataset').each(function (data) {
 		                                $(this).click(function () {
-		                                    property = miningPropertyFromURL($(this).attr('data-url'));
-		                                    console.log(property.name + "\n" + property.description);
-		                                    view = new View(property);
+		                                    view = new View($(this).attr('data-url'));
 		                                    view.start();
 		                                    $('#dialogDatasets').dialog("close");
 		                                });
