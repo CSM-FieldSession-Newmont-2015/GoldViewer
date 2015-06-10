@@ -37,7 +37,7 @@ function View(projectURL) {
 	var stats                 = null;
 	var projectJSON           = null;
 	var property              = null;
-	var holes                 = null;
+	var holes                 = {};
 	var minerals              = {};
 	var meshes                = [];
 	var returnedGeometry      = 0;
@@ -52,6 +52,7 @@ function View(projectURL) {
 	var checkMouse            = false;
 	var container             = $('#viewFrame');
 	var maxDimension          = 0;
+	var numWorkers            = 1;
 
 	this.start = function () {
 		init();
@@ -168,7 +169,7 @@ function View(projectURL) {
 	function delegate(meshlessData){
 
 		var workers = [];
-		for(var i = 0; i < 4; i += 1){
+		for(var i = 0; i < numWorkers; i += 1){
 			var newWorker = new Worker('js/MeshWorker.js');
 			newWorker.addEventListener('message', makeMesh);
 			workers.push(newWorker);
@@ -176,7 +177,7 @@ function View(projectURL) {
 		var index = 0;
 		Object.keys(minerals).forEach(function(mineral){
 			minerals[mineral].intervals.forEach(function(interval){
-				workers[index%4].postMessage([interval.path.buffer, interval.value, interval.id], [interval.path.buffer]);
+				workers[index%numWorkers].postMessage([interval.path.buffer, interval.value, interval.id], [interval.path.buffer]);
 				index += 1;
 			});
 		});
@@ -234,45 +235,68 @@ function View(projectURL) {
 		console.log('done');
 	}
 
+/* Layout of the holes object:
+
+holes = {
+	lines: {
+		tracecolor: THREE.Line
+	},
+	ids: {
+		id: {
+			name: String,
+			longitude: Float,
+			latitude: Float,
+			location: [Float]
+		}
+	}
+}
+*/
+
 	function addSurveyLines() {
 
 		getHoles();
-
-		var material = new THREE.LineBasicMaterial({transparent: true, opacity: 0.9, color:colors.black});
-		holes.forEach(function holesForEach(hole) {
-			geometry = new THREE.Geometry();
-			hole.surveyPoints.forEach(function pointsForEach(point) {
-				geometry.vertices.push(point);
-			});
-
-			scene.add(new THREE.Line(geometry, material));
-		});
 	}
 
 	function getHoles(){
-		holes = [];
-		projectJSON["holes"].forEach(function (hole) {
-			holes.push(parseHoleData(hole));
+		var geometries = {};
+		holes.lines = {};
+
+		projectJSON["holes"].forEach(function (jsonHole) {
+
+			var hole = {};
+			hole.name = jsonHole["name"];
+			hole.longitude = jsonHole["longLat"][0];
+			hole.latitude = jsonHole["longLat"][1];
+			hole.location = jsonHole["location"];
+
+			var color = jsonHole["traceColor"];
+
+			if(geometries[color] === undefined){
+				geometries[color] = [];
+			}
+
+			var surveys = jsonHole["interpolatedDownholeSurveys"];
+			var lineGeometry = geometries[color];
+				Array.prototype.push.apply(lineGeometry, surveys[0].location);
+			for (var i = 1; i < surveys.length - 1; i += 1 ) {
+				Array.prototype.push.apply(lineGeometry, surveys[i].location);
+				Array.prototype.push.apply(lineGeometry, surveys[i].location);
+			}
+				Array.prototype.push.apply(lineGeometry, surveys[surveys.length - 1].location);
 		});
-	}
 
-	function parseHoleData(jsonHole) {
-		var hole = {};
+		Object.keys(geometries).forEach(function(jsonColor){
+			var color = jsonColor.split("#");
+			color = "0x"+color[1];
+			color = new THREE.Color(parseInt(color, 16));
+			var material = new THREE.LineBasicMaterial({transparent: true, opacity: 0.8, color: color});
+			var buffGeometry = new THREE.BufferGeometry();
+			buffGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(geometries[jsonColor]), 3));
+			holes.lines[jsonColor] = new THREE.Line(buffGeometry, material, THREE.LinePieces);
+			scene.add(holes.lines[jsonColor]);
+		});
 
-		// The metadata can be used for tooltips and debuggin.
-		hole.id = jsonHole["id"];
-		hole.name = jsonHole["name"];
-		hole.traceColor = jsonHole["traceColor"];
-
-		var surveys = jsonHole["interpolatedDownholeSurveys"];
-		hole.surveyPoints = [];
-		for (var i = 0; i < surveys.length; i += 1 ) {
-
-			var location = vec3FromArray(surveys[i]["location"]);
-			hole.surveyPoints.push(location);
-		}
-
-		return hole;
+		delete geometries;
 	}
 
 	function addAxisLabels() {
@@ -584,7 +608,7 @@ function View(projectURL) {
 	}
 
 	function setupRenderer() {
-		renderer = new THREE.WebGLRenderer({antialias: false});
+		renderer = new THREE.WebGLRenderer({antialias: true});
 		renderer.setSize(window.innerWidth, window.innerHeight);
 		renderer.setClearColor(colors.background, 1);
 		renderer.sortObjects = false;
