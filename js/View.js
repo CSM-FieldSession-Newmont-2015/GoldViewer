@@ -160,7 +160,7 @@ function View(projectURL) {
 	}
 
 	function makeMesh(data){
-		var intervalID = data[3];
+		var intervalID = data[1];
 
 		var material = new THREE.MeshBasicMaterial({color: colors.pink});
 		var geometry = new THREE.BufferGeometry();
