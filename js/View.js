@@ -28,7 +28,6 @@ function loadJSON(url) {
 }
 
 function View(projectURL) {
-	projectURL = "data/jsondh/examples/mt_pleasant_south.json"
 	var camera                = null;
 	var cameraOrtho           = null;
 	var controls              = null;
@@ -334,7 +333,7 @@ holes = {
 		};
 
 		function makeLabel(name, x, y, z) {
-			var sprite = makeTextSprite(name);
+			var sprite = makeTextSprite(name, { backgroundColor: {r:255, g:100, b:100, a:0}});
 			sprite.position.set(x, y, z);
 			return sprite;
 		};
@@ -418,12 +417,28 @@ holes = {
 		var size      = parameters.hasOwnProperty("size") ? parameters["size"] : 512;
 		var textColor = parameters.hasOwnProperty("textColor") ?
 			parameters["textColor"] : { r: 0, g: 0, b: 0, a: 1.0 };
+		var backgroundColor = parameters.hasOwnProperty("backgroundColor") ?
+			parameters["backgroundColor"] : { r: 255, g: 250, b: 200, a: 0.8 };
 
 		var canvas = document.createElement('canvas');
 		canvas.width = size;
 		canvas.height = size;
 		var context = canvas.getContext('2d');
 		context.font = "Bold " + fontsize + "px " + fontface;
+
+		//draw background rectangle
+		var lines = message.split("\n");
+		var lineHeight= fontsize;
+		var maxTextWidth=0;
+		lines.forEach(function (line){
+			var textWidth=context.measureText(line).width;
+			if(textWidth>maxTextWidth){
+				maxTextWidth=textWidth;
+			}
+		});
+		context.fillStyle="rgba(" + backgroundColor.r + "," + backgroundColor.g + ","+ backgroundColor.b + "," + backgroundColor.a + ")";;
+		context.fillRect((size/2), (size/2)-fontsize, maxTextWidth,lines.length*lineHeight);
+
 
 		context.textAlign = 'left';
 		context.fillStyle = "rgba(" + textColor.r + ", " + textColor.g + ", " + textColor.b + ", 1.0)";
@@ -484,7 +499,6 @@ holes = {
 		if (intersects.length > 0) {
 			if (intersected != intersects[0].object) {
 				if (intersected) {
-		console.log('booty');
 					var material = intersected.material;
 					if (material.emissive) {
 						material.emissive.setHex(intersected.currentHex);
@@ -516,7 +530,6 @@ holes = {
 			}
 
 		} else {
-		//console.log('booty2');
 			if (intersected) {
 				material = intersected.material;
 
