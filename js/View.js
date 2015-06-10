@@ -85,6 +85,8 @@ function View(projectURL) {
 	/*
 	This is the layout of the minerals object:
 	{
+		"mesh": THREE.Mesh
+
 		//e. g. 'Au', 'Ag', etc.
 		MineralString: [
 			{
@@ -153,12 +155,9 @@ function View(projectURL) {
 		mesh.visible = false;
 		mesh.autoUpdate = false;
 		if(returnedGeometry%1000 == 0)
-			console.log(returnedGeometry/1000);
+			SetProgressBar(returnedGeometry/1000);
 		if(returnedGeometry >= currentID){
-			setTimeout(makeBigMeshes(), 2000);
-			//meshes.forEach(function(mesh){
-				//scene.add(mesh);
-			//})
+			setTimeout(makeBigMeshes(), 0);
 			checkMouse = true;
 		}
 	}
@@ -225,12 +224,16 @@ function View(projectURL) {
 			var geometry = new THREE.BufferGeometry();
 			geometry.addAttribute('position', new THREE.BufferAttribute(verts, 3));
 			geometry.computeFaceNormals();
-			minerals[mineral]["mesh"] = new THREE.Mesh(geometry);
 
+			var color = colorFromString(property.analytes[mineral].color);
+			var material = new THREE.MeshPhongMaterial({color: color});
+			minerals[mineral]["mesh"] = new THREE.Mesh(geometry, material);
+
+			console.log(property.analytes);
 			scene.add(minerals[mineral]["mesh"]);
 
 		});
-		//SetProgressBar(100);
+		SetProgressBar(100);
 	}
 
 /* Layout of the holes object:
@@ -284,17 +287,19 @@ holes = {
 		});
 
 		Object.keys(geometries).forEach(function(jsonColor){
-			var color = jsonColor.split("#");
-			color = "0x"+color[1];
-			color = new THREE.Color(parseInt(color, 16));
+			var color = colorFromString(jsonColor);
 			var material = new THREE.LineBasicMaterial({transparent: true, opacity: 0.8, color: color});
 			var buffGeometry = new THREE.BufferGeometry();
 			buffGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(geometries[jsonColor]), 3));
 			holes.lines[jsonColor] = new THREE.Line(buffGeometry, material, THREE.LinePieces);
 			scene.add(holes.lines[jsonColor]);
 		});
+	}
 
-		delete geometries;
+	function colorFromString(stringColor){
+			var color = stringColor.split("#");
+			color = "0x"+color[1];
+			return new THREE.Color(parseInt(color, 16));
 	}
 
 	function addAxisLabels() {
@@ -382,7 +387,7 @@ holes = {
 		var ambientLight = new THREE.AmbientLight(colors.soft_white);
 		scene.add(ambientLight);
 
-		var light = new THREE.PointLight(0xffffff, 100.0, 20.0 * maxDimension);
+		var light = new THREE.PointLight(0xffffff, 10000.0, 20.0 * maxDimension);
 		light.position.set(0, 0, 3.0 * property.box.size.z + property.box.center.z - property.box.size.z / 2);
 		scene.add(light);
 	}
@@ -465,7 +470,7 @@ holes = {
 			longLatMin: vec3FromArray(projectJSON["longLatMin"]),
 			longLatMax: vec3FromArray(projectJSON["longLatMax"]),
 			desurveyMethod: projectJSON["desurveyMethod"],
-			analytes: projectJSON["analytes"],
+			analytes: {},
 			formatVersion: projectJSON["formatVersion"],
 			box: {
 				size:   size,
@@ -473,10 +478,11 @@ holes = {
 			}
 		};
 
-		property.analytes.forEach(function (analyte){
-			var color = analyte.color.split("#");
-			color = "0x"+color[1];
-			analyte.color = color;
+		projectJSON["analytes"].forEach(function (analyte){
+			property.analytes[analyte.name] = {
+				color: analyte.color,
+				description: analyte.description
+			}
 		});
 
 		return property;
