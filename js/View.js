@@ -28,7 +28,6 @@ function loadJSON(url) {
 }
 
 function View(projectURL) {
-	projectURL = "data/jsondh/examples/mt_pleasant_south.json"
 	var camera                = null;
 	var cameraOrtho           = null;
 	var controls              = null;
