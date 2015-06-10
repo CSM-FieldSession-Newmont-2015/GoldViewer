@@ -12,7 +12,7 @@ self.addEventListener('message', function(e) {
 	calcGeometry(e.data);
 });
 
-var cylinderEdges = 6;
+var cylinderEdges = 10;
 var matrix4 = new THREE.Matrix4().set
 		(1, 0, 0, 0,
 		0, 0, 1, 0,
