@@ -407,14 +407,11 @@ function View(projectURL) {
 		var lineHeight= fontsize;
 		var maxTextWidth=0;
 		lines.forEach(function (line){
-			console.log("line"+line);
 			var textWidth=context.measureText(line).width;
-			console.log(textWidth);
 			if(textWidth>maxTextWidth){
 				maxTextWidth=textWidth;
 			}
 		});
-		console.log(maxTextWidth);
 		context.fillStyle="rgba(" + backgroundColor.r + "," + backgroundColor.g + ","+ backgroundColor.b + "," + backgroundColor.a + ")";;
 		context.fillRect((size/2), (size/2)-fontsize, maxTextWidth,lines.length*lineHeight);
 
@@ -478,7 +475,6 @@ function View(projectURL) {
 		if (intersects.length > 0) {
 			if (intersected != intersects[0].object) {
 				if (intersected) {
-		console.log('booty');
 					var material = intersected.material;
 					if (material.emissive) {
 						material.emissive.setHex(intersected.currentHex);
@@ -510,7 +506,6 @@ function View(projectURL) {
 			}
 
 		} else {
-		//console.log('booty2');
 			if (intersected) {
 				material = intersected.material;
 
