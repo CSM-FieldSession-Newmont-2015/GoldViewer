@@ -179,19 +179,17 @@ function View(projectURL) {
 		// Save all of the meshes for tool tips.
 		meshes[intervalID] = mesh;
 
-		var fivePercent = Math.ceil(0.05 * totalGeometries);
-
-		// Keep us up to date on how much has procssed.
-		if (returnedGeometry % fivePercent == 0) {
-			console.log(
-				Math.floor(100.0 * returnedGeometry / totalGeometries) + "%");
+		// Keep us up to date on how much has procssed ever x%.
+		var percentInterval = Math.ceil(0.005 * totalGeometries);
+		if (returnedGeometry % percentInterval == 0) {
+			// We can measure how many of the geometries we've loaded,
+			//   but we can't easily predict how long the BigMesh will
+			//   take, so assume 2%.
+			SetProgressBar(98 * returnedGeometry / totalGeometries);
 		}
 
 		if (returnedGeometry >= totalGeometries){
-			// Print the 100%. Can't leave us hanging at 99%!
-			console.log(
-				Math.floor(100.0 * returnedGeometry / totalGeometries) + "%");
-			setTimeout(makeBigMeshes(), 2000);
+			setTimeout(makeBigMeshes(), 0);
 
 			// We need to add the meshes to the scene for intercepting to work.
 			// We're not entirely sure why.
@@ -261,7 +259,13 @@ function View(projectURL) {
 	}
 
 	function makeBigMeshes() {
-		var verticesPerInterval = meshes[0].geometry.attributes.position.array.length;
+		if (meshes.length === 0) {
+			console.log("`meshes` is empty. Are there any intervals?");
+			return;
+		}
+
+		var verticesPerInterval = meshes[0].geometry.attributes
+			.position.array.length;
 
 		Object.keys(minerals).forEach(function(mineral){
 
@@ -282,10 +286,11 @@ function View(projectURL) {
 			var material = new THREE.MeshPhongMaterial({color: color});
 			minerals[mineral]["mesh"] = new THREE.Mesh(geometry, material);
 
-			console.log(property.analytes);
 			scene.add(minerals[mineral]["mesh"]);
 
 		});
+
+		// Progress is done!
 		SetProgressBar(100);
 	}
 
@@ -764,7 +769,7 @@ function View(projectURL) {
 			gl.getSupportedExtensions().sort().forEach(function (ext) {
 				msg.push("\t" + ext);
 			});
-			console.debug(msg.join('\n'));
+			console.error(msg.join('\n'));
 		}
 	}
 
