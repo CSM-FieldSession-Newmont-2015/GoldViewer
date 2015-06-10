@@ -45,6 +45,10 @@ function View(projectURL) {
 	var sceneOrtho            = new THREE.Scene();
 	var mouse                 = new THREE.Vector2();
 	var tooltipSpriteLocation = new THREE.Vector2();
+	var raycaster             = new THREE.Raycaster();
+	var tooltipSprite         = null;
+	var intersected           = null;
+	var checkMouse            = false;
 	var container             = $('#viewFrame');
 	var maxDimension          = 0;
 
@@ -74,8 +78,7 @@ function View(projectURL) {
 		addAxisLabels();
 		addReticle();
 		addLights();
-		addSurveyLines();
-		addTerrain(scene, property);
+		//addTerrain(scene, property);
 	}
 
 	/*
@@ -138,6 +141,7 @@ function View(projectURL) {
 
 	function makeMesh(e){
 		var data = e.data;
+		var intervalID = data[3];
 		var basic = new THREE.MeshBasicMaterial({color: colors.pink});
 		returnedGeometry += 1;
 		var geometry = new THREE.BufferGeometry();
@@ -145,13 +149,18 @@ function View(projectURL) {
 		// Normals are expensive and we don't have them working yet.
 		//geometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array(e.data[1]), 3 ));
 		var mesh = new THREE.Mesh(geometry, basic);
-		meshes[data[3]] = mesh;
+		mesh.mineralData = meshes[intervalID];
+		meshes[intervalID] = mesh;
 		mesh.visible = false;
-		//scene.add(mesh);
+		mesh.autoUpdate = false;
 		if(returnedGeometry%1000 == 0)
 			console.log(returnedGeometry/1000);
 		if(returnedGeometry >= currentID){
 			setTimeout(makeBigMeshes(), 2000);
+			//meshes.forEach(function(mesh){
+				//scene.add(mesh);
+			//})
+			checkMouse = true;
 		}
 	}
 
@@ -364,7 +373,8 @@ function View(projectURL) {
 		camera.updateMatrixWorld();
 
 		// TODO: Only do this when the mouse is clicked.
-		//checkMouseIntercept();
+		//if(checkMouse)
+			//checkMouseIntercept();
 
 		reticle.position.x = controls.target.x;
 		reticle.position.y = controls.target.y;
@@ -379,7 +389,7 @@ function View(projectURL) {
 	function makeTextSprite(message, parameters) {
 		if (parameters === undefined) parameters = {};
 		var fontface  = parameters.hasOwnProperty("fontface") ? parameters["fontface"] : "Arial";
-		var fontsize  = parameters.hasOwnProperty("fontsize") ? parameters["fontsize"] : 80;
+		var fontsize  = parameters.hasOwnProperty("fontsize") ? parameters["fontsize"] : 30;
 		var size      = parameters.hasOwnProperty("size") ? parameters["size"] : 512;
 		var textColor = parameters.hasOwnProperty("textColor") ?
 			parameters["textColor"] : { r: 0, g: 0, b: 0, a: 1.0 };
@@ -437,6 +447,69 @@ function View(projectURL) {
 		return property;
 	}
 
+	function checkMouseIntercept() {
+		if(!checkMouse)
+			return;
+		meshes.forEach(function(mesh){
+			scene.add(mesh);
+		})
+		raycaster.setFromCamera(mouse, camera);
+		var intersects = raycaster.intersectObjects(meshes);
+
+		if (intersects.length > 0) {
+			if (intersected != intersects[0].object) {
+				if (intersected) {
+		console.log('booty');
+					var material = intersected.material;
+					if (material.emissive) {
+						material.emissive.setHex(intersected.currentHex);
+					} else {
+						material.color.setHex(intersected.currentHex);
+					}
+				}
+				intersected = intersects[0].object;
+				//set sprite to be in front of the orthographic camera so it is visible
+				sceneOrtho.remove(tooltipSprite);
+				var data = intersected.mineralData;
+				tooltipSprite = makeTextSprite(data.mineral + "\nValue: " + data.value + "\nDep: " + data.depth.start + '-' + data.depth.end + "\nHole ID: " + data.hole);//holeId+"\n"+intersected.oreType+"\n"+intersected.oreConcentration+" g/ton", {fontsize: 18, size: 256}); //Create a basic tooltip display sprite TODO: Make tooltip display info about current drillhole
+				tooltipSprite.scale.set(250,250,1);
+				tooltipSprite.position.z=0;
+				tooltipSprite.position.x=tooltipSpriteLocation.x;
+				tooltipSprite.position.y=tooltipSpriteLocation.y;
+				sceneOrtho.add(tooltipSprite);
+
+				material = intersected.material;
+				if (material.emissive) {
+					intersected.currentHex = intersected.material.emissive.getHex();
+					material.emissive.setHex(0xff0000);
+				}
+				else {
+					intersected.currentHex = material.color.getHex();
+					material.color.setHex(0xff0000);
+				}
+
+			}
+
+		} else {
+		//console.log('booty2');
+			if (intersected) {
+				material = intersected.material;
+
+				if (material.emissive) {
+					material.emissive.setHex(intersected.currentHex);
+				} else {
+					material.color.setHex(intersected.currentHex);
+				}
+			}
+			//set sprite to be behind the ortographic camer so it is not visible
+			sceneOrtho.remove(tooltipSprite);
+			intersected = null;
+		}
+		meshes.forEach(function(mesh){
+			scene.remove(mesh);
+		})
+	}
+
 	function setupWindowListeners() {
 		// Resize the camera when the window is resized.
 		window.addEventListener('resize', function resizeEventListener(event) {
@@ -453,7 +526,7 @@ function View(projectURL) {
 			renderer.setSize(window.innerWidth, window.innerHeight);
 		});
 
-		document.addEventListener('mousemove', function mousemouseEventListener(event) {
+		container.addEventListener('click', function mousemouseEventListener(event) {
 			event.preventDefault();
 
 			mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -462,13 +535,16 @@ function View(projectURL) {
 			//this will update the mouse position as well as make the tooltipSprite follow the mouse
 			tooltipSpriteLocation.x=event.clientX-(window.innerWidth/2);
 			tooltipSpriteLocation.y=-event.clientY+(window.innerHeight/2)+20;
+			checkMouseIntercept();
 		}, false);
 
-		document.addEventListener("mousedown", function mousedownEventListener(event) {
+		container.addEventListener("mousedown", function mousedownEventListener(event) {
 			event.preventDefault();
 			if (controls.autoRotate) {
 				controls.autoRotate = false;
 			}
+			intersected = null;
+			sceneOrtho.remove(tooltipSprite);
 		});
 	}
 
