@@ -63,10 +63,7 @@ function LoadControls() {
             }
         });
         $( "#zoomIn" ).click(function() {
-            var controls = document.getElementById('viewFrame').contentWindow.controls;
-            if (controls) {
-                controls.dollyIn(1.25);
-            }
+            view.zoomIn();
         });
         $("#zoomOut").button({
             text: false,
@@ -75,10 +72,7 @@ function LoadControls() {
             }
         });
         $( "#zoomOut" ).click(function() {
-            var controls = document.getElementById('viewFrame').contentWindow.controls;
-            if (controls) {
-                controls.dollyIn(.75);
-            }
+            view.zoomOut();
         });
 
         $(document).keydown(function(event) {
@@ -90,17 +84,6 @@ function LoadControls() {
                 controls.onKeyDown(event);
             }
         });
-    });
-}
-
-function SetWindowResizeEvent() {
-    $(window).resize(function() {
-        var height = $(window).height();
-        height -= $("#viewFrame").position().top;
-        height -= $("div#ControlBar").outerHeight(true);
-        height -= $("div#progressbar").outerHeight(true);
-        height -= 8; //asthetic padding
-        $("#viewFrame").height(height);
     });
 }
 
