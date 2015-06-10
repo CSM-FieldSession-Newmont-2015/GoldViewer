@@ -309,7 +309,7 @@ function View(projectURL) {
 		};
 
 		function makeLabel(name, x, y, z) {
-			var sprite = makeTextSprite(name);
+			var sprite = makeTextSprite(name, { backgroundColor: {r:255, g:100, b:100, a:0}});
 			sprite.position.set(x, y, z);
 			return sprite;
 		};
@@ -393,12 +393,31 @@ function View(projectURL) {
 		var size      = parameters.hasOwnProperty("size") ? parameters["size"] : 512;
 		var textColor = parameters.hasOwnProperty("textColor") ?
 			parameters["textColor"] : { r: 0, g: 0, b: 0, a: 1.0 };
+		var backgroundColor = parameters.hasOwnProperty("backgroundColor") ?
+			parameters["backgroundColor"] : { r: 255, g: 250, b: 200, a: 0.8 };
 
 		var canvas = document.createElement('canvas');
 		canvas.width = size;
 		canvas.height = size;
 		var context = canvas.getContext('2d');
 		context.font = "Bold " + fontsize + "px " + fontface;
+
+		//draw background rectangle
+		var lines = message.split("\n");
+		var lineHeight= fontsize;
+		var maxTextWidth=0;
+		lines.forEach(function (line){
+			console.log("line"+line);
+			var textWidth=context.measureText(line).width;
+			console.log(textWidth);
+			if(textWidth>maxTextWidth){
+				maxTextWidth=textWidth;
+			}
+		});
+		console.log(maxTextWidth);
+		context.fillStyle="rgba(" + backgroundColor.r + "," + backgroundColor.g + ","+ backgroundColor.b + "," + backgroundColor.a + ")";;
+		context.fillRect((size/2), (size/2)-fontsize, maxTextWidth,lines.length*lineHeight);
+
 
 		context.textAlign = 'left';
 		context.fillStyle = "rgba(" + textColor.r + ", " + textColor.g + ", " + textColor.b + ", 1.0)";
