@@ -12,7 +12,7 @@ self.addEventListener('message', function(e) {
 	calcGeometry(e.data);
 });
 
-var cylinderEdges = 10;
+var cylinderEdges = 6;
 var matrix4 = new THREE.Matrix4().set
 		(1, 0, 0, 0,
 		0, 0, 1, 0,
@@ -45,19 +45,16 @@ function calcGeometry(intervalData){
 	var floats = new Float32Array(intervalData[0]);
 	var vec1 = vec3FromArray(floats);
 	var vec2 = vec3FromArray([floats[3], floats[4], floats[5]]);
+	var holeID = intervalData[2];
 
 	var geometry = makeCylinderGeometry(vec1, vec2, determineWidth(intervalData[1]));
 	postMessage(
 		[
 			geometry.attributes.position.array.buffer,
-			geometry.attributes.normal.array.buffer,
-			geometry.attributes.uv.array.buffer,
-			intervalData[2]
+			holeID
 		],
 		[
-			geometry.attributes.position.array.buffer,
-			geometry.attributes.normal.array.buffer,
-			geometry.attributes.uv.array.buffer
+			geometry.attributes.position.array.buffer
 		]);
 }
 
