@@ -142,13 +142,11 @@ function View(projectURL) {
 
 	function makeMesh(e){
 		var data = e.data;
-		var intervalID = data[3];
+		var intervalID = data[1];
 		var basic = new THREE.MeshBasicMaterial({color: colors.pink});
 		returnedGeometry += 1;
 		var geometry = new THREE.BufferGeometry();
 		geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(e.data[0]), 3 ));
-		// Normals are expensive and we don't have them working yet.
-		//geometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array(e.data[1]), 3 ));
 		var mesh = new THREE.Mesh(geometry, basic);
 		mesh.mineralData = meshes[intervalID];
 		meshes[intervalID] = mesh;
@@ -211,27 +209,28 @@ function View(projectURL) {
 	}
 
 	function makeBigMeshes() {
+		var verticesPerInterval = meshes[0].geometry.attributes.position.array.length;
+
 		Object.keys(minerals).forEach(function(mineral){
-			setTimeout(1);
-			var mesh = minerals[mineral]["mesh"];
-			var verts = [];
-			//var norms = [];
-			console.log(mineral);
+
+			var numVertices = verticesPerInterval * minerals[mineral].intervals.length;
+			var verts = new Float32Array(numVertices);
+
+			var counter = 0;
 			minerals[mineral].intervals.forEach(function(interval){
-				Array.prototype.push.apply(verts, meshes[interval['id']].geometry.attributes.position.array);
-				// Normals don't work.
-				//Array.prototype.push.apply(norms, meshes[interval['id']].geometry.attributes.normal.array);
+				var logMe = new Float32Array(meshes[interval['id']].geometry.attributes.position.array);
+				verts.set(logMe, counter * verticesPerInterval);
+				counter += 1;
 			});
-			minerals[mineral].mesh.vertices = new Float32Array(verts);
-			//minerals[mineral].mesh.normals = new Float32Array(norms);
 			var geometry = new THREE.BufferGeometry();
-			geometry.addAttribute('position', new THREE.BufferAttribute(mesh['vertices'], 3));
-			//geometry.addAttribute('normal', new THREE.BufferAttribute(mesh['normals'], 3));
-			mesh = new THREE.Mesh(geometry);
-			scene.add(mesh);
+			geometry.addAttribute('position', new THREE.BufferAttribute(verts, 3));
+			geometry.computeFaceNormals();
+			minerals[mineral]["mesh"] = new THREE.Mesh(geometry);
+
+			scene.add(minerals[mineral]["mesh"]);
 
 		});
-		console.log('done');
+		//SetProgressBar(100);
 	}
 
 /* Layout of the holes object:
@@ -395,10 +394,6 @@ holes = {
 		stats.update();
 
 		camera.updateMatrixWorld();
-
-		// TODO: Only do this when the mouse is clicked.
-		//if(checkMouse)
-			//checkMouseIntercept();
 
 		reticle.position.x = controls.target.x;
 		reticle.position.y = controls.target.y;
@@ -573,7 +568,7 @@ holes = {
 			//this will update the mouse position as well as make the tooltipSprite follow the mouse
 			tooltipSpriteLocation.x=event.clientX-(window.innerWidth/2);
 			tooltipSpriteLocation.y=-event.clientY+(window.innerHeight/2)+20;
-			checkMouseIntercept();
+			//checkMouseIntercept();
 		}, false);
 
 		container.addEventListener("mousedown", function mousedownEventListener(event) {
