@@ -58,6 +58,15 @@ function View(projectURL) {
 		render();
 	};
 
+	this.zoomIn = function () {
+		controls.dollyIn(1.1);	
+
+	};
+
+	this.zoomOut = function () {
+		controls.dollyIn(0.9);	
+	};
+
 	function init() {
 		projectJSON = loadJSON(projectURL);
 		property = getProperty(projectJSON);
