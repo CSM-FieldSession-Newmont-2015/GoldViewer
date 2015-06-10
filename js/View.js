@@ -59,12 +59,12 @@ function View(projectURL) {
 	};
 
 	this.zoomIn = function () {
-		controls.dollyIn(1.1);	
+		controls.dollyIn(1.1);
 
 	};
 
 	this.zoomOut = function () {
-		controls.dollyIn(0.9);	
+		controls.dollyIn(0.9);
 	};
 
 	function init() {
@@ -88,7 +88,7 @@ function View(projectURL) {
 		addAxisLabels();
 		addReticle();
 		addLights();
-		//addTerrain(scene, property);
+		addTerrain(scene, property);
 	}
 
 	/*
@@ -163,8 +163,9 @@ function View(projectURL) {
 		meshes[intervalID] = mesh;
 		mesh.visible = false;
 		mesh.autoUpdate = false;
-		if(returnedGeometry%1000 == 0)
-			SetProgressBar(returnedGeometry/1000);
+		if(returnedGeometry%10000 == 0) {
+			console.log(returnedGeometry);
+		}
 		if(returnedGeometry >= currentID){
 			setTimeout(makeBigMeshes(), 0);
 			checkMouse = true;
@@ -631,7 +632,7 @@ holes = {
 	}
 
 	function setupRenderer() {
-		renderer = new THREE.WebGLRenderer({antialias: true});
+		renderer = new THREE.WebGLRenderer({antialias: false});
 		renderer.setSize(window.innerWidth, window.innerHeight);
 		renderer.setClearColor(colors.background, 1);
 		renderer.sortObjects = false;
