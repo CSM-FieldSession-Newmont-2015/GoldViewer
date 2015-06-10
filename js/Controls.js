@@ -29,6 +29,8 @@ function LoadMenu() {
                                                 view = new View($(this).attr('data-url'));
                                                 view.start();
                                                 $('#dialogDatasets').dialog("close");
+                                                InitProgressBar();
+                                                setTimeout(function(){$('window').trigger('resize');}, 2000);
                                             });
                                         });
                                     })
@@ -78,59 +80,6 @@ function LoadControls() {
                 controls.dollyIn(.75);
             }
         });
-        $("#panLeft").button({
-            text: false,
-            icons: {
-                primary: "ui-icon-arrow-1-w"
-            }
-        });
-        $( "#panLeft" ).click(function() {
-            var controls = document.getElementById('viewFrame').contentWindow.controls;
-            if (controls) {
-                controls.panLeft(1);
-            }
-        });
-
-        $("#panRight").button({
-            text: false,
-            icons: {
-                primary: "ui-icon-arrow-1-e"
-            }
-        });
-        $( "#panRight" ).click(function() {
-            var controls = document.getElementById('viewFrame').contentWindow.controls;
-            if (controls) {
-                controls.panLeft(-1);
-            }
-        });
-
-        $("#panUp").button({
-            text: false,
-            icons: {
-                primary: "ui-icon-arrow-1-n"
-            }
-        });
-        $( "#panUp" ).click(function() {
-            var controls = document.getElementById('viewFrame').contentWindow.controls;
-            if (controls) {
-                controls.panUp(1);
-            }
-        });
-        $("#panDown").button({
-            text: false,
-            icons: {
-                primary: "ui-icon-arrow-1-s"
-            }
-        });
-        $( "#panDown" ).click(function() {
-            var controls = document.getElementById('viewFrame').contentWindow.controls;
-            if (controls) {
-                controls.panUp(-1);
-            }
-        });
-
-        $("#toggleButton").button();
-        $("#radioDemo").buttonset();
 
         $(document).keydown(function(event) {
             // Prevent arrow key scrolling
@@ -149,7 +98,32 @@ function SetWindowResizeEvent() {
         var height = $(window).height();
         height -= $("#viewFrame").position().top;
         height -= $("div#ControlBar").outerHeight(true);
-        height -= 8;
+        height -= $("div#progressbar").outerHeight(true);
+        height -= 8; //asthetic padding
         $("#viewFrame").height(height);
     });
+}
+
+function InitProgressBar() {
+    $('#progressbar').progressbar({
+        value: false,
+        change: function () {
+//            $('.progress-label').text($('#progressbar').progressbar('value') + "%");
+        },
+        complete: function () {
+            $('.progress-label').text("Complete!");
+            $('.progress-label').css('left', $('#progressbar').width() / 2 - $('.progress-label').width() / 2 + 'px');
+            $('#progressbar').hide('drop', { direction: 'down' }, 'slow');
+        },
+        create: function () {
+            $('#progressbar').css('top', $("#viewFrame").position().top + 20 + 'px');
+            $('.progress-label').css('left', $('#progressbar').width() / 2 - $('.progress-label').width() / 2 + 'px');
+        }
+    });
+}
+
+function SetProgressBar(percent) {
+    var progressbar = $('#progressbar');
+    percent = percent < 0 ? 0 : percent;
+    progressbar.progressbar('value', percent);
 }

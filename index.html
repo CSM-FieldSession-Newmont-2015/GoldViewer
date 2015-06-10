@@ -22,9 +22,9 @@
 
         <script type="text/javascript">
             $(document).ready(function() {
+                SetWindowResizeEvent();
                 LoadMenu();
                 LoadControls();
-                SetWindowResizeEvent();
             });
         </script>
 	</head>
@@ -32,9 +32,10 @@
 		<div id="divTopMenu"></div>
 		<iframe id="viewFrame" src="html/ViewFrame.html"
 				allowfullscreen webkitallowfullscreen mozallowfullscreen
-				style="height: 100%; width: 100%; border: none">
+				style="height: 80%; width: 100%; border: none" scrolling="no">
 		</iframe>
-		<div id="ControlBar" class="ui-widget-header ui-corner-all"></div>
+        <div id="ControlBar" class="ui-widget-header ui-corner-all"></div>
+        <div id="progressbar"><div class="progress-label">Loading Geometries...</div></div>
         <div id="dialogDatasets" title="Gold Viewer Datasets" style="height:400px; width:640px;" hidden="hidden">
             <div id="templateContainer"></div>
         </div>
