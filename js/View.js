@@ -40,7 +40,7 @@ function View(projectURL) {
 	var minerals              = {};
 	var meshes                = [];
 	var returnedGeometry      = 0;
-	var currentID             = 0;
+	var totalGeometries       = 0;
 	var scene                 = new THREE.Scene();
 	var sceneOrtho            = new THREE.Scene();
 	var mouse                 = new THREE.Vector2();
@@ -51,7 +51,7 @@ function View(projectURL) {
 	var checkMouse            = false;
 	var container             = $('#viewFrame');
 	var maxDimension          = 0;
-	var numWorkers            = 1;
+	var mineralData           = [];
 
 	this.start = function () {
 		init();
@@ -71,7 +71,10 @@ function View(projectURL) {
 		projectJSON = loadJSON(projectURL);
 		property = getProperty(projectJSON);
 
-		maxDimension = Math.max(property.box.size.x, property.box.size.y, property.box.size.z);
+		maxDimension = Math.max(
+			property.box.size.x,
+			property.box.size.y,
+			property.box.size.z);
 		container.contents().find('body').html('<div></div>');
 		container = container.contents().find('div:first').get(0);
 		setupCamera();
@@ -115,75 +118,115 @@ function View(projectURL) {
 	}
 	*/
 	function getMinerals() {
-
 		var holesJSON = projectJSON["holes"];
-		holesJSON.forEach(function(hole){
+		var currentID = 0;
 
-			hole["downholeDataValues"].forEach(function(mineral){
-				if(minerals[mineral["name"]] === undefined){
-					minerals[mineral["name"]] = {};
-					minerals[mineral["name"]].intervals = [];
-					minerals[mineral["name"]]["mesh"] = {
-						vertices: null,
-						normals: null
+		holesJSON.forEach(function holesJsonForEach(hole) {
+			hole["downholeDataValues"].forEach(
+				function downholeDataForEach(mineral) {
+				if (minerals[mineral["name"]] === undefined) {
+					minerals[mineral["name"]] = {
+						intervals: [],
+						mesh: {
+							vertices: null
+						}
 					};
 				}
-				mineral["intervals"].forEach(function(interval){
+
+				mineral["intervals"].forEach(
+					function mienralIntervalsForEach(interval) {
+					var path = interval["path"][0].concat(interval["path"][1]);
 					var data = {
 						mineral: mineral["name"],
-						value: interval["value"],
+						value:   interval["value"],
 						depth: {
 							start : interval["from"],
 							end   : interval["to"]
 						},
-						path: new Float32Array(interval["path"][0].concat(interval["path"][1])),
-						hole      : hole["id"],
+						path:    new Float32Array(path),
+						hole:    hole["id"],
 						id : currentID
 					};
 					minerals[mineral["name"]].intervals.push(data);
-					meshes[currentID] = data;
+					mineralData[currentID] = data;
 					currentID += 1;
 				});
 			});
-
 		});
+
+		totalGeometries = currentID;
 		sortMinerals();
 		delegate(minerals);
 	}
 
-	function makeMesh(e){
-		var data = e.data;
-		var intervalID = data[1];
-		var basic = new THREE.MeshBasicMaterial({color: colors.pink});
-		returnedGeometry += 1;
+	function makeMesh(data){
+		var intervalID = data[3];
+
+		var material = new THREE.MeshBasicMaterial({color: colors.pink});
 		var geometry = new THREE.BufferGeometry();
-		geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(e.data[0]), 3 ));
-		var mesh = new THREE.Mesh(geometry, basic);
-		mesh.mineralData = meshes[intervalID];
+
+		geometry.addAttribute('position',
+			new THREE.BufferAttribute(new Float32Array(data[0]), 3));
+
+		var mesh           = new THREE.Mesh(geometry, material);
+		// Piggy back our data into the mesh, for easier access later.
+		mesh.mineralData   = mineralData[intervalID];
+		// These meshes only exist for tool tips, so we don't actually
+		//   want to render them.
+		mesh.visible       = false;
+		mesh.autoUpdate    = false;
+
+		// Save all of the meshes for tool tips.
 		meshes[intervalID] = mesh;
-		mesh.visible = false;
-		mesh.autoUpdate = false;
-		if(returnedGeometry%10000 == 0) {
-			console.log(returnedGeometry);
+
+		var fivePercent = Math.ceil(0.05 * totalGeometries);
+
+		// Keep us up to date on how much has procssed.
+		if (returnedGeometry % fivePercent == 0) {
+			console.log(
+				Math.floor(100.0 * returnedGeometry / totalGeometries) + "%");
 		}
-		if(returnedGeometry >= currentID){
-			setTimeout(makeBigMeshes(), 0);
+
+		if (returnedGeometry >= totalGeometries){
+			// Print the 100%. Can't leave us hanging at 99%!
+			console.log(
+				Math.floor(100.0 * returnedGeometry / totalGeometries) + "%");
+			setTimeout(makeBigMeshes(), 2000);
+
+			// We need to add the meshes to the scene for intercepting to work.
+			// We're not entirely sure why.
+			/* This causes performance problems for us, at.
+			meshes.forEach(function(mesh){
+				scene.add(mesh);
+			});
 			checkMouse = true;
+			*/
 		}
 	}
 
 	function delegate(meshlessData){
+		var numWorkers = 1;
+		var workers    = [];
 
-		var workers = [];
 		for(var i = 0; i < numWorkers; i += 1){
-			var newWorker = new Worker('js/MeshWorker.js');
-			newWorker.addEventListener('message', makeMesh);
-			workers.push(newWorker);
+			var worker = new Worker('js/MeshWorker.js');
+			worker.addEventListener('message',
+				function workerMessageEventListener(e) {
+					returnedGeometry += 1;
+					makeMesh(e.data);
+			});
+			workers.push(worker);
 		}
+
 		var index = 0;
 		Object.keys(minerals).forEach(function(mineral){
 			minerals[mineral].intervals.forEach(function(interval){
-				workers[index%numWorkers].postMessage([interval.path.buffer, interval.value, interval.id], [interval.path.buffer]);
+				workers[index%numWorkers].postMessage([
+						interval.path.buffer,
+						interval.value,
+						interval.id
+					],
+						[interval.path.buffer]);
 				index += 1;
 			});
 		});
@@ -246,29 +289,27 @@ function View(projectURL) {
 		SetProgressBar(100);
 	}
 
-/* Layout of the holes object:
-
-holes = {
-	lines: {
-		tracecolor: THREE.Line
-	},
-	ids: {
-		id: {
-			name: String,
-			longitude: Float,
-			latitude: Float,
-			location: [Float]
+	/* Layout of the holes object:
+	holes = {
+		lines: {
+			tracecolor: THREE.Line
+		},
+		ids: {
+			id: {
+				name: String,
+				longitude: Float,
+				latitude: Float,
+				location: [Float]
+			}
 		}
 	}
-}
-*/
-
+	*/
 	function addSurveyLines() {
 
 		getHoles();
 	}
 
-	function getHoles(){
+	function getHoles() {
 		var geometries = {};
 		holes.lines = {};
 
@@ -293,15 +334,29 @@ holes = {
 				Array.prototype.push.apply(lineGeometry, surveys[i].location);
 				Array.prototype.push.apply(lineGeometry, surveys[i].location);
 			}
-				Array.prototype.push.apply(lineGeometry, surveys[surveys.length - 1].location);
+				Array.prototype.push.apply(
+					lineGeometry,
+					surveys[surveys.length - 1].location);
 		});
 
 		Object.keys(geometries).forEach(function(jsonColor){
 			var color = colorFromString(jsonColor);
-			var material = new THREE.LineBasicMaterial({transparent: true, opacity: 0.8, color: color});
+
+			var material = new THREE.LineBasicMaterial({
+				transparent: true,
+				opacity: 0.8,
+				color: color
+			});
+
 			var buffGeometry = new THREE.BufferGeometry();
-			buffGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(geometries[jsonColor]), 3));
-			holes.lines[jsonColor] = new THREE.Line(buffGeometry, material, THREE.LinePieces);
+			buffGeometry.addAttribute('position',
+				new THREE.BufferAttribute(
+					new Float32Array(geometries[jsonColor]),
+					3));
+
+			holes.lines[jsonColor] = new THREE.Line(buffGeometry,
+				material,
+				THREE.LinePieces);
 			scene.add(holes.lines[jsonColor]);
 		});
 	}
@@ -313,8 +368,7 @@ holes = {
 	}
 
 	function addAxisLabels() {
-		// Need this function for creating multi-line text sprites.
-		CanvasRenderingContext2D.prototype.wrapText = function wrapText(text, x, y, maxWidth, lineHeight) {
+		function wrapText(text, x, y, maxWidth, lineHeight) {
 			var lines = text.split("\n");
 
 			for (var i = 0; i < lines.length; i++) {
@@ -339,6 +393,8 @@ holes = {
 				y += lineHeight;
 			}
 		};
+		// Need this function for creating multi-line text sprites.
+		CanvasRenderingContext2D.prototype.wrapText = wrapText;
 
 		// Formats numbers with a km or m prefix.
 		function formatKm(num) {
@@ -347,7 +403,9 @@ holes = {
 		};
 
 		function makeLabel(name, x, y, z) {
-			var sprite = makeTextSprite(name, { backgroundColor: {r:255, g:100, b:100, a:0}});
+			var sprite = makeTextSprite(name, {
+				backgroundColor: {r:255, g:100, b:100, a:0}
+			});
 			sprite.position.set(x, y, z);
 			return sprite;
 		};
@@ -357,10 +415,12 @@ holes = {
 
 		// Force a scope.
 		(function () {
-			// Lay out the X-axis labels. Ensure they are at least a minimum distance apart.
-			// This minimum distance is set in makeTextSprite, with the "sprite.scale.set(*)" line.
-			var markerDistance = Math.max(property.box.size.x / 5 - 1, maxDimension/20);
-			for (var x = markerDistance; x < property.box.size.x; x += markerDistance) {
+			var lentgh = property.box.size.x;
+			// Lay out the X-axis labels. Ensure they are at least a minimum
+			//   distance apart. This minimum distance is set in makeTextSprite,
+			//   with the "sprite.scale.set(*)" line.
+			var markerDistance = Math.max(length / 5 - 1, maxDimension/20);
+			for (var x = markerDistance; x < length; x += markerDistance) {
 				scene.add(makeLabel(formatKm(x), x, 0, base));
 			}
 			// Write out the axis name a littlebit after the last label.
@@ -369,25 +429,21 @@ holes = {
 		})();
 
 		(function () {
-			// Lay out the Y-axis labels. Ensure they are at least a minimum distance apart.
-			// This minimum distance is set in makeTextSprite, with the "sprite.scale.set(*)" line.
-			var markerDistance = Math.max(property.box.size.y / 5 - 1, maxDimension/20);
-			for (var y = markerDistance; y < property.box.size.y; y += markerDistance) {
+			var lentgh = property.box.size.y;
+			var markerDistance = Math.max(length / 5 - 1, maxDimension/20);
+			for (var y = markerDistance; y < length; y += markerDistance) {
 				scene.add(makeLabel(formatKm(y), 0, y, base));
 			}
-			// Write out the axis name a littlebit after the last label.
 			y -= markerDistance / 2;
 			scene.add(makeLabel("Y", 0, y, base));
 		})();
 
 		(function () {
-			// Lay out the Z-axis labels. Ensure they are at least a minimum distance apart.
-			// This minimum distance is set in makeTextSprite, with the "sprite.scale.set(*)" line.
-			var markerDistance = Math.max(property.box.size.z / 5 - 1, maxDimension/20);
-			for (var z = markerDistance; z < property.box.size.z; z += markerDistance) {
+			var lentgh = property.box.size.z;
+			var markerDistance = Math.max(length / 5 - 1, maxDimension/20);
+			for (var z = markerDistance; z < length; z += markerDistance) {
 				scene.add(makeLabel(formatKm(z), 0, 0, z + base));
 			}
-			// Write out the axis name a littlebit after the last label.
 			z -= markerDistance / 2;
 			scene.add(makeLabel("Z", 0, 0, z + base));
 		})();
@@ -397,8 +453,12 @@ holes = {
 		var ambientLight = new THREE.AmbientLight(colors.soft_white);
 		scene.add(ambientLight);
 
-		var light = new THREE.PointLight(0xffffff, 10000.0, 20.0 * maxDimension);
-		light.position.set(0, 0, 3.0 * property.box.size.z + property.box.center.z - property.box.size.z / 2);
+		// Apply the adjustment that our box gets.
+		var offset = property.box.center.z - 0.5 * property.box.size.z;
+
+		var light = new THREE.PointLight(0xffffff, 100.0, 20.0 * maxDimension);
+		// Position the point light above the box, in a corner.
+		light.position.z = 3.0 * property.box.size.z + offset;
 		scene.add(light);
 	}
 
@@ -422,13 +482,17 @@ holes = {
 
 	function makeTextSprite(message, parameters) {
 		if (parameters === undefined) parameters = {};
-		var fontface  = parameters.hasOwnProperty("fontface") ? parameters["fontface"] : "Arial";
-		var fontsize  = parameters.hasOwnProperty("fontsize") ? parameters["fontsize"] : 30;
-		var size      = parameters.hasOwnProperty("size") ? parameters["size"] : 512;
-		var textColor = parameters.hasOwnProperty("textColor") ?
-			parameters["textColor"] : { r: 0, g: 0, b: 0, a: 1.0 };
-		var backgroundColor = parameters.hasOwnProperty("backgroundColor") ?
-			parameters["backgroundColor"] : { r: 255, g: 250, b: 200, a: 0.8 };
+		var fontface  = parameters.hasOwnProperty("fontface")
+			? parameters["fontface"] : "Arial";
+		var fontsize  = parameters.hasOwnProperty("fontsize")
+			? parameters["fontsize"] : 30;
+		var size      = parameters.hasOwnProperty("size")
+			? parameters["size"] : 512;
+		var textColor = parameters.hasOwnProperty("textColor")
+			? parameters["textColor"] : { r: 0, g: 0, b: 0, a: 1.0 };
+		var backgroundColor = parameters.hasOwnProperty("backgroundColor")
+			? parameters["backgroundColor"]
+			: { r: 255, g: 250, b: 200, a: 0.8 };
 
 		var canvas = document.createElement('canvas');
 		canvas.width = size;
@@ -436,7 +500,7 @@ holes = {
 		var context = canvas.getContext('2d');
 		context.font = "Bold " + fontsize + "px " + fontface;
 
-		//draw background rectangle
+		// Draw background rectangle
 		var lines = message.split("\n");
 		var lineHeight= fontsize;
 		var maxTextWidth=0;
@@ -446,20 +510,41 @@ holes = {
 				maxTextWidth=textWidth;
 			}
 		});
-		context.fillStyle="rgba(" + backgroundColor.r + "," + backgroundColor.g + ","+ backgroundColor.b + "," + backgroundColor.a + ")";;
-		context.fillRect((size/2), (size/2)-fontsize, maxTextWidth,lines.length*lineHeight);
 
+		context.fillStyle = "rgba("
+			+ backgroundColor.r + ","
+			+ backgroundColor.g + ","
+			+ backgroundColor.b + ","
+			+ backgroundColor.a
+			+ ")";
+
+		context.fillRect(0.5*size,
+			0.5*size - fontsize,
+			maxTextWidth,
+			lines.length*lineHeight);
 
 		context.textAlign = 'left';
-		context.fillStyle = "rgba(" + textColor.r + ", " + textColor.g + ", " + textColor.b + ", 1.0)";
-		context.wrapText(message, size / 2, size / 2,10000,fontsize);
+		context.fillStyle = "rgba("
+			+ textColor.r + ", "
+			+ textColor.g + ", "
+			+ textColor.b + ", 1.0)";
+
+		context.wrapText(message, size / 2, size / 2, 10000, fontsize);
 
 		var texture = new THREE.Texture(canvas);
 		texture.needsUpdate = true;
 
-		var spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+		var spriteMaterial = new THREE.SpriteMaterial({
+			map: texture,
+			transparent: true
+		});
+
 		var sprite = new THREE.Sprite(spriteMaterial);
-		sprite.scale.set(maxDimension/10, maxDimension/10,maxDimension/10);
+
+		sprite.scale.set(
+			maxDimension/10,
+			maxDimension/10,
+			maxDimension/10);
 		return sprite;
 	}
 
@@ -518,10 +603,14 @@ holes = {
 					}
 				}
 				intersected = intersects[0].object;
-				//set sprite to be in front of the orthographic camera so it is visible
+				// Set sprite to be in front of the orthographic camera so it
+				//   is visible.
 				sceneOrtho.remove(tooltipSprite);
 				var data = intersected.mineralData;
-				tooltipSprite = makeTextSprite(data.mineral + "\nValue: " + data.value + "\nDep: " + data.depth.start + '-' + data.depth.end + "\nHole ID: " + data.hole);//holeId+"\n"+intersected.oreType+"\n"+intersected.oreConcentration+" g/ton", {fontsize: 18, size: 256}); //Create a basic tooltip display sprite TODO: Make tooltip display info about current drillhole
+				tooltipSprite = makeTextSprite(data.mineral
+					+ "\nValue: " + data.value
+					+ "\nDep: " + data.depth.start + '-' + data.depth.end
+					+ "\nHole ID: " + data.hole);
 				tooltipSprite.scale.set(250,250,1);
 				tooltipSprite.position.z=0;
 				tooltipSprite.position.x=tooltipSpriteLocation.x;
@@ -530,10 +619,10 @@ holes = {
 
 				material = intersected.material;
 				if (material.emissive) {
-					intersected.currentHex = intersected.material.emissive.getHex();
+					intersected.currentHex = intersected.material.emissive
+						.getHex();
 					material.emissive.setHex(0xff0000);
-				}
-				else {
+				} else {
 					intersected.currentHex = material.color.getHex();
 					material.color.setHex(0xff0000);
 				}
@@ -575,7 +664,8 @@ holes = {
 			renderer.setSize(window.innerWidth, window.innerHeight);
 		});
 
-		container.addEventListener('click', function mousemouseEventListener(event) {
+		container.addEventListener('click',
+			function mousemouseEventListener(event) {
 			event.preventDefault();
 
 			mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -587,7 +677,8 @@ holes = {
 			//checkMouseIntercept();
 		}, false);
 
-		container.addEventListener("mousedown", function mousedownEventListener(event) {
+		container.addEventListener("mousedown",
+			function mousedownEventListener(event) {
 			event.preventDefault();
 			if (controls.autoRotate) {
 				controls.autoRotate = false;
@@ -598,9 +689,20 @@ holes = {
 	}
 
 	function addBoundingBox() {
-		var property_boundary = new THREE.Mesh(new THREE.BoxGeometry(property.box.size.x, property.box.size.y, property.box.size.z));
+		var geometry = new THREE.BoxGeometry(
+			property.box.size.x,
+			property.box.size.y,
+			property.box.size.z);
+
+		var property_boundary = new THREE.Mesh(geometry);
+
 		var box = new THREE.EdgesHelper(property_boundary, colors.axes);
-		box.applyMatrix(new THREE.Matrix4().makeTranslation(property.box.center.x, property.box.center.y, property.box.center.z));
+		box.applyMatrix(new THREE.Matrix4()
+			.makeTranslation(
+				property.box.center.x,
+				property.box.center.y,
+				property.box.center.z));
+
 		scene.add(box);
 	}
 
@@ -616,16 +718,29 @@ holes = {
 
 	function setupCamera() {
 		//Sets up the camera object for the 3d scene
-		camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, maxDimension*700);
+		camera = new THREE.PerspectiveCamera(45,
+			window.innerWidth / window.innerHeight,
+			0.1,
+			700*maxDimension);
+
 		camera.up.set(0,0,1);
+
 		camera.position.set(
 			1.5 * maxDimension,
 			1.5 * maxDimension,
-			1.5 * maxDimension + property.box.center.z - 0.5 * property.box.size.z);
+			1.5 * maxDimension
+				+ property.box.center.z - 0.5 * property.box.size.z);
+
 		camera.lookAt(property.box.center);
 
 		//Sets up the 2d orthographic camera for tooltips
-		cameraOrtho = new THREE.OrthographicCamera( window.innerWidth/-2, window.innerWidth/2, window.innerHeight/2, window.innerHeight/-2, 1, 1000);
+		cameraOrtho = new THREE.OrthographicCamera(
+			window.innerWidth/-2,
+			window.innerWidth/2,
+			window.innerHeight/2,
+			window.innerHeight/-2,
+			1,
+			1000);
 		cameraOrtho.position.z = 1;
 		cameraOrtho.position.x = 0;
 		cameraOrtho.position.y = 0;
@@ -655,10 +770,11 @@ holes = {
 
 	function setupControls() {
 		if (camera === null) {
-			console.error("Initialize camera before controls, Fool.");
+			console.error("Controls must be initialized after camera.");
 			return;
 		}
-		controls = new THREE.OrbitControls(camera, $('#viewFrame').contents().find('div').get(0));
+		controls = new THREE.OrbitControls(camera,
+			$('#viewFrame').contents().find('div').get(0));
 		controls.zoomSpeed = 3.0;
 		controls.minDistance = maxDimension / 100;
 		controls.maxDistance = maxDimension * 2;
@@ -668,7 +784,7 @@ holes = {
 
 	function setupStats() {
 		if (container === null) {
-			console.error("Please initialize the container before Stats, Fool.");
+			console.error("Stats must be initialized after container.");
 			return;
 		}
 		stats = new Stats();
@@ -684,6 +800,4 @@ holes = {
 	function vec3FromArray(array) {
 		return new THREE.Vector3(array[0], array[1], array[2]);
 	}
-
 }
-
