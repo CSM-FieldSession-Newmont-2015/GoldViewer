@@ -2,7 +2,7 @@
 /* global view */
 /* global View */
 
-function LoadMenu() {
+function loadMenu() {
     $.get("html/Menu.html", function (data) {
         $("#divTopMenu").append(data);
         $("ul#TopMenu").menu({
@@ -12,7 +12,7 @@ function LoadMenu() {
                         $('#dialogDatasets').dialog({
                             resizable: true,
                             height: 480,
-                            width: 640,
+                            width: 800,
                             modal: true,
                             buttons: {
                                 Cancel: function () {
@@ -26,10 +26,11 @@ function LoadMenu() {
                                         $('#templateContainer').json2html(data.dataset, template);
                                         $('.dataset').each(function (data) {
                                             $(this).click(function () {
+                                                $('#dialogDatasets').dialog("close");
+                                                initProgressBar();
                                                 view = new View($(this).attr('data-url'));
                                                 view.start();
-                                                $('#dialogDatasets').dialog("close");
-                                                InitProgressBar();
+//                                                resizeFrames();
                                             });
                                         });
                                     })
@@ -46,14 +47,14 @@ function LoadMenu() {
                 }
             },
             create: function (event, ui) {
-                InitFrameSizing();
+                resizeFrames();
                 $(this).find('#menuDatasets').trigger('click');
             }
         });
     });
 }
 
-function LoadControls() {
+function loadControls() {
     $.get("html/ControlBar.html", function (data) {
         $("div#ControlBar").append(data);
         $("#zoomIn").button({
@@ -87,17 +88,13 @@ function LoadControls() {
     });
 }
 
-function SetWindowResizeEvent() {
-    $(window).resize(function() {
-        var height = $(window).height();
-        height -= $("#viewFrame").position().top;
-        //        height -= $("div#ControlBar").outerHeight(true);
-        height -= 4;
-        $("#viewFrame").height(height);
+function setWindowResizeEvent() {
+    $(window).resize(function () {
+        resizeFrames();
     });
 }
 
-function InitFrameSizing() {
+function resizeFrames() {
     var height = $(window).height();
     height -= $("#viewFrame").position().top;
     //        height -= $("div#ControlBar").outerHeight(true);
@@ -105,7 +102,7 @@ function InitFrameSizing() {
     $("#viewFrame").height(height);
 }
 
-function InitProgressBar() {
+function initProgressBar() {
     $('#progressbar').progressbar({
         value: false,
         change: function () {
@@ -123,7 +120,7 @@ function InitProgressBar() {
     });
 }
 
-function SetProgressBar(percent) {
+function setProgressBar(percent) {
     var progressbar = $('#progressbar');
     percent = percent < 0 ? 0 : percent;
     progressbar.progressbar('value', percent);

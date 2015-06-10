@@ -164,7 +164,7 @@ function View(projectURL) {
 		mesh.visible = false;
 		mesh.autoUpdate = false;
 		if(returnedGeometry%1000 == 0)
-			SetProgressBar(returnedGeometry/1000);
+			setProgressBar(returnedGeometry/1000);
 		if(returnedGeometry >= currentID){
 			setTimeout(makeBigMeshes(), 0);
 			checkMouse = true;
@@ -242,7 +242,7 @@ function View(projectURL) {
 			scene.add(minerals[mineral]["mesh"]);
 
 		});
-		SetProgressBar(100);
+		setProgressBar(100);
 	}
 
 /* Layout of the holes object:

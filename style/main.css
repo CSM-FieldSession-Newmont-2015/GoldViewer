@@ -45,3 +45,12 @@ font-weight: normal;
 font-size:smaller;
 text-shadow: 1px 1px 0 #fff;
 }
+
+.dataset {
+    padding: 10px;
+    border: solid;
+    border-color: white;
+    border-width: medium;
+    border-radius: 10px;
+    margin: 10px;
+}
