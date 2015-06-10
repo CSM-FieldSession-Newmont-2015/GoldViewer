@@ -58,6 +58,15 @@ function View(projectURL) {
 		render();
 	};
 
+	this.zoomIn = function () {
+		controls.dollyIn(1.1);	
+
+	};
+
+	this.zoomOut = function () {
+		controls.dollyIn(0.9);	
+	};
+
 	function init() {
 		projectJSON = loadJSON(projectURL);
 		property = getProperty(projectJSON);
@@ -85,6 +94,8 @@ function View(projectURL) {
 	/*
 	This is the layout of the minerals object:
 	{
+		"mesh": THREE.Mesh
+
 		//e. g. 'Au', 'Ag', etc.
 		MineralString: [
 			{
@@ -142,25 +153,20 @@ function View(projectURL) {
 
 	function makeMesh(e){
 		var data = e.data;
-		var intervalID = data[3];
+		var intervalID = data[1];
 		var basic = new THREE.MeshBasicMaterial({color: colors.pink});
 		returnedGeometry += 1;
 		var geometry = new THREE.BufferGeometry();
 		geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(e.data[0]), 3 ));
-		// Normals are expensive and we don't have them working yet.
-		//geometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array(e.data[1]), 3 ));
 		var mesh = new THREE.Mesh(geometry, basic);
 		mesh.mineralData = meshes[intervalID];
 		meshes[intervalID] = mesh;
 		mesh.visible = false;
 		mesh.autoUpdate = false;
 		if(returnedGeometry%1000 == 0)
-			console.log(returnedGeometry/1000);
+			SetProgressBar(returnedGeometry/1000);
 		if(returnedGeometry >= currentID){
-			setTimeout(makeBigMeshes(), 2000);
-			//meshes.forEach(function(mesh){
-				//scene.add(mesh);
-			//})
+			setTimeout(makeBigMeshes(), 0);
 			checkMouse = true;
 		}
 	}
@@ -211,27 +217,32 @@ function View(projectURL) {
 	}
 
 	function makeBigMeshes() {
+		var verticesPerInterval = meshes[0].geometry.attributes.position.array.length;
+
 		Object.keys(minerals).forEach(function(mineral){
-			setTimeout(1);
-			var mesh = minerals[mineral]["mesh"];
-			var verts = [];
-			//var norms = [];
-			console.log(mineral);
+
+			var numVertices = verticesPerInterval * minerals[mineral].intervals.length;
+			var verts = new Float32Array(numVertices);
+
+			var counter = 0;
 			minerals[mineral].intervals.forEach(function(interval){
-				Array.prototype.push.apply(verts, meshes[interval['id']].geometry.attributes.position.array);
-				// Normals don't work.
-				//Array.prototype.push.apply(norms, meshes[interval['id']].geometry.attributes.normal.array);
+				var logMe = new Float32Array(meshes[interval['id']].geometry.attributes.position.array);
+				verts.set(logMe, counter * verticesPerInterval);
+				counter += 1;
 			});
-			minerals[mineral].mesh.vertices = new Float32Array(verts);
-			//minerals[mineral].mesh.normals = new Float32Array(norms);
 			var geometry = new THREE.BufferGeometry();
-			geometry.addAttribute('position', new THREE.BufferAttribute(mesh['vertices'], 3));
-			//geometry.addAttribute('normal', new THREE.BufferAttribute(mesh['normals'], 3));
-			mesh = new THREE.Mesh(geometry);
-			scene.add(mesh);
+			geometry.addAttribute('position', new THREE.BufferAttribute(verts, 3));
+			geometry.computeFaceNormals();
+
+			var color = colorFromString(property.analytes[mineral].color);
+			var material = new THREE.MeshPhongMaterial({color: color});
+			minerals[mineral]["mesh"] = new THREE.Mesh(geometry, material);
+
+			console.log(property.analytes);
+			scene.add(minerals[mineral]["mesh"]);
 
 		});
-		console.log('done');
+		SetProgressBar(100);
 	}
 
 /* Layout of the holes object:
@@ -285,17 +296,19 @@ holes = {
 		});
 
 		Object.keys(geometries).forEach(function(jsonColor){
-			var color = jsonColor.split("#");
-			color = "0x"+color[1];
-			color = new THREE.Color(parseInt(color, 16));
+			var color = colorFromString(jsonColor);
 			var material = new THREE.LineBasicMaterial({transparent: true, opacity: 0.8, color: color});
 			var buffGeometry = new THREE.BufferGeometry();
 			buffGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(geometries[jsonColor]), 3));
 			holes.lines[jsonColor] = new THREE.Line(buffGeometry, material, THREE.LinePieces);
 			scene.add(holes.lines[jsonColor]);
 		});
+	}
 
-		delete geometries;
+	function colorFromString(stringColor){
+			var color = stringColor.split("#");
+			color = "0x"+color[1];
+			return new THREE.Color(parseInt(color, 16));
 	}
 
 	function addAxisLabels() {
@@ -383,7 +396,7 @@ holes = {
 		var ambientLight = new THREE.AmbientLight(colors.soft_white);
 		scene.add(ambientLight);
 
-		var light = new THREE.PointLight(0xffffff, 100.0, 20.0 * maxDimension);
+		var light = new THREE.PointLight(0xffffff, 10000.0, 20.0 * maxDimension);
 		light.position.set(0, 0, 3.0 * property.box.size.z + property.box.center.z - property.box.size.z / 2);
 		scene.add(light);
 	}
@@ -395,10 +408,6 @@ holes = {
 		stats.update();
 
 		camera.updateMatrixWorld();
-
-		// TODO: Only do this when the mouse is clicked.
-		//if(checkMouse)
-			//checkMouseIntercept();
 
 		reticle.position.x = controls.target.x;
 		reticle.position.y = controls.target.y;
@@ -470,7 +479,7 @@ holes = {
 			longLatMin: vec3FromArray(projectJSON["longLatMin"]),
 			longLatMax: vec3FromArray(projectJSON["longLatMax"]),
 			desurveyMethod: projectJSON["desurveyMethod"],
-			analytes: projectJSON["analytes"],
+			analytes: {},
 			formatVersion: projectJSON["formatVersion"],
 			box: {
 				size:   size,
@@ -478,10 +487,11 @@ holes = {
 			}
 		};
 
-		property.analytes.forEach(function (analyte){
-			var color = analyte.color.split("#");
-			color = "0x"+color[1];
-			analyte.color = color;
+		projectJSON["analytes"].forEach(function (analyte){
+			property.analytes[analyte.name] = {
+				color: analyte.color,
+				description: analyte.description
+			}
 		});
 
 		return property;
@@ -573,7 +583,7 @@ holes = {
 			//this will update the mouse position as well as make the tooltipSprite follow the mouse
 			tooltipSpriteLocation.x=event.clientX-(window.innerWidth/2);
 			tooltipSpriteLocation.y=-event.clientY+(window.innerHeight/2)+20;
-			checkMouseIntercept();
+			//checkMouseIntercept();
 		}, false);
 
 		container.addEventListener("mousedown", function mousedownEventListener(event) {
