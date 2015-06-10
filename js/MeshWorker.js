@@ -19,8 +19,12 @@ var matrix4 = new THREE.Matrix4().set
 		0, -1, 0, 0,
 		0, 0, 0, 1);
 
-function determineWidth(value){
-	return Math.log(value + 1) * 2.0;
+function determineWidth(value) {
+	var width =  Math.log10(value + 1.0) * 2.0;
+	if (width < 0.1) {
+		width = 0.1;
+	}
+	return width;
 }
 
 // Convert [a, b, c, d..] into {x: a, y: b, z: c}.
