@@ -30,7 +30,6 @@ function LoadMenu() {
                                                 view.start();
                                                 $('#dialogDatasets').dialog("close");
                                                 InitProgressBar();
-                                                setTimeout(function(){$('window').trigger('resize');}, 2000);
                                             });
                                         });
                                     })
@@ -47,6 +46,7 @@ function LoadMenu() {
                 }
             },
             create: function (event, ui) {
+                InitFrameSizing();
                 $(this).find('#menuDatasets').trigger('click');
             }
         });
@@ -97,11 +97,18 @@ function SetWindowResizeEvent() {
     $(window).resize(function() {
         var height = $(window).height();
         height -= $("#viewFrame").position().top;
-        height -= $("div#ControlBar").outerHeight(true);
-        height -= $("div#progressbar").outerHeight(true);
-        height -= 8; //asthetic padding
+        //        height -= $("div#ControlBar").outerHeight(true);
+        height -= 4;
         $("#viewFrame").height(height);
     });
+}
+
+function InitFrameSizing() {
+    var height = $(window).height();
+    height -= $("#viewFrame").position().top;
+    //        height -= $("div#ControlBar").outerHeight(true);
+    height -= 4;
+    $("#viewFrame").height(height);
 }
 
 function InitProgressBar() {
