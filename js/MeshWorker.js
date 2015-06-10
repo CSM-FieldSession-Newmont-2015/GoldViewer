@@ -36,7 +36,7 @@ function vec3FromArray(array) {
 
 function closeIfIdle(){
 	if(started && !busy){
-		console.log('closing worker');
+		console.log("Closing idle worker.");
 		close();
 	}
 	busy = false;
