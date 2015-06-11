@@ -30,7 +30,6 @@ function loadMenu() {
 												initProgressBar();
 												view = new View($(this).attr('data-url'));
 												view.start();
-												//resizeFrames();
 											});
 										});
 									})

@@ -26,8 +26,9 @@
                 loadMenu();
                 loadControls();
                 loadSidebar();
+                setWindowResizeEvent();
 
-                $(document).click(function () {
+                $('.sidebar-container').click(function () {
                     $('#sidebar').toggle('slide', { direction: 'left' });
                 });
             });
