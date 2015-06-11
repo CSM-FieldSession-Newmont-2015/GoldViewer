@@ -189,16 +189,16 @@ function View(projectURL) {
 		}
 
 		if (returnedGeometry >= totalGeometries){
-			setTimeout(makeBigMeshes(), 0);
+			makeBigMeshes();
 
 			// We need to add the meshes to the scene for intercepting to work.
 			// We're not entirely sure why.
-			/* This causes performance problems for us, at.
-			meshes.forEach(function(mesh){
-				scene.add(mesh);
-			});
+			// This causes performance problems for us, at.
+			//meshes.forEach(function(mesh){
+			//	scene.add(mesh);
+			//});
 			checkMouse = true;
-			*/
+			
 		}
 	}
 
@@ -615,9 +615,9 @@ function View(projectURL) {
 	function checkMouseIntercept() {
 		if(!checkMouse)
 			return;
-		meshes.forEach(function(mesh){
-			scene.add(mesh);
-		})
+		//meshes.forEach(function(mesh){
+		//	scene.add(mesh);
+		//})
 		raycaster.setFromCamera(mouse, camera);
 		var intersects = raycaster.intersectObjects(meshes);
 
@@ -672,9 +672,9 @@ function View(projectURL) {
 			sceneOrtho.remove(tooltipSprite);
 			intersected = null;
 		}
-		meshes.forEach(function(mesh){
-			scene.remove(mesh);
-		})
+		//meshes.forEach(function(mesh){
+		//	scene.remove(mesh);
+		//})
 	}
 
 	function setupWindowListeners() {
@@ -703,7 +703,7 @@ function View(projectURL) {
 			//this will update the mouse position as well as make the tooltipSprite follow the mouse
 			tooltipSpriteLocation.x=event.clientX-(window.innerWidth/2);
 			tooltipSpriteLocation.y=-event.clientY+(window.innerHeight/2)+20;
-			//checkMouseIntercept();
+			checkMouseIntercept();
 		}, false);
 
 		container.addEventListener("mousedown",
