@@ -248,28 +248,34 @@ function View(projectURL) {
 
 		Object.keys(minerals).forEach(function(mineral){
 
-			var numVertices = verticesPerInterval * minerals[mineral].intervals.length;
+			var numVertices = verticesPerInterval
+				* minerals[mineral].intervals.length;
 			var verts = new Float32Array(numVertices);
 
 			var counter = 0;
 			minerals[mineral].intervals.forEach(function(interval){
-				var logMe = new Float32Array(meshes[interval['id']].geometry.attributes.position.array);
+				var logMe = new Float32Array(
+					meshes[interval['id']].geometry.attributes.position.array);
 				verts.set(logMe, counter * verticesPerInterval);
 				counter += 1;
 			});
 			var geometry = new THREE.BufferGeometry();
-			geometry.addAttribute('position', new THREE.BufferAttribute(verts, 3));
+			geometry.addAttribute('position',
+				new THREE.BufferAttribute(verts, 3));
 			geometry.computeFaceNormals();
 			geometry.computeVertexNormals();
 
 			var color = colorFromString(property.analytes[mineral].color);
-			var material = new THREE.MeshPhongMaterial({color: color, refractionRatio: 1, shininess: 4});
+			var material = new THREE.MeshPhongMaterial({
+				color: color,
+				refractionRatio: 1.0,
+				shininess: 4.0});
 			minerals[mineral]["mesh"] = new THREE.Mesh(geometry, material);
 
 			scene.add(minerals[mineral]["mesh"]);
 
 		});
-        // Progress is done!
+		// Progress is done!
 		setProgressBar(100);
 	}
 
@@ -311,13 +317,19 @@ function View(projectURL) {
 			var lineGeometry = geometries[color];
 
 			//Now we use the Raycaster to find the initial z value
-			surveyCaster.set(vec3FromArray([initialLocation[0] - property.box.center.x, initialLocation[1] - property.box.center.y, 0]), up);
+			surveyCaster.set(vec3FromArray([
+					initialLocation[0] - property.box.center.x,
+					initialLocation[1] - property.box.center.y,
+					0]),
+				up);
 			var intersect = surveyCaster.intersectObject(surfaceMesh);
 			var zOffset = 0;
 			if(intersect.length != 0){
 				zOffset = intersect[0].distance - initialLocation[2];
 			}else{
-				console.log("found a survey hole outside the bounding property");
+				console.log(
+					"Survey hole #" + jsonHole["id"]
+					+ " is outside the bounding box.");
 			}
 
 			var hole = {
@@ -329,20 +341,25 @@ function View(projectURL) {
 			}
 			holes.ids[jsonHole['id']] = hole;
 
-			Array.prototype.push.apply(lineGeometry, [initialLocation[0], initialLocation[1], initialLocation[2] + zOffset]);
-
+			lineGeometry.push(
+				initialLocation[0],
+				initialLocation[1],
+				initialLocation[2] + zOffset);
 
 			for (var i = 1; i < surveys.length - 1; i += 1 ) {
-				Array.prototype.push.apply(
-					lineGeometry,
-					[surveys[i].location[0], surveys[i].location[1], surveys[i].location[2] + zOffset]);
-				Array.prototype.push.apply(
-					lineGeometry,
-					[surveys[i].location[0], surveys[i].location[1], surveys[i].location[2] + zOffset]);
+				// Push the point twice.
+				lineGeometry.push(
+					surveys[i].location[0],
+					surveys[i].location[1],
+					surveys[i].location[2] + zOffset,
+					surveys[i].location[0],
+					surveys[i].location[1],
+					surveys[i].location[2] + zOffset);
 			}
-				Array.prototype.push.apply(
-					lineGeometry,
-					[surveys[surveys.length-1].location[0], surveys[surveys.length-1].location[1], surveys[surveys.length-1].location[2] + zOffset]);
+				lineGeometry.push(
+					surveys[surveys.length-1].location[0],
+					surveys[surveys.length-1].location[1],
+					surveys[surveys.length-1].location[2] + zOffset);
 		});
 
 		Object.keys(geometries).forEach(function(jsonColor){
@@ -427,8 +444,10 @@ function View(projectURL) {
 			// Lay out the X-axis labels. Ensure they are at least a minimum
 			//   distance apart. This minimum distance is set in makeTextSprite,
 			//   with the "sprite.scale.set(*)" line.
-			var markerDistance = Math.max(property.box.size.x / 5 - 1, maxDimension/20);
-			
+			var markerDistance = Math.max(
+				property.box.size.x / 5 - 1,
+				maxDimension/20);
+
 			//add zero
 			scene.add(makeLabel(formatKm(0), 0, 0, base));
 
@@ -469,7 +488,10 @@ function View(projectURL) {
 		// Apply the adjustment that our box gets.
 		var offset = property.box.center.z - 0.5 * property.box.size.z;
 
-		var light = new THREE.PointLight(colors.soft_white, 6.0, 20.0 * maxDimension);
+		var light = new THREE.PointLight(
+			colors.soft_white,
+			6.0,
+			20.0 * maxDimension);
 		// Position the point light above the box, in a corner.
 		light.position.z = 3.0 * property.box.size.z + offset;
 		scene.add(light);
@@ -545,7 +567,7 @@ function View(projectURL) {
 			+ backgroundColor.b + ","
 			+ backgroundColor.a
 			+ ")";
-		
+
 		context.fillRect(0.5*size,
 			0.5*size - fontsize,
 			maxTextWidth,
@@ -623,9 +645,11 @@ function View(projectURL) {
 
 		intersected = intersects[0].object;
 
-		intersected.material = new THREE.MeshLambertMaterial({emissive: colors.pink});
+		intersected.material = new THREE.MeshLambertMaterial({
+			emissive: colors.pink
+		});
 		scene.add(intersected);
-	
+
 		// Set sprite to be in front of the orthographic camera so it
 		//   is visible.
 		var data = intersected.mineralData;
@@ -668,13 +692,14 @@ function View(projectURL) {
 			mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
 			mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
 
-			//this will update the mouse position as well as make the tooltipSprite follow the mouse
+			// This will update the mouse position as well as make the
+			//   tooltipSprite follow the mouse.
 			tooltipSpriteLocation.x=event.clientX-(window.innerWidth/2) + 15;
 			tooltipSpriteLocation.y=-event.clientY+(window.innerHeight/2) - 20;
 
 			sceneOrtho.remove(tooltipSprite);
 			scene.remove(intersected);
-			
+
 			window.clearTimeout(mouseTimeout);
 			if(event.buttons == 0 && raycaster){
 				mouseTimeout = window.setTimeout(checkMouseIntercept, 150);
@@ -711,7 +736,10 @@ function View(projectURL) {
 	function addReticle() {
 		reticle = new THREE.Mesh(
 			new THREE.IcosahedronGeometry(maxDimension / 1000, 3),
-			new THREE.MeshBasicMaterial({ color: colors.gold, wireframe: true }));
+			new THREE.MeshBasicMaterial({
+				color: colors.gold,
+				wireframe: true
+			}));
 		reticle.position.x = controls.target.x;
 		reticle.position.y = controls.target.y;
 		reticle.position.z = controls.target.z;
