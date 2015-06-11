@@ -106,24 +106,29 @@ function resizeFrames() {
 	height -= 4;
 	$('#viewFrame').height(height);
 	$('.sidebar-container').css('top', ($('#viewFrame').position().top));
+	$('.sidebar-container').height(height);
 }
 
 function initProgressBar() {
-	$('#progressbar').progressbar({
-		value: false,
-		change: function () {
-			//$('.progress-label').text($('#progressbar').progressbar('value') + "%");
-		},
-		complete: function () {
-			$('.progress-label').text("Complete!");
-			$('.progress-label').css('left', $('#progressbar').width() / 2 - $('.progress-label').width() / 2 + 'px');
-			$('#progressbar').hide('drop', { direction: 'down' }, 'slow');
-		},
-		create: function () {
-			$('#progressbar').css('top', $("#viewFrame").position().top + 20 + 'px');
-			$('.progress-label').css('left', $('#progressbar').width() / 2 - $('.progress-label').width() / 2 + 'px');
-		}
-	});
+    $('#progressbar').progressbar({
+        value: false,
+        change: function () {
+            //$('.progress-label').text($('#progressbar').progressbar('value') + "%");
+        },
+        complete: function () {
+            $('.progress-label').text("Complete!");
+            $('.progress-label').css('left', $(this).width() / 2 - $('.progress-label').width() / 2 + 'px');
+            $(this).hide('drop', { direction: 'down' }, 'slow', function() {
+                $(this).progressbar('destroy');
+            });
+        },
+        create: function () {
+            $('.progress-label').text("Loading Geometries...");
+            $(this).show();
+            $(this).css('top', $("#viewFrame").position().top + 20 + 'px');
+            $('.progress-label').css('left', $(this).width() / 2 - $('.progress-label').width() / 2 + 'px');
+        }
+    });
 }
 
 function setProgressBar(percent) {
