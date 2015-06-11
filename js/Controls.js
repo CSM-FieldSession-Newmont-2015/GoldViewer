@@ -88,6 +88,12 @@ function loadControls() {
     });
 }
 
+function loadSidebar() {
+    $.get("html/Sidebar.html", function (data) {
+        $("#sidebar").append(data);
+    });
+}
+
 function setWindowResizeEvent() {
     $(window).resize(function () {
         resizeFrames();
@@ -96,10 +102,10 @@ function setWindowResizeEvent() {
 
 function resizeFrames() {
     var height = $(window).height();
-    height -= $("#viewFrame").position().top;
-    //        height -= $("div#ControlBar").outerHeight(true);
+    height -= $('#viewFrame').position().top;
     height -= 4;
-    $("#viewFrame").height(height);
+    $('#viewFrame').height(height);
+    $('.sidebar-container').css('top', ($('#viewFrame').position().top));
 }
 
 function initProgressBar() {

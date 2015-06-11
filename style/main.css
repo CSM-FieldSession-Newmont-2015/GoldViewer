@@ -54,3 +54,16 @@ text-shadow: 1px 1px 0 #fff;
     border-radius: 10px;
     margin: 10px;
 }
+
+#sidebar {
+    height: 100%;
+    width: 200px;
+    background: #00498f;
+  }
+
+.sidebar-container {
+    position: absolute;
+    height: 100%;
+    width: 20px;
+    background: #00498f;
+}
