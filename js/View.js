@@ -411,7 +411,8 @@ function View(projectURL) {
 
 		function makeLabel(name, x, y, z) {
 			var sprite = makeTextSprite(name, {
-				backgroundColor: {r:0, g:0, b:0, a:0}
+				backgroundColor: {r:0, g:0, b:0, a:0},
+				fontsize: 40
 			});
 			sprite.position.set(x, y, z);
 			return sprite;
@@ -422,36 +423,41 @@ function View(projectURL) {
 
 		// Force a scope.
 		(function () {
-			var lentgh = property.box.size.x;
+			var length = property.box.size.x;
 			// Lay out the X-axis labels. Ensure they are at least a minimum
 			//   distance apart. This minimum distance is set in makeTextSprite,
 			//   with the "sprite.scale.set(*)" line.
-			var markerDistance = Math.max(length / 5 - 1, maxDimension/20);
+			var markerDistance = Math.max(property.box.size.x / 5 - 1, maxDimension/20);
+			
+			//add zero
+			scene.add(makeLabel(formatKm(0), 0, 0, base));
+
 			for (var x = markerDistance; x < length; x += markerDistance) {
 				scene.add(makeLabel(formatKm(x), x, 0, base));
+
 			}
 			// Write out the axis name a littlebit after the last label.
-			x -= markerDistance / 2;
+			x -= markerDistance / 1.2;
 			scene.add(makeLabel("X", x, 0, base));
 		})();
 
 		(function () {
-			var lentgh = property.box.size.y;
+			var length = property.box.size.y;
 			var markerDistance = Math.max(length / 5 - 1, maxDimension/20);
 			for (var y = markerDistance; y < length; y += markerDistance) {
 				scene.add(makeLabel(formatKm(y), 0, y, base));
 			}
-			y -= markerDistance / 2;
+			y -= markerDistance / 1.2;
 			scene.add(makeLabel("Y", 0, y, base));
 		})();
 
 		(function () {
-			var lentgh = property.box.size.z;
+			var length = property.box.size.z;
 			var markerDistance = Math.max(length / 5 - 1, maxDimension/20);
 			for (var z = markerDistance; z < length; z += markerDistance) {
 				scene.add(makeLabel(formatKm(z), 0, 0, z + base));
 			}
-			z -= markerDistance / 2;
+			z -= markerDistance / 1.2;
 			scene.add(makeLabel("Z", 0, 0, z + base));
 		})();
 	}
