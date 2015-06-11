@@ -98,7 +98,6 @@ function View(projectURL) {
 		addReticle();
 		addLights();
 		render();
-		toggleVisible('Au', false);
 	}
 
 	/*
@@ -281,7 +280,7 @@ function View(projectURL) {
 		});
         // Progress is done!
 		setProgressBar(100);
-		toggleVisible('Au', false);
+		toggleVisible('As', false);
 	}
 
 	/* Layout of the holes object:
