@@ -185,7 +185,7 @@ function View(projectURL) {
 			// We can measure how many of the geometries we've loaded,
 			//   but we can't easily predict how long the BigMesh will
 			//   take, so assume 2%.
-			SetProgressBar(98 * returnedGeometry / totalGeometries);
+			setProgressBar(98 * returnedGeometry / totalGeometries);
 		}
 
 		if (returnedGeometry >= totalGeometries){
@@ -291,9 +291,8 @@ function View(projectURL) {
 			scene.add(minerals[mineral]["mesh"]);
 
 		});
-
-		// Progress is done!
-		SetProgressBar(100);
+        // Progress is done!
+		setProgressBar(100);
 	}
 
 	/* Layout of the holes object:
