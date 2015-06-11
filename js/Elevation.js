@@ -4,7 +4,7 @@
 
 var property;
 var scene;
-var segments = 10;
+var segments = 30;
 var currentRow = 0;
 
 var latLngMin;
@@ -17,8 +17,10 @@ var geometry;
 
 var map;
 var elevator;
+var onComplete;
 
-function addTerrain(_scene, _property) {
+function addTerrain(_scene, _property, _onComplete) {
+	onComplete = _onComplete;
 	scene = _scene;
 	property = _property
 
@@ -89,5 +91,6 @@ function plotTerrain(results, status) {
 		plane.position.y += property.box.size.y / 2;
 
 		scene.add(plane);
+		onComplete(plane);
 	}
 }

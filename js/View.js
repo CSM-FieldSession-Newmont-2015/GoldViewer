@@ -55,7 +55,6 @@ function View(projectURL) {
 
 	this.start = function () {
 		init();
-		render();
 	};
 
 	this.zoomIn = function () {
@@ -83,15 +82,16 @@ function View(projectURL) {
 		setupStats();
 		setupWindowListeners();
 
-		// Do this first, since it takes so long.
-		getMinerals();
+		addTerrain(scene, property, addSurveyLines);
+	}
 
+	function addLastElements(){
+		getMinerals();
 		addBoundingBox();
-		addSurveyLines();
 		addAxisLabels();
 		addReticle();
 		addLights();
-		addTerrain(scene, property);
+		render();
 	}
 
 	/*
@@ -219,6 +219,8 @@ function View(projectURL) {
 		var index = 0;
 		Object.keys(minerals).forEach(function(mineral){
 			minerals[mineral].intervals.forEach(function(interval){
+				interval.path[2] += holes.ids[interval.hole].zOffset;
+				interval.path[5] += holes.ids[interval.hole].zOffset;
 				workers[index%numWorkers].postMessage([
 						interval.path.buffer,
 						interval.value,
@@ -304,27 +306,22 @@ function View(projectURL) {
 				name: String,
 				longitude: Float,
 				latitude: Float,
-				location: [Float]
+				location: [Float],
+				zOffset: Float
 			}
 		}
 	}
 	*/
-	function addSurveyLines() {
 
-		getHoles();
-	}
-
-	function getHoles() {
+	function addSurveyLines(surfaceMesh) {
+		var surveyCaster = new THREE.Raycaster();
 		var geometries = {};
+		var up = vec3FromArray([0, 0, 1]);
 		holes.lines = {};
+		holes.ids = {};
 
 		projectJSON["holes"].forEach(function (jsonHole) {
 
-			var hole = {};
-			hole.name = jsonHole["name"];
-			hole.longitude = jsonHole["longLat"][0];
-			hole.latitude = jsonHole["longLat"][1];
-			hole.location = jsonHole["location"];
 
 			var color = jsonHole["traceColor"];
 
@@ -333,15 +330,41 @@ function View(projectURL) {
 			}
 
 			var surveys = jsonHole["interpolatedDownholeSurveys"];
+			var initialLocation = surveys[0].location;
 			var lineGeometry = geometries[color];
-				Array.prototype.push.apply(lineGeometry, surveys[0].location);
+
+			//Now we use the Raycaster to find the initial z value
+			surveyCaster.set(vec3FromArray([initialLocation[0] - property.box.center.x, initialLocation[1] - property.box.center.y, 0]), up);
+			var intersect = surveyCaster.intersectObject(surfaceMesh);
+			var zOffset = -100//
+			if(intersect.length != 0){
+				zOffset = intersect[0].distance - initialLocation[2];
+			}
+			console.log(zOffset);
+
+			var hole = {
+				name: jsonHole["name"],
+				longitude: jsonHole["longLat"][0],
+				latitude: jsonHole["longLat"][1],
+				location: jsonHole["location"],
+				zOffset: zOffset
+			}
+			holes.ids[jsonHole['id']] = hole;
+
+			Array.prototype.push.apply(lineGeometry, [initialLocation[0], initialLocation[1], initialLocation[2] + zOffset]);
+
+
 			for (var i = 1; i < surveys.length - 1; i += 1 ) {
-				Array.prototype.push.apply(lineGeometry, surveys[i].location);
-				Array.prototype.push.apply(lineGeometry, surveys[i].location);
+				Array.prototype.push.apply(
+					lineGeometry,
+					[surveys[i].location[0], surveys[i].location[1], surveys[i].location[2] + zOffset]);
+				Array.prototype.push.apply(
+					lineGeometry,
+					[surveys[i].location[0], surveys[i].location[1], surveys[i].location[2] + zOffset]);
 			}
 				Array.prototype.push.apply(
 					lineGeometry,
-					surveys[surveys.length - 1].location);
+					[surveys[surveys.length-1].location[0], surveys[surveys.length-1].location[1], surveys[surveys.length-1].location[2] + zOffset]);
 		});
 
 		Object.keys(geometries).forEach(function(jsonColor){
@@ -364,6 +387,7 @@ function View(projectURL) {
 				THREE.LinePieces);
 			scene.add(holes.lines[jsonColor]);
 		});
+		addLastElements();
 	}
 
 	function colorFromString(stringColor){
