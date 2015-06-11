@@ -13,7 +13,7 @@ var colors = {
 	white: 0xffffff,
 	gold: 0xd1b419,
 	dark_gold: 0xccac00
-};
+}
 
 function loadJSON(url) {
 	var json = null;
@@ -61,18 +61,6 @@ function View(projectURL) {
 	var emptyMesh             = new THREE.Mesh(new THREE.BoxGeometry(0, 0, 0));
 
 	this.start = function () {
-		init();
-	};
-
-	this.zoomIn = function () {
-		controls.dollyIn(1.2);
-	};
-
-	this.zoomOut = function () {
-		controls.dollyIn(1.0/1.2);
-	};
-
-	function init() {
 		projectJSON = loadJSON(projectURL);
 		property = getProperty(projectJSON);
 
@@ -89,7 +77,15 @@ function View(projectURL) {
 		setupWindowListeners();
 
 		addTerrain(scene, property, addSurveyLines);
-	}
+	};
+
+	this.zoomIn = function () {
+		controls.dollyIn(1.2);
+	};
+
+	this.zoomOut = function () {
+		controls.dollyIn(1.0/1.2);
+	};
 
 	function addLastElements(){
 		getMinerals();

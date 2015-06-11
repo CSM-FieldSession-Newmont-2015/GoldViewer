@@ -1,1 +1,5 @@
-Elevation2
+
+
+GOLDVIEWER.addTerrain = function(){
+	
+}
