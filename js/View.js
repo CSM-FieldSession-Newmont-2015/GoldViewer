@@ -422,7 +422,7 @@ function View(projectURL) {
 
 		// Force a scope.
 		(function () {
-			var lentgh = property.box.size.x;
+			var length = property.box.size.x;
 			// Lay out the X-axis labels. Ensure they are at least a minimum
 			//   distance apart. This minimum distance is set in makeTextSprite,
 			//   with the "sprite.scale.set(*)" line.
@@ -436,7 +436,7 @@ function View(projectURL) {
 		})();
 
 		(function () {
-			var lentgh = property.box.size.y;
+			var length = property.box.size.y;
 			var markerDistance = Math.max(length / 5 - 1, maxDimension/20);
 			for (var y = markerDistance; y < length; y += markerDistance) {
 				scene.add(makeLabel(formatKm(y), 0, y, base));
@@ -446,7 +446,7 @@ function View(projectURL) {
 		})();
 
 		(function () {
-			var lentgh = property.box.size.z;
+			var length = property.box.size.z;
 			var markerDistance = Math.max(length / 5 - 1, maxDimension/20);
 			for (var z = markerDistance; z < length; z += markerDistance) {
 				scene.add(makeLabel(formatKm(z), 0, 0, z + base));
