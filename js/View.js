@@ -335,11 +335,12 @@ function View(projectURL) {
 			//Now we use the Raycaster to find the initial z value
 			surveyCaster.set(vec3FromArray([initialLocation[0] - property.box.center.x, initialLocation[1] - property.box.center.y, 0]), up);
 			var intersect = surveyCaster.intersectObject(surfaceMesh);
-			var zOffset = -100//
+			var zOffset = 0;
 			if(intersect.length != 0){
 				zOffset = intersect[0].distance - initialLocation[2];
+			}else{
+				console.log("found a survey hole outside the bounding property");
 			}
-			console.log(zOffset);
 
 			var hole = {
 				name: jsonHole["name"],
@@ -775,7 +776,7 @@ function View(projectURL) {
 	}
 
 	function setupRenderer() {
-		renderer = new THREE.WebGLRenderer({antialias: false});
+		renderer = new THREE.WebGLRenderer({antialias: true});
 		renderer.setSize(window.innerWidth, window.innerHeight);
 		renderer.setClearColor(colors.background, 1);
 		renderer.sortObjects = false;
