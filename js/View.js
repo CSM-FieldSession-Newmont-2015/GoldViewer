@@ -41,6 +41,7 @@ function View(projectURL) {
 	var holes                 = {};
 	var minerals              = {};
 	var meshes                = [];
+	var visibleMeshes         = [];
 	var returnedGeometry      = 0;
 	var totalGeometries       = 0;
 	var scene                 = new THREE.Scene();
@@ -57,18 +58,18 @@ function View(projectURL) {
 	var checkMouse            = false;
 	var reticleLight          = null;
 	var cameraLight           = null;
+	var emptyMesh             = new THREE.Mesh(new THREE.BoxGeometry(0, 0, 0));
 
 	this.start = function () {
 		init();
 	};
 
 	this.zoomIn = function () {
-		controls.dollyIn(1.1);
-
+		controls.dollyIn(1.2);
 	};
 
 	this.zoomOut = function () {
-		controls.dollyIn(0.9);
+		controls.dollyIn(1.0/1.2);
 	};
 
 	function init() {
@@ -97,29 +98,33 @@ function View(projectURL) {
 		addReticle();
 		addLights();
 		render();
+		toggleVisible('Au', false);
 	}
 
 	/*
 	This is the layout of the minerals object:
 	{
-		"mesh": THREE.Mesh
-
 		//e. g. 'Au', 'Ag', etc.
-		MineralString: [
-			{
-				"value": Number,
-				"hole": String,
-				"depth": {
-					"start": Number,
-					"end":   Number
-				},
-				"path": {
-					"start": THREE.Vector3,
-					"end": THREE.Vector3
-				},
-				"mesh": THREE.Mesh
-			}
-		]
+		MineralString: {
+			"intervals": [
+				{
+					"value": Number,
+					"hole":  String,
+					"id":    Number,
+					"depth": {
+						"start": Number,
+						"end":   Number
+					},
+					"path": {
+						"start": THREE.Vector3,
+						"end": THREE.Vector3
+					}
+				}
+			],
+			"mesh": THREE.Mesh,
+			"minVisibleIndex": Integer,
+			"maxVisibleIndex": Integer
+		}
 	}
 	*/
 	function getMinerals() {
@@ -160,6 +165,10 @@ function View(projectURL) {
 		});
 
 		totalGeometries = currentID;
+		Object.keys(minerals).forEach(function(mineral){
+			minerals[mineral].minVisibleIndex = 0;
+			minerals[mineral].maxVisibleIndex = minerals[mineral].intervals.length-1;
+		})
 		sortMinerals();
 		delegate(minerals);
 	}
@@ -182,6 +191,7 @@ function View(projectURL) {
 
 		// Save all of the meshes for tool tips.
 		meshes[intervalID] = mesh;
+		visibleMeshes[intervalID] = mesh;
 
 		// Keep us up to date on how much has procssed ever x%.
 		var percentInterval = Math.ceil(0.005 * totalGeometries);
@@ -271,6 +281,7 @@ function View(projectURL) {
 		});
         // Progress is done!
 		setProgressBar(100);
+		toggleVisible('Au', false);
 	}
 
 	/* Layout of the holes object:
@@ -372,6 +383,28 @@ function View(projectURL) {
 			var color = stringColor.split("#");
 			color = "0x"+color[1];
 			return new THREE.Color(parseInt(color, 16));
+	}
+
+	function updateVisibility(mineralName, lowerIndex, higherIndex){
+
+	}
+
+	function toggleVisible(mineralName, visible){
+		var mineral = minerals[mineralName];
+		mineral.mesh.visible = visible;
+		scene.updateVisibility;
+		var intervals = mineral.intervals;
+		console.log(visible)
+		if(visible){
+			for(var i = mineral.minVisibleIndex; i < mineral.maxVisibleIndex; i += 1){
+				visibleMeshes[intervals[i].id] = meshes[intervals[i].id];
+			}
+		}
+		else{
+			for(var i = mineral.minVisibleIndex; i < mineral.maxVisibleIndex; i += 1){
+				visibleMeshes[intervals[i].id] = emptyMesh;
+			}
+		}
 	}
 
 	function addAxisLabels() {
@@ -615,7 +648,7 @@ function View(projectURL) {
 		if(!checkMouse)
 			return;
 		raycaster.setFromCamera(mouse, camera);
-		var intersects = raycaster.intersectObjects(meshes);
+		var intersects = raycaster.intersectObjects(visibleMeshes);
 
 		if(intersects.length == 0){
 			return;
