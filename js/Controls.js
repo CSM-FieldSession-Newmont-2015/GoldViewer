@@ -112,7 +112,7 @@ function initProgressBar() {
     $('#progressbar').progressbar({
         value: false,
         change: function () {
-//            $('.progress-label').text($('#progressbar').progressbar('value') + "%");
+            $('.progress-label').text($('#progressbar').progressbar('value') + "%");
         },
         complete: function () {
             $('.progress-label').text("Complete!");
