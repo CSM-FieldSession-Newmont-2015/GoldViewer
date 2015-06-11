@@ -11,6 +11,8 @@ var colors = {
 	soft_white: 0x404040,
 	terrain_frame: 0x009900,
 	white: 0xffffff,
+	gold: 0xffd700,
+	dark_gold: 0xccac00
 };
 
 function loadJSON(url) {
@@ -53,6 +55,7 @@ function View(projectURL) {
 	var mineralData           = [];
 	var mouseTimeout          = null;
 	var checkMouse            = false;
+	var reticleLight          = null;
 
 	this.start = function () {
 		init();
@@ -234,25 +237,6 @@ function View(projectURL) {
 		});
 	}
 
-	function addReticle() {
-		reticle = new THREE.Mesh(
-			new THREE.SphereGeometry(
-				maxDimension / 1000, // Radius
-				// These two values determine how smooth the sphere looks.
-				40, // widthSegments
-				40  // heightSegments
-				),
-			new THREE.MeshLambertMaterial({
-				color: colors.black,
-				transparent: true,
-				opacity: 0.6 // Chosen through several trials of intense rigor.
-			}));
-		reticle.position.x = controls.target.x;
-		reticle.position.y = controls.target.y;
-		reticle.position.z = controls.target.z;
-		scene.add(reticle);
-	}
-
 	function makeBigMeshes() {
 		if (meshes.length === 0) {
 			console.log("`meshes` is empty. Are there any intervals?");
@@ -279,7 +263,7 @@ function View(projectURL) {
 			geometry.computeVertexNormals();
 
 			var color = colorFromString(property.analytes[mineral].color);
-			var material = new THREE.MeshPhongMaterial({color: color});
+			var material = new THREE.MeshLambertMaterial({color: color});
 			minerals[mineral]["mesh"] = new THREE.Mesh(geometry, material);
 
 			scene.add(minerals[mineral]["mesh"]);
@@ -479,7 +463,7 @@ function View(projectURL) {
 		// Apply the adjustment that our box gets.
 		var offset = property.box.center.z - 0.5 * property.box.size.z;
 
-		var light = new THREE.PointLight(0xffffff, 10.0, 20.0 * maxDimension);
+		var light = new THREE.PointLight(colors.soft_white, 6.0, 20.0 * maxDimension);
 		// Position the point light above the box, in a corner.
 		light.position.z = 3.0 * property.box.size.z + offset;
 		scene.add(light);
@@ -496,6 +480,10 @@ function View(projectURL) {
 		reticle.position.x = controls.target.x;
 		reticle.position.y = controls.target.y;
 		reticle.position.z = controls.target.z;
+
+		reticleLight.position.x = controls.target.x;
+		reticleLight.position.y = controls.target.y;
+		reticleLight.position.z = controls.target.z;
 
 		renderer.clear();
 		renderer.render(scene,camera);
@@ -619,7 +607,7 @@ function View(projectURL) {
 				}
 				intersected = intersects[0].object;
 
-				intersected.material = new THREE.MeshPhongMaterial({color: colors.pink});
+				intersected.material = new THREE.MeshLambertMaterial({emissive: colors.pink});
 				scene.add(intersected);
 			}
 
@@ -675,18 +663,18 @@ function View(projectURL) {
 			sceneOrtho.remove(tooltipSprite);
 
 			clearTimeout(mouseTimeout);
-			mouseTimeout = setTimeout(function(){checkMouseIntercept();}, 60);
+			if(event.buttons == 0){
+				mouseTimeout = setTimeout(function(){checkMouseIntercept();}, 70);
+			};
 		}, false);
 
 		container.addEventListener("mousedown",
 			function mousedownEventListener(event) {
-			event.preventDefault();
-			if (controls.autoRotate) {
-				controls.autoRotate = false;
-			}
-			intersected = null;
-			sceneOrtho.remove(tooltipSprite);
-		});
+				event.preventDefault();
+				if (controls.autoRotate) {
+					controls.autoRotate = false;
+				}
+			});
 	}
 
 	function addBoundingBox() {
@@ -709,12 +697,15 @@ function View(projectURL) {
 
 	function addReticle() {
 		reticle = new THREE.Mesh(
-			new THREE.SphereGeometry(maxDimension / 1000),
-			new THREE.MeshLambertMaterial({ color: colors.black }));
+			new THREE.SphereGeometry(maxDimension / 1000, 20, 20),
+			new THREE.MeshBasicMaterial({ color: colors.dark_gold, wireframe: true }));
 		reticle.position.x = controls.target.x;
 		reticle.position.y = controls.target.y;
 		reticle.position.z = controls.target.z;
 		scene.add(reticle);
+
+		reticleLight = new THREE.PointLight(colors.gold, 3, 200);
+		scene.add(reticleLight);
 	}
 
 	function setupCamera() {
