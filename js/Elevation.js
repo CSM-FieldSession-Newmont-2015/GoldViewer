@@ -83,7 +83,9 @@ function plotTerrain(results, status) {
 		var material = new THREE.MeshBasicMaterial({
 			color: colors.terrain_frame,
 			side: THREE.DoubleSide,
-			wireframe: true
+			wireframe: true,
+			transparent: true,
+			opacity: 0.314
 		});
 
 		var plane = new THREE.Mesh(geometry, material);

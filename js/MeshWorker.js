@@ -12,7 +12,7 @@ self.addEventListener('message', function(e) {
 	calcGeometry(e.data);
 });
 
-var cylinderEdges = 6;
+var cylinderEdges = 7;
 var matrix4 = new THREE.Matrix4().set
 		(1, 0, 0, 0,
 		0, 0, 1, 0,
@@ -23,6 +23,9 @@ function determineWidth(value) {
 	var width =  Math.log10(value + 1.0) * 2.0;
 	if (width < 0.1) {
 		width = 0.1;
+	}
+	if (width > 8.0){
+		width = 8.0;
 	}
 	return width;
 }

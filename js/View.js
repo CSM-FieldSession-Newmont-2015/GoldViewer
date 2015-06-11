@@ -9,9 +9,9 @@ var colors = {
 	black: 0x000000,
 	pink: 0xff00ff,
 	soft_white: 0x404040,
-	terrain_frame: 0x009900,
+	terrain_frame: 0x26466d,
 	white: 0xffffff,
-	gold: 0xffd700,
+	gold: 0xd1b419,
 	dark_gold: 0xccac00
 };
 
@@ -56,6 +56,7 @@ function View(projectURL) {
 	var mouseTimeout          = null;
 	var checkMouse            = false;
 	var reticleLight          = null;
+	var cameraLight           = null;
 
 	this.start = function () {
 		init();
@@ -177,7 +178,6 @@ function View(projectURL) {
 		mesh.mineralData   = mineralData[intervalID];
 		// These meshes only exist for tool tips, so we don't actually
 		//   want to render them.
-		mesh.visible       = false;
 		mesh.autoUpdate    = false;
 
 		// Save all of the meshes for tool tips.
@@ -263,7 +263,7 @@ function View(projectURL) {
 			geometry.computeVertexNormals();
 
 			var color = colorFromString(property.analytes[mineral].color);
-			var material = new THREE.MeshLambertMaterial({color: color});
+			var material = new THREE.MeshPhongMaterial({color: color, refractionRatio: 1, shininess: 4});
 			minerals[mineral]["mesh"] = new THREE.Mesh(geometry, material);
 
 			scene.add(minerals[mineral]["mesh"]);
@@ -467,6 +467,12 @@ function View(projectURL) {
 		// Position the point light above the box, in a corner.
 		light.position.z = 3.0 * property.box.size.z + offset;
 		scene.add(light);
+
+		cameraLight = new THREE.PointLight(colors.soft_white, 3, maxDimension);
+		scene.add(cameraLight);
+
+		reticleLight = new THREE.PointLight(colors.gold, 5, maxDimension / 15);
+		scene.add(reticleLight);
 	}
 
 	function render() {
@@ -484,6 +490,10 @@ function View(projectURL) {
 		reticleLight.position.x = controls.target.x;
 		reticleLight.position.y = controls.target.y;
 		reticleLight.position.z = controls.target.z;
+
+		cameraLight.position.x = camera.position.x;
+		cameraLight.position.y = camera.position.y;
+		cameraLight.position.z = camera.position.z;
 
 		renderer.clear();
 		renderer.render(scene,camera);
@@ -600,37 +610,29 @@ function View(projectURL) {
 		raycaster.setFromCamera(mouse, camera);
 		var intersects = raycaster.intersectObjects(meshes);
 
-		if (intersects.length > 0) {
-			if (intersected != intersects[0].object) {
-				if (intersected) {
-					scene.remove(intersected);
-				}
-				intersected = intersects[0].object;
-
-				intersected.material = new THREE.MeshLambertMaterial({emissive: colors.pink});
-				scene.add(intersected);
-			}
-
-			// Set sprite to be in front of the orthographic camera so it
-			//   is visible.
-			var data = intersected.mineralData;
-			tooltipSprite = makeTextSprite(
-				"Mineral:\t" + data.mineral
-				+ "\nValue:  \t" + data.value
-				+ "\nDepth:  \t" + data.depth.start + '-' + data.depth.end
-				+ "\nHole ID:\t" + data.hole);
-			tooltipSprite.scale.set(250,250,1);
-			tooltipSprite.position.z=0;
-			tooltipSprite.position.x=tooltipSpriteLocation.x;
-			tooltipSprite.position.y=tooltipSpriteLocation.y;
-			sceneOrtho.add(tooltipSprite);
-
-		} else {
-			if (intersected) {
-				scene.remove(intersected);
-			}
-			intersected = null;
+		if(intersects.length == 0){
+			return;
 		}
+
+		intersected = intersects[0].object;
+
+		intersected.material = new THREE.MeshLambertMaterial({emissive: colors.pink});
+		scene.add(intersected);
+	
+		// Set sprite to be in front of the orthographic camera so it
+		//   is visible.
+		var data = intersected.mineralData;
+		tooltipSprite = makeTextSprite(
+			"Mineral:\t" + data.mineral
+			+ "\nValue:  \t" + data.value
+			+ "\nDepth:  \t" + data.depth.start + '-' + data.depth.end
+			+ "\nHole:\t" + holes.ids[data.hole].name);
+		tooltipSprite.scale.set(250,250,1);
+		tooltipSprite.position.z=0;
+		tooltipSprite.position.x=tooltipSpriteLocation.x;
+		tooltipSprite.position.y=tooltipSpriteLocation.y;
+		sceneOrtho.add(tooltipSprite);
+
 	}
 
 	function setupWindowListeners() {
@@ -650,22 +652,23 @@ function View(projectURL) {
 		});
 
 		container.addEventListener('mousemove',
-			function mousemouseEventListener(event) {
+			function mousemoveEventListener(event) {
 			event.preventDefault();
 
 			mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
 			mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
 
 			//this will update the mouse position as well as make the tooltipSprite follow the mouse
-			tooltipSpriteLocation.x=event.clientX-(window.innerWidth/2);
-			tooltipSpriteLocation.y=-event.clientY+(window.innerHeight/2)+20;
+			tooltipSpriteLocation.x=event.clientX-(window.innerWidth/2) + 15;
+			tooltipSpriteLocation.y=-event.clientY+(window.innerHeight/2) - 20;
 
 			sceneOrtho.remove(tooltipSprite);
-
-			clearTimeout(mouseTimeout);
+			scene.remove(intersected);
+			
+			window.clearTimeout(mouseTimeout);
 			if(event.buttons == 0){
-				mouseTimeout = setTimeout(function(){checkMouseIntercept();}, 70);
-			};
+				mouseTimeout = window.setTimeout(checkMouseIntercept, 150);
+			}
 		}, false);
 
 		container.addEventListener("mousedown",
@@ -697,15 +700,12 @@ function View(projectURL) {
 
 	function addReticle() {
 		reticle = new THREE.Mesh(
-			new THREE.SphereGeometry(maxDimension / 1000, 20, 20),
-			new THREE.MeshBasicMaterial({ color: colors.dark_gold, wireframe: true }));
+			new THREE.IcosahedronGeometry(maxDimension / 1000, 3),
+			new THREE.MeshBasicMaterial({ color: colors.gold, wireframe: true }));
 		reticle.position.x = controls.target.x;
 		reticle.position.y = controls.target.y;
 		reticle.position.z = controls.target.z;
 		scene.add(reticle);
-
-		reticleLight = new THREE.PointLight(colors.gold, 3, 200);
-		scene.add(reticleLight);
 	}
 
 	function setupCamera() {
