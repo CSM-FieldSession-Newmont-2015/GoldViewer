@@ -48,10 +48,11 @@ function View(projectURL) {
 	var raycaster             = new THREE.Raycaster();
 	var tooltipSprite         = null;
 	var intersected           = null;
-	var checkMouse            = false;
 	var container             = $('#viewFrame');
 	var maxDimension          = 0;
 	var mineralData           = [];
+	var mouseTimeout          = null;
+	var checkMouse            = false;
 
 	this.start = function () {
 		init();
@@ -190,15 +191,7 @@ function View(projectURL) {
 
 		if (returnedGeometry >= totalGeometries){
 			makeBigMeshes();
-
-			// We need to add the meshes to the scene for intercepting to work.
-			// We're not entirely sure why.
-			// This causes performance problems for us, at.
-			//meshes.forEach(function(mesh){
-			//	scene.add(mesh);
-			//});
 			checkMouse = true;
-			
 		}
 	}
 
@@ -246,8 +239,8 @@ function View(projectURL) {
 			new THREE.SphereGeometry(
 				maxDimension / 1000, // Radius
 				// These two values determine how smooth the sphere looks.
-				20, // widthSegments
-				20  // heightSegments
+				40, // widthSegments
+				40  // heightSegments
 				),
 			new THREE.MeshLambertMaterial({
 				color: colors.black,
@@ -283,6 +276,7 @@ function View(projectURL) {
 			var geometry = new THREE.BufferGeometry();
 			geometry.addAttribute('position', new THREE.BufferAttribute(verts, 3));
 			geometry.computeFaceNormals();
+			geometry.computeVertexNormals();
 
 			var color = colorFromString(property.analytes[mineral].color);
 			var material = new THREE.MeshPhongMaterial({color: color});
@@ -485,7 +479,7 @@ function View(projectURL) {
 		// Apply the adjustment that our box gets.
 		var offset = property.box.center.z - 0.5 * property.box.size.z;
 
-		var light = new THREE.PointLight(0xffffff, 100.0, 20.0 * maxDimension);
+		var light = new THREE.PointLight(0xffffff, 10.0, 20.0 * maxDimension);
 		// Position the point light above the box, in a corner.
 		light.position.z = 3.0 * property.box.size.z + offset;
 		scene.add(light);
@@ -615,66 +609,40 @@ function View(projectURL) {
 	function checkMouseIntercept() {
 		if(!checkMouse)
 			return;
-		//meshes.forEach(function(mesh){
-		//	scene.add(mesh);
-		//})
 		raycaster.setFromCamera(mouse, camera);
 		var intersects = raycaster.intersectObjects(meshes);
 
 		if (intersects.length > 0) {
 			if (intersected != intersects[0].object) {
 				if (intersected) {
-					var material = intersected.material;
-					if (material.emissive) {
-						material.emissive.setHex(intersected.currentHex);
-					} else {
-						material.color.setHex(intersected.currentHex);
-					}
+					scene.remove(intersected);
 				}
 				intersected = intersects[0].object;
-				// Set sprite to be in front of the orthographic camera so it
-				//   is visible.
-				sceneOrtho.remove(tooltipSprite);
-				var data = intersected.mineralData;
-				tooltipSprite = makeTextSprite(data.mineral
-					+ "\nValue: " + data.value
-					+ "\nDep: " + data.depth.start + '-' + data.depth.end
-					+ "\nHole ID: " + data.hole);
-				tooltipSprite.scale.set(250,250,1);
-				tooltipSprite.position.z=0;
-				tooltipSprite.position.x=tooltipSpriteLocation.x;
-				tooltipSprite.position.y=tooltipSpriteLocation.y;
-				sceneOrtho.add(tooltipSprite);
 
-				material = intersected.material;
-				if (material.emissive) {
-					intersected.currentHex = intersected.material.emissive
-						.getHex();
-					material.emissive.setHex(0xff0000);
-				} else {
-					intersected.currentHex = material.color.getHex();
-					material.color.setHex(0xff0000);
-				}
-
+				intersected.material = new THREE.MeshPhongMaterial({color: colors.pink});
+				scene.add(intersected);
 			}
+
+			// Set sprite to be in front of the orthographic camera so it
+			//   is visible.
+			var data = intersected.mineralData;
+			tooltipSprite = makeTextSprite(
+				"Mineral:\t" + data.mineral
+				+ "\nValue:  \t" + data.value
+				+ "\nDepth:  \t" + data.depth.start + '-' + data.depth.end
+				+ "\nHole ID:\t" + data.hole);
+			tooltipSprite.scale.set(250,250,1);
+			tooltipSprite.position.z=0;
+			tooltipSprite.position.x=tooltipSpriteLocation.x;
+			tooltipSprite.position.y=tooltipSpriteLocation.y;
+			sceneOrtho.add(tooltipSprite);
 
 		} else {
 			if (intersected) {
-				material = intersected.material;
-
-				if (material.emissive) {
-					material.emissive.setHex(intersected.currentHex);
-				} else {
-					material.color.setHex(intersected.currentHex);
-				}
+				scene.remove(intersected);
 			}
-			//set sprite to be behind the ortographic camer so it is not visible
-			sceneOrtho.remove(tooltipSprite);
 			intersected = null;
 		}
-		//meshes.forEach(function(mesh){
-		//	scene.remove(mesh);
-		//})
 	}
 
 	function setupWindowListeners() {
@@ -693,7 +661,7 @@ function View(projectURL) {
 			renderer.setSize(window.innerWidth, window.innerHeight);
 		});
 
-		container.addEventListener('click',
+		container.addEventListener('mousemove',
 			function mousemouseEventListener(event) {
 			event.preventDefault();
 
@@ -703,7 +671,11 @@ function View(projectURL) {
 			//this will update the mouse position as well as make the tooltipSprite follow the mouse
 			tooltipSpriteLocation.x=event.clientX-(window.innerWidth/2);
 			tooltipSpriteLocation.y=-event.clientY+(window.innerHeight/2)+20;
-			checkMouseIntercept();
+
+			sceneOrtho.remove(tooltipSprite);
+
+			clearTimeout(mouseTimeout);
+			mouseTimeout = setTimeout(function(){checkMouseIntercept();}, 60);
 		}, false);
 
 		container.addEventListener("mousedown",
