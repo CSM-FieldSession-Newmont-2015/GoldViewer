@@ -411,7 +411,7 @@ function View(projectURL) {
 
 		function makeLabel(name, x, y, z) {
 			var sprite = makeTextSprite(name, {
-				backgroundColor: {r:255, g:100, b:100, a:0}
+				backgroundColor: {r:0, g:0, b:0, a:0}
 			});
 			sprite.position.set(x, y, z);
 			return sprite;
@@ -519,9 +519,10 @@ function View(projectURL) {
 		canvas.width = size;
 		canvas.height = size;
 		var context = canvas.getContext('2d');
-		context.font = "Bold " + fontsize + "px " + fontface;
+		context.font = fontsize + "px " + fontface;
 
 		// Draw background rectangle
+		//find the size of our text to draw the rectangle around
 		var lines = message.split("\n");
 		var lineHeight= fontsize;
 		var maxTextWidth=0;
@@ -531,14 +532,14 @@ function View(projectURL) {
 				maxTextWidth=textWidth;
 			}
 		});
-
+		//set the color to the input
 		context.fillStyle = "rgba("
 			+ backgroundColor.r + ","
 			+ backgroundColor.g + ","
 			+ backgroundColor.b + ","
 			+ backgroundColor.a
 			+ ")";
-
+		
 		context.fillRect(0.5*size,
 			0.5*size - fontsize,
 			maxTextWidth,
@@ -626,7 +627,10 @@ function View(projectURL) {
 			"Mineral:\t" + data.mineral
 			+ "\nValue:  \t" + data.value
 			+ "\nDepth:  \t" + data.depth.start + '-' + data.depth.end
-			+ "\nHole:\t" + holes.ids[data.hole].name);
+			+ "\nHole:\t" + holes.ids[data.hole].name,
+			{backgroundColor: {r:11, g:62, b:111, a:1},
+			 textColor: {r:246, g:246, b:246, a:1}});
+
 		tooltipSprite.scale.set(250,250,1);
 		tooltipSprite.position.z=0;
 		tooltipSprite.position.x=tooltipSpriteLocation.x;
