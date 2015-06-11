@@ -1,0 +1,5 @@
+
+
+GOLDVIEWER.addTerrain = function(){
+	
+}
