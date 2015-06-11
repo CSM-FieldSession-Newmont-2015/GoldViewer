@@ -709,7 +709,7 @@ function View(projectURL) {
 			scene.remove(intersected);
 			
 			window.clearTimeout(mouseTimeout);
-			if(event.buttons == 0){
+			if(event.buttons == 0 && raycaster){
 				mouseTimeout = window.setTimeout(checkMouseIntercept, 150);
 			}
 		}, false);
