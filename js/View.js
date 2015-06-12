@@ -280,9 +280,7 @@ function View(projectURL) {
 			scene.add(minerals[mineral]["mesh"]);
 
 		});
-		// Progress is done!
 		setProgressBar(100);
-		toggleVisible('As', false);
 	}
 
 	/* Layout of the holes object:
