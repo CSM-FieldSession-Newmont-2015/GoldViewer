@@ -44,6 +44,7 @@ function View(projectURL) {
 	var visibleMeshes         = [];
 	var returnedGeometry      = 0;
 	var totalGeometries       = 0;
+	var maxPossibleSegments   = 60;
 	var scene                 = new THREE.Scene();
 	var sceneOrtho            = new THREE.Scene();
 	var mouse                 = new THREE.Vector2();
@@ -76,7 +77,7 @@ function View(projectURL) {
 		setupStats();
 		setupWindowListeners();
 
-		addTerrain(scene, property, addSurveyLines);
+		addTerrain();
 	};
 
 	this.zoomIn = function () {
@@ -165,6 +166,7 @@ function View(projectURL) {
 			minerals[mineral].maxVisibleIndex = minerals[mineral].intervals.length-1;
 		})
 		sortMinerals();
+		//pass the histogram data
 		delegate(minerals);
 	}
 
@@ -304,8 +306,10 @@ function View(projectURL) {
 
 	function addSurveyLines(surfaceMesh) {
 		var surveyCaster = new THREE.Raycaster();
+		surveyCaster.far = 1e6;
 		var geometries = {};
 		var up = vec3FromArray([0, 0, 1]);
+		var down = vec3FromArray([0, 0, -1]);
 		holes.lines = {};
 		holes.ids = {};
 
@@ -322,13 +326,17 @@ function View(projectURL) {
 			var initialLocation = surveys[0].location;
 			var lineGeometry = geometries[color];
 
+			//console.log("Initial location: "+(initialLocation[2] - property.box.center.z));
 			//Now we use the Raycaster to find the initial z value
 			surveyCaster.set(vec3FromArray([
 					initialLocation[0] - property.box.center.x,
 					initialLocation[1] - property.box.center.y,
 					0]),
-				up);
-			var intersect = surveyCaster.intersectObject(surfaceMesh);
+					up);
+			var intersect = surveyCaster.intersectObject(surfaceMesh);	//look up
+			//console.log(surveyCaster);
+			surveyCaster.set(surveyCaster.ray.origin, down);
+			Array.prototype.push.apply(intersect, surveyCaster.intersectObject(surfaceMesh));	//and down
 			var zOffset = 0;
 			if(intersect.length != 0){
 				zOffset = intersect[0].distance - initialLocation[2];
@@ -390,6 +398,162 @@ function View(projectURL) {
 		});
 		addLastElements();
 	}
+
+	function addTerrain(){
+
+		var sizeX = property.box.size.x * 1.01;
+		var sizeY = property.box.size.y * 1.01;
+
+
+		var maxTerrainDim = Math.max(sizeX, sizeY);
+		var minTerrainDim = Math.min(sizeX, sizeY);
+		var longSegments = Math.min(Math.ceil(maxTerrainDim/2.0), maxPossibleSegments);
+		var segmentLength = maxTerrainDim / longSegments;
+		var shortSegments = Math.ceil(minTerrainDim / segmentLength);
+		minTerrainDim = shortSegments * segmentLength;
+
+		var xSegments, ySegments;
+		var elevations = [];
+
+		if(sizeX > sizeY){
+			xSegments = longSegments;
+			ySegments = shortSegments;
+			sizeY = minTerrainDim;
+		}else{
+			ySegments = longSegments;
+			xSegments = shortSegments;
+			sizeX = minTerrainDim;
+		};
+
+		var saveName = property.name + ".terrain";
+		if(localStorage.hasOwnProperty(saveName)){
+			elevations = JSON.parse(localStorage[saveName]);
+			makeTerrainMesh();
+			return;
+		}
+
+		var elevator = new google.maps.ElevationService();
+		var openRequests = 0;
+
+		var latLngMin = new google.maps.LatLng(property.longLatMin.y, property.longLatMin.x);
+		var latLngMax = new google.maps.LatLng(property.longLatMax.y, property.longLatMax.x);
+
+		var dx = (latLngMax.lng() - latLngMin.lng()) / xSegments;
+		var dy = (latLngMax.lat() - latLngMin.lat()) / ySegments;
+
+		var path = [];
+
+		var intervals = 0;
+		var timeout = 0;
+
+		for(var i = latLngMin.lng(); i <= latLngMax.lng(); i += 2*dx){
+			path.push(new google.maps.LatLng(latLngMin.lat(), i));
+			path.push(new google.maps.LatLng(latLngMax.lat(), i));
+			if(i + dx <= latLngMax.lng()){
+				path.push(new google.maps.LatLng(latLngMax.lat(), i + dx));
+				path.push(new google.maps.LatLng(latLngMin.lat(), i + dx));
+			}
+			intervals += ySegments * 2;
+
+			//make sure we aren't requesting more than 512 intervals at a time
+			if(intervals > 512 - ySegments * 2){
+				(function(){
+					var pathRequest = {
+						'path': path.slice(),
+						'samples': intervals
+					};
+					sendElevationRequest(pathRequest, timeout);
+				})();
+				path = [];
+				intervals = 0;
+				timeout += 200;
+				openRequests += 1;
+			}
+
+		}
+		if(path.length != 0){
+			var pathRequest = {
+				'path': path,
+				'samples': intervals
+			};
+			sendElevationRequest(pathRequest, timeout);
+			openRequests += 1;
+		}
+		var counter = 0;
+
+		function addToTerrain(results, status){
+			openRequests -= 1;
+			if(status != google.maps.ElevationStatus.OK) {
+				console.error(status);
+				return;
+			}
+			results.forEach(function(thing){
+				var indeces = LatLongtoIndeces(thing);
+				if(elevations[indeces[0]] === undefined){
+					elevations[indeces[0]] = [];
+				}
+				elevations[indeces[0]][indeces[1]] = thing.elevation;
+			});
+			if(openRequests == 0){
+				makeTerrainMesh();
+				saveToCache(saveName, elevations);
+			}
+
+		}
+
+		function sendElevationRequest(pathRequest, timeout){
+			setTimeout(function(){elevator.getElevationAlongPath(pathRequest, handleResults)}, timeout);
+			function handleResults(results, status){
+				if(status == google.maps.ElevationStatus.OVER_QUERY_LIMIT){
+					console.log("over query");
+					setTimeout(sendElevationRequest(pathRequest, 2000));
+				}else{
+					addToTerrain(results, status);
+				}
+			}
+		}
+
+		function LatLongtoIndeces(latLong){
+			//location.A: Latitude!
+			//location.F: Longitude!
+			var width = Math.round((latLong.location.A - latLngMin.A) /
+				(latLngMax.A - latLngMin.A) * (ySegments-1));
+			var height = Math.round((latLong.location.F - latLngMin.F) /
+				(latLngMax.F - latLngMin.F) * xSegments);
+			return [width, height];
+		};
+
+		function makeTerrainMesh(){
+			var geometry = new THREE.PlaneGeometry(sizeX, sizeY, xSegments, ySegments-1);
+			var counter = 0;
+			var vertices = geometry.vertices;
+			for(var j = 0; j < ySegments; j += 1){
+				for(var i = 0; i <= xSegments; i += 1){
+					geometry.vertices[counter].z = elevations[j][i];
+					counter += 1;
+				}
+			}
+			//var buffered = new THREE.BufferGeometry().fromGeometry(geometry);
+			var material = new THREE.MeshBasicMaterial({
+				color: colors.terrain_frame,
+				side: THREE.DoubleSide,
+				transparent: true,
+				wireframe: true,
+				opacity: 0.2
+			});
+			var surfaceMesh = new THREE.Mesh(geometry, material);
+			surfaceMesh.position.x += property.box.size.x / 2;
+			surfaceMesh.position.y += property.box.size.y / 2;
+			scene.add(surfaceMesh);
+			addSurveyLines(surfaceMesh);
+		}
+	}
+
+	function saveToCache(name, object){
+		localStorage[name] = JSON.stringify(object);
+		console.log('SUCCESS');
+	}
+
 
 	function colorFromString(stringColor){
 			var color = stringColor.split("#");
