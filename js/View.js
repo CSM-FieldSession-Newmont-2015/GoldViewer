@@ -80,7 +80,6 @@ function View(projectURL) {
 
 	// TODO: Comment the rest of these.
 	var holes                 = {};
-<<<<<<< HEAD
 	var minerals              = {};
 	var meshes                = [];
 	var visibleMeshes         = [];
@@ -93,8 +92,6 @@ function View(projectURL) {
 	var tooltipSpriteLocation = new THREE.Vector2();
 	var raycaster             = new THREE.Raycaster();
 	var tooltipSprite         = null;
-=======
->>>>>>> e14eea17bc670ecdd736d8b51f9a44489f0ae1fe
 	var intersected           = null;
 	var maxDimension          = 0;
 	var meshes                = [];
@@ -503,7 +500,6 @@ function View(projectURL) {
 		addLastElements();
 	}
 
-<<<<<<< HEAD
 	function addTerrain(){
 
 		var sizeX = property.box.size.x * 1.01;
