@@ -7,19 +7,15 @@
  * Color constants used by different parts of the view.
  *
  * @type {Object.<string, number>}
- *
- * @todo  Rename these to refer to their use case, not color.
  */
 var colors = {
-	axes: 0x5d5d5d,
-	background: 0xdedede,
-	black: 0x000000,
-	pink: 0xff00ff,
-	soft_white: 0x404040,
-	terrain_frame: 0x26466d,
-	white: 0xffffff,
-	gold: 0xd1b419,
-	dark_gold: 0xccac00
+	ambientLight     : 0x404040, // Soft white
+	axes             : 0x5d5d5d, // Dark gray
+	background       : 0xdedede, // White with a smidgen of gray
+	cameraLight      : 0x404040, // Soft white
+	reticleLight     : 0xd1b419, // Solid gold
+	terrain_frame    : 0x26466d, // Dark-ish blue
+	tooltipsSelection: 0xff00ff, // Bright pink
 }
 
 /**
@@ -251,7 +247,9 @@ function View(projectURL) {
 	function makeMesh(data){
 		var intervalID = data[1];
 
-		var material = new THREE.MeshBasicMaterial({color: colors.pink});
+		var material = new THREE.MeshBasicMaterial({
+			color: colors.tooltipsSelection
+		});
 		var geometry = new THREE.BufferGeometry();
 
 		geometry.addAttribute('position',
@@ -521,7 +519,7 @@ function View(projectURL) {
 	 * When `visible` is a falsey value, the current range on `mineralName`
 	 * minerals is disabled.
 	 *
-	 * @param  {[type]} mineralName [description]
+	 * @param  {} mineralName [description]
 	 * @param  {[type]} visible     [description]
 	 */
 	function toggleVisible(mineralName, visible){
@@ -665,24 +663,16 @@ function View(projectURL) {
 	 *     - A light at the center of our reticle
 	 */
 	function addLights() {
-		var ambientLight = new THREE.AmbientLight(colors.soft_white);
+		var ambientLight = new THREE.AmbientLight(colors.ambientLight);
 		scene.add(ambientLight);
 
 		// Apply the adjustment that our box gets.
 		var offset = property.box.center.z - 0.5 * property.box.size.z;
 
-		var light = new THREE.PointLight(
-			colors.soft_white,
-			6.0,
-			20.0 * maxDimension);
-		// Position the point light above the box, in a corner.
-		light.position.z = 3.0 * property.box.size.z + offset;
-		scene.add(light);
-
-		cameraLight = new THREE.PointLight(colors.soft_white, 3, maxDimension);
+		cameraLight = new THREE.PointLight(colors.cameraLight, 3, maxDimension);
 		scene.add(cameraLight);
 
-		reticleLight = new THREE.PointLight(colors.gold, 5, maxDimension / 15);
+		reticleLight = new THREE.PointLight(colors.reticleLight, 5, maxDimension / 15);
 		scene.add(reticleLight);
 	}
 
@@ -879,7 +869,7 @@ function View(projectURL) {
 		intersected = intersects[0].object;
 
 		intersected.material = new THREE.MeshLambertMaterial({
-			emissive: colors.pink
+			emissive: colors.tooltipsSelection
 		});
 		scene.add(intersected);
 
@@ -996,7 +986,7 @@ function View(projectURL) {
 		reticle = new THREE.Mesh(
 			new THREE.IcosahedronGeometry(maxDimension / 1000, 3),
 			new THREE.MeshBasicMaterial({
-				color: colors.gold,
+				color: colors.reticleLight,
 				wireframe: true
 			}));
 		reticle.position.x = controls.target.x;
