@@ -20,7 +20,7 @@ var matrix4 = new THREE.Matrix4().set
 		0, 0, 0, 1);
 
 function determineWidth(value) {
-	var width =  Math.log10(value + 1.0) * 2.0;
+	var width =  Math.log(value + 1.0) * 2.0 / Math.log(10);
 	if (width < 0.1) {
 		width = 0.1;
 	}

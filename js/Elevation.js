@@ -38,7 +38,8 @@ function addTerrain(_scene, _property, _onComplete) {
 	elevator = new google.maps.ElevationService();
 
 	var path = [];
-	path.push(new google.maps.LatLng(latLngMin.lat() + currentRow * dy, latLngMin.lng()), new google.maps.LatLng(latLngMin.lat() + currentRow * dy, latLngMax.lng()));
+	path.push(new google.maps.LatLng(latLngMin.lat() + currentRow * dy,
+	latLngMin.lng()), new google.maps.LatLng(latLngMin.lat() + currentRow * dy, latLngMax.lng()));
 
 	// Create a PathElevationRequest object using this array.
 	var pathRequest = {

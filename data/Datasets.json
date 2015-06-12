@@ -19,21 +19,21 @@
             "description": "Drillholes with Au and As located near Rocklea in Western Australia.",
             "thumbnail": "data/images/ClientLogo.png",
             "url": "data/jsondh/examples/rocklea.json",
-            "terrain": "data/jsondh/examples/mt_pleasant_west_terrain.json"
+            "terrain": "data/jsondh/examples/rocklea_terrain.json"
         },
         {
             "name": "EDRC053",
             "description": "A project with one hole and one analyte.",
             "thumbnail": "data/images/ClientLogo.png",
             "url": "data/jsondh/examples/edrc053.json",
-            "terrain": "data/jsondh/examples/mt_pleasant_west_terrain.json"
+            "terrain": "data/jsondh/examples/edrc053_terrain.json"
         },
         {
             "name": "Mt Pleasant West Subset",
             "description": "A subset of holes within the larger Mt Pleasant West area.",
             "thumbnail": "data/images/ClientLogo.png",
             "url": "data/jsondh/examples/mt_pleasant_west_subset.json",
-            "terrain": "data/jsondh/examples/mt_pleasant_west_terrain.json"
+            "terrain": "data/jsondh/examples/mt_pleasant_west_subset_terrain.json"
         }
 
     ]
