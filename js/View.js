@@ -162,7 +162,7 @@ function View(projectURL) {
 		totalGeometries = currentID;
 		Object.keys(minerals).forEach(function(mineral){
 			minerals[mineral].minVisibleIndex = 0;
-			minerals[mineral].maxVisibleIndex = minerals[mineral].intervals.length-1;
+			minerals[mineral].maxVisibleIndex = minerals[mineral].intervals.length - 1;
 		})
 		sortMinerals();
 		delegate(minerals);
@@ -283,6 +283,8 @@ function View(projectURL) {
 		// Progress is done!
 		setProgressBar(100);
 		toggleVisible('As', false);
+		toggleVisible('As', true);
+		updateVisibility('Au', 0, .99);
 	}
 
 	/* Layout of the holes object:
@@ -398,7 +400,30 @@ function View(projectURL) {
 	}
 
 	function updateVisibility(mineralName, lowerIndex, higherIndex){
+		var mineral = minerals[mineralName];
+		var intervals = mineral.intervals;
+		lowerIndex *= intervals.length;
+		higherIndex *= intervals.length;
+		console.log('lower:' + lowerIndex + '\nhigher:' + higherIndex
+			+ '\nmin:' + mineral.minVisibleIndex + '\nmax:' + mineral.maxVisibleIndex)
 
+		for(var i = mineral.minVisibleIndex; i < lowerIndex; i += 1){
+			visibleMeshes[intervals[i].id] = emptyMesh;
+		}
+		for(var i = mineral.maxVisibleIndex; i < higherIndex; i += 1){
+			visibleMeshes[intervals[i].id] = meshes[intervals[i].id];
+		}
+		for(var i = mineral.minVisibleIndex; i >= lowerIndex; i -= 1){
+			visibleMeshes[intervals[i].id] = meshes[intervals[i].id];
+		}
+		for(var i = mineral.maxVisibleIndex; i >= higherIndex; i -= 1){
+			visibleMeshes[intervals[i].id] = emptyMesh;
+		}
+		mineral.minVisibleIndex = lowerIndex;
+		mineral.maxVisibleIndex = higherIndex;
+		mineral.mesh.geometry.drawCalls = [];
+		mineral.mesh.geometry.addDrawCall({start: 199, count: 200, index: 0});
+		console.log(visibleMeshes);
 	}
 
 	function toggleVisible(mineralName, visible){
@@ -717,13 +742,19 @@ function View(projectURL) {
 			function mousemoveEventListener(event) {
 			event.preventDefault();
 
-			mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-			mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
-
 			// This will update the mouse position as well as make the
 			//   tooltipSprite follow the mouse.
-			tooltipSpriteLocation.x=event.clientX-(window.innerWidth/2) + 15;
-			tooltipSpriteLocation.y=-event.clientY+(window.innerHeight/2) - 20;
+			var newX = event.clientX-(window.innerWidth/2) + 15;
+			var newY = -event.clientY+(window.innerHeight/2) - 20;
+			if(tooltipSpriteLocation.x == newX && tooltipSpriteLocation.y == newY){
+				//If the mouse wasn't moved, ignore the following logic
+				return;
+			}
+			tooltipSpriteLocation.x = newX;
+			tooltipSpriteLocation.y = newY;
+
+			mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+			mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
 
 			sceneOrtho.remove(tooltipSprite);
 			scene.remove(intersected);
