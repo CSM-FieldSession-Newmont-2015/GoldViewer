@@ -54,6 +54,7 @@ function loadMenu() {
 }
 
 function loadControls() {
+
 	$.get("html/ControlBar.html", function (data) {
 		$("div#ControlBar").append(data);
 		$("#zoomIn").button({
@@ -85,25 +86,27 @@ function loadControls() {
 			}
 		});
 	});
+
 }
 
 function loadSidebar() {
-    $('.sidebar-container').click(function (e) {
-        if ($(this).width() - e.pageX > 20)
-            return;
-
-        $('#sidebar').toggle('slide', { direction: 'left' }, function () {
-            if ($('#sidebar').css('display') == 'none') {
-                $('.sidebar-container').width(20);
-            } else {
-                $('.sidebar-container').width($('#sidebar').width() + 20);
-            }
-        });
-    });
-
     $.get("html/Sidebar.html", function (data) {
 		$("#sidebar").append(data);
-	});
+
+		$('.sidebar-container').click(function (e) {
+		    if ($(this).width() - e.pageX > 20)
+		        return;
+
+		    $('#sidebar').toggle('slide', { direction: 'left' }, function () {
+		        if ($('#sidebar').css('display') == 'none') {
+		            $('.sidebar-container').width(20);
+		        } else {
+		            $('.sidebar-container').width($('#sidebar').width() + 20);
+		        }
+		    });
+		});
+    });
+
 }
 
 function setWindowResizeEvent() {
