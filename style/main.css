@@ -57,9 +57,10 @@ text-shadow: 1px 1px 0 #fff;
 
 #sidebar {
     height: 100%;
-    width: 200px;
-    background-color: black;
+    width: 800px;
+    background-color: dimgray;
     display: none;
+    overflow: auto;
   }
 
 .sidebar-container {

@@ -1,1 +1,85 @@
-﻿
+﻿<style>
+    @import url(http://fonts.googleapis.com/css?family=Yanone+Kaffeesatz:400,700);
+
+    histogram {
+        font-family: "Helvetica Neue";
+        margin: 40px auto;
+        width: 420px;
+    }
+
+    #histogram {
+        position: relative;
+    }
+
+    #histogram > p {
+        line-height: 1.5em;
+        width: 640px;
+        text-rendering: optimizeLegibility;
+    }
+
+    #charts {
+        padding: 10px 0;
+    }
+
+    .chart {
+        display: inline-block;
+        height: 151px;
+        margin-bottom: 20px;
+    }
+
+    .reset {
+        padding-left: 1em;
+        font-size: smaller;
+        color: #ccc;
+    }
+
+    .background.bar {
+        fill: #ccc;
+    }
+
+    .foreground.bar {
+        fill: steelblue;
+    }
+
+    .axis path, .axis line {
+        fill: none;
+        stroke: #000;
+        shape-rendering: crispEdges;
+    }
+
+    .axis text {
+        font: 10px sans-serif;
+    }
+
+    .brush rect.extent {
+        fill: steelblue;
+        fill-opacity: .125;
+    }
+
+    .brush .resize path {
+        fill: #eee;
+        stroke: #666;
+    }
+
+.chart rect {
+  fill: steelblue;
+}
+
+.chart text {
+  fill: white;
+  font: 10px sans-serif;
+  text-anchor: middle;
+}
+
+</style>
+<svg class="chart"></svg>
+<div id="histogram">
+        <div id="charts">
+            <div id="date-chart1" class="chart">
+                <div class="title">Gold</div>
+            </div>
+            <div id="date-chart2" class="chart">
+                <div class="title"><input type="checkbox" id="cbSilver">Silver</div>
+            </div>
+        </div>
+</div>
