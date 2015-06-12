@@ -90,52 +90,22 @@ function loadControls() {
 }
 
 function loadSidebar() {
-	$.get("html/Sidebar.html", function (data) {
+    $.get("html/Sidebar.html", function (data) {
 		$("#sidebar").append(data);
 
-		//Add google map
-		var lonepine = new google.maps.LatLng(36.607111, -118.072778);
-		function initialize() {
-		  var mapOptions = {
-		    zoom: 8,
-		    center: lonepine,
-		    mapTypeId: 'hybrid'
-		  }
-		  map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
-		}
-		initialize();
+		$('.sidebar-container').click(function (e) {
+		    if ($(this).width() - e.pageX > 20)
+		        return;
 
-		// Add slider
-		$(function() {
-		    $( "#slider-range" ).slider({
-		      range: true,
-		      orientation: "vertical",
-		      min: 0,
-		      max: 500,
-		      values: [ 75, 300 ],
-		      slide: function( event, ui ) {
-		        $( "#amount" ).val( ui.values[ 0 ] + " -" + ui.values[ 1 ] );
-		      }
+		    $('#sidebar').toggle('slide', { direction: 'left' }, function () {
+		        if ($('#sidebar').css('display') == 'none') {
+		            $('.sidebar-container').width(20);
+		        } else {
+		            $('.sidebar-container').width($('#sidebar').width() + 20);
+		        }
 		    });
-		    $( "#amount" ).val($( "#slider-range" ).slider( "values", 0 ) +
-		      " -" + $( "#slider-range" ).slider( "values", 1 ) );
 		});
-
-		//Add checkbox
-		function addCheckbox(name) {
-		   var container = $('#cblist');
-		   var inputs = container.find('input');
-		   var id = inputs.length+1;
-
-		   $('<input />', { type: 'checkbox', id: 'cb'+id, value: name }).appendTo(container);
-		   $('<label />', { 'for': 'cb'+id, text: name }).appendTo(container);
-		   $('<br>').appendTo(container);
-		}
-
-		addCheckbox(('Bob'));
-		addCheckbox(('Joe'));
-		addCheckbox(('Johnson'));
-	});
+    });
 
 }
 
