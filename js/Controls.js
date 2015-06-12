@@ -54,6 +54,7 @@ function loadMenu() {
 }
 
 function loadControls() {
+
 	$.get("html/ControlBar.html", function (data) {
 		$("div#ControlBar").append(data);
 		$("#zoomIn").button({
@@ -85,12 +86,57 @@ function loadControls() {
 			}
 		});
 	});
+
 }
 
 function loadSidebar() {
 	$.get("html/Sidebar.html", function (data) {
 		$("#sidebar").append(data);
+
+		//Add google map
+		var lonepine = new google.maps.LatLng(36.607111, -118.072778);
+		function initialize() {
+		  var mapOptions = {
+		    zoom: 8,
+		    center: lonepine,
+		    mapTypeId: 'hybrid'
+		  }
+		  map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
+		}
+		initialize();
+
+		// Add slider
+		$(function() {
+		    $( "#slider-range" ).slider({
+		      range: true,
+		      orientation: "vertical",
+		      min: 0,
+		      max: 500,
+		      values: [ 75, 300 ],
+		      slide: function( event, ui ) {
+		        $( "#amount" ).val( ui.values[ 0 ] + " -" + ui.values[ 1 ] );
+		      }
+		    });
+		    $( "#amount" ).val($( "#slider-range" ).slider( "values", 0 ) +
+		      " -" + $( "#slider-range" ).slider( "values", 1 ) );
+		});
+
+		//Add checkbox
+		function addCheckbox(name) {
+		   var container = $('#cblist');
+		   var inputs = container.find('input');
+		   var id = inputs.length+1;
+
+		   $('<input />', { type: 'checkbox', id: 'cb'+id, value: name }).appendTo(container);
+		   $('<label />', { 'for': 'cb'+id, text: name }).appendTo(container);
+		   $('<br>').appendTo(container);
+		}
+
+		addCheckbox(('Bob'));
+		addCheckbox(('Joe'));
+		addCheckbox(('Johnson'));
 	});
+
 }
 
 function setWindowResizeEvent() {
