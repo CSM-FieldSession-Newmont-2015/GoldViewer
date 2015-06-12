@@ -155,26 +155,27 @@ function View(projectURL) {
 	/**
 	 * Parse `projectJSON["holes"]` into `minerals`, which looks like this:
 	 * ```
-	 *  MineralString: {
-	 *      intervals: [
-	 *          {
-	 *              value: Number,
-	 *              hole:  String,
-	 *              id:    Number,
-	 *              depth: {
-	 *                  start: Number,
-	 *                  end:   Number
-	 *              },
-	 *              path: {
-	 *                  start: THREE.Vector3,
-	 *                  end: THREE.Vector3
+	 * {
+	 *      MineralString: {
+	 *          intervals: [
+	 *              {
+	 *                  value: Number,
+	 *                  hole:  String,
+	 *                  id:    Number,
+	 *                  depth: {
+	 *                      start: Number,
+	 *                      end:   Number
+	 *                  },
+	 *                  path: {
+	 *                      start: THREE.Vector3,
+	 *                      end: THREE.Vector3
+	 *                  }
 	 *              }
-	 *          }
-	 *      ],
-	 *      mesh: THREE.Mesh,
-	 *      minVisibleIndex: Integer,
-	 *      maxVisibleIndex: Integer
-	 *  }
+	 *          ],
+	 *          mesh: THREE.Mesh,
+	 *          minVisibleIndex: Integer,
+	 *          maxVisibleIndex: Integer
+	 *      }
 	 * }
 	 * ```
 	 * Where `MineralString` is the string used to mark the mineral in the
@@ -423,7 +424,8 @@ function View(projectURL) {
 			}else{
 				console.log(
 					"Survey hole #" + jsonHole["id"]
-					+ " is outside the bounding box.");
+					+ "'s raycast did not intersect the terrain mesh."
+					+ "Maybe it's out of bounds, or the raycaster is broken.");
 			}
 
 			var hole = {
