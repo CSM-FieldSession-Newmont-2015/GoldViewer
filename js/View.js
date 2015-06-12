@@ -903,6 +903,17 @@ function View(projectURL) {
 	}
 
 	/**
+	 * Save a rendered frame as an image, returning the image data.
+	 * @return {String} The image data.
+	 */
+	function takeScreenshot() {
+		renderer.render(scene, camera)
+		return renderer.domElement.toDataURL();
+	}
+	// Expose this to the console.
+	this.takeScreenshot = takeScreenshot;
+
+	/**
 	 * Convert [a, b, c, d..] into {x: a, y: b, z: c}, disregarding anything
 	 * after the third element. Anything missing is given a default by
 	 * THREE.Vector3. This is, as of r71, 0.0.
@@ -1025,7 +1036,10 @@ function View(projectURL) {
 	}
 
 	function setupRenderer() {
-		renderer = new THREE.WebGLRenderer({antialias: true});
+		renderer = new THREE.WebGLRenderer({
+			antialias: true,
+			preserveDrawingBuffer: true // This might have performance impacts.
+		});
 		renderer.setSize(window.innerWidth, window.innerHeight);
 		renderer.setClearColor(colors.background, 1);
 		renderer.sortObjects = false;
