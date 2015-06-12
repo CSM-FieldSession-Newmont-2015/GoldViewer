@@ -3,6 +3,13 @@
 /* global Stats */
 /* global THREE */
 
+/**
+ * Color constants used by different parts of the view.
+ *
+ * @type {Object.<string, number>}
+ *
+ * @todo  Rename these to refer to their use case, not color.
+ */
 var colors = {
 	axes: 0x5d5d5d,
 	background: 0xdedede,
@@ -15,6 +22,14 @@ var colors = {
 	dark_gold: 0xccac00
 }
 
+/**
+ * // TODO: Figure out what should be used in place of markdown.
+ * Loads a JSON data file from `url`.
+ *
+ * @param  {string} url A url which points to a remote or local JSON file.
+ *
+ * @return {Object}     The parsed JSON file, or null.
+ */
 function loadJSON(url) {
 	var json = null;
 	$.ajax({
@@ -29,37 +44,71 @@ function loadJSON(url) {
 	return json;
 }
 
+/**
+ * The object which manages everything.
+ *
+ * @param {string} projectURL A URL to a JSON file with the property data in
+ *                            the jsondh format.
+ */
 function View(projectURL) {
-	var camera                = null;
-	var cameraOrtho           = null;
-	var controls              = null;
-	var renderer              = null;
-	var reticle               = null;
-	var stats                 = null;
+	/**
+	 * The perspective camera which presents the user's view of the property.
+	 * @type {THREE.Camera}
+	 */
+	var camera = null;
+
+	/**
+	 * A light source which moves around with the camera.
+	 * @type {THREE.PointLight}
+	 */
+	var cameraLight = null;
+
+	/**
+	 * An orthographic camera used to render tooltips.
+	 * @type {THREE.Raycaster}
+	 */
+	var cameraOrtho = null;
+
+	/**
+	 * The DOM element containing our canvas.
+	 * @type {???}
+	 * @todo  What type is this?
+	 */
+	var container = $('#viewFrame');
+
+	/**
+	 * Handle for the oribtal controls, which enables an orbiting view.
+	 * @type {THREE.OrbitControls}
+	 */
+	var controls = null;
+
+	// TODO: Comment the rest of these.
+	var holes                 = {};
+	var intersected           = null;
+	var maxDimension          = 0;
+	var meshes                = [];
+	var mineralData           = [];
+	var minerals              = {};
+	var mouse                 = new THREE.Vector2();
+	var mouseTimeout          = null;
 	var projectJSON           = null;
 	var property              = null;
-	var holes                 = {};
-	var minerals              = {};
-	var meshes                = [];
-	var visibleMeshes         = [];
+	var raycaster             = null;
+	var renderer              = null;
+	var reticle               = null;
+	var reticleLight          = null;
 	var returnedGeometry      = 0;
-	var totalGeometries       = 0;
 	var scene                 = new THREE.Scene();
 	var sceneOrtho            = new THREE.Scene();
-	var mouse                 = new THREE.Vector2();
-	var tooltipSpriteLocation = new THREE.Vector2();
-	var raycaster             = new THREE.Raycaster();
+	var stats                 = null;
 	var tooltipSprite         = null;
-	var intersected           = null;
-	var container             = $('#viewFrame');
-	var maxDimension          = 0;
-	var mineralData           = [];
-	var mouseTimeout          = null;
-	var checkMouse            = false;
-	var reticleLight          = null;
-	var cameraLight           = null;
-	var emptyMesh             = new THREE.Mesh(new THREE.BoxGeometry(0, 0, 0));
+	var tooltipSpriteLocation = new THREE.Vector2();
+	var totalGeometries       = 0;
+	var visibleMeshes         = [];
 
+	/**
+	 * Entry point for view. Call this after `new View();`.
+	 */
 	this.start = function () {
 		projectJSON = loadJSON(projectURL);
 		property = getProperty(projectJSON);
@@ -79,14 +128,25 @@ function View(projectURL) {
 		addTerrain(scene, property, addSurveyLines);
 	};
 
+	/**
+	 * Handle used by the controls to zoom in on an event, like a button press.
+	 */
 	this.zoomIn = function () {
 		controls.dollyIn(1.2);
 	};
 
+	/**
+	 * Handle used by the controls to zoom out on an event, like a button press.
+	 */
 	this.zoomOut = function () {
 		controls.dollyIn(1.0/1.2);
 	};
 
+	/**
+	 * Load minerals, the bounding box, the axis labels, the reticle, the lights,
+	 *  and start rendering. This is called in addSurveyLines, which is called
+	 *  after Terrain loads.
+	 */
 	function addLastElements(){
 		getMinerals();
 		addBoundingBox();
@@ -96,32 +156,38 @@ function View(projectURL) {
 		render();
 	}
 
-	/*
-	This is the layout of the minerals object:
-	{
-		//e. g. 'Au', 'Ag', etc.
-		MineralString: {
-			"intervals": [
-				{
-					"value": Number,
-					"hole":  String,
-					"id":    Number,
-					"depth": {
-						"start": Number,
-						"end":   Number
-					},
-					"path": {
-						"start": THREE.Vector3,
-						"end": THREE.Vector3
-					}
-				}
-			],
-			"mesh": THREE.Mesh,
-			"minVisibleIndex": Integer,
-			"maxVisibleIndex": Integer
-		}
-	}
-	*/
+	/**
+	 * Parse `projectJSON["holes"]` into `minerals`, which looks like this:
+	 * ```
+	 *  MineralString: {
+	 *      intervals: [
+	 *          {
+	 *              value: Number,
+	 *              hole:  String,
+	 *              id:    Number,
+	 *              depth: {
+	 *                  start: Number,
+	 *                  end:   Number
+	 *              },
+	 *              path: {
+	 *                  start: THREE.Vector3,
+	 *                  end: THREE.Vector3
+	 *              }
+	 *          }
+	 *      ],
+	 *      mesh: THREE.Mesh,
+	 *      minVisibleIndex: Integer,
+	 *      maxVisibleIndex: Integer
+	 *  }
+	 * }
+	 * ```
+	 * Where `MineralString` is the string used to mark the mineral in the
+	 * original file. e.g., for gold it is often "Au".
+	 *
+	 * After completing, this calls `delegate(minerals)`.
+	 *
+	 * @todo  Unspaghettify this.
+	 */
 	function getMinerals() {
 		var holesJSON = projectJSON["holes"];
 		var currentID = 0;
@@ -168,6 +234,20 @@ function View(projectURL) {
 		delegate(minerals);
 	}
 
+	/**
+	 * Make a mesh, ready to render, from a buffer of vertices. This is intended
+	 * to be called with data from the workers (see `delegate`) to create
+	 * a single cylinder mesh, and save it in `meshes`.
+	 * `data` is expected to be a flat array of floats.
+	 *
+	 * The array`[new THREE.Vector3(1, 2, 3), new THREE.Vector3(4, 5, 6)]`
+	 * should be passed in as `[1, 2, 3, 4, 5, 6]`.
+	 *
+	 * @param  {[number]} data An flat array of floats.
+	 *
+	 * @todo  Return the data, instead of writing out to globals.
+	 * @todo  Unspaghettify this.
+	 */
 	function makeMesh(data){
 		var intervalID = data[1];
 
@@ -199,10 +279,19 @@ function View(projectURL) {
 
 		if (returnedGeometry >= totalGeometries){
 			makeBigMeshes();
-			checkMouse = true;
+			setupRaycaster();
 		}
 	}
 
+	/**
+	 * Initiate the HTML5 Web Worker(s) to load the mesh data for the mineral
+	 * cylinders.
+	 *
+	 * @param  {Minerals} meshlessData A `Minerals` object with meshless
+	 *                                 mineral data.
+	 *
+	 * @todo Return the data instead of just assigning it to minerals.
+	 */
 	function delegate(meshlessData){
 		var numWorkers = 1;
 		var workers    = [];
@@ -234,6 +323,12 @@ function View(projectURL) {
 		return;
 	}
 
+	/**
+	 * Sort each `intervals` array in the minerals object based on
+	 * concentration.
+	 *
+	 * @todo Take in an array of intervals and sort it / return a sorted copy.
+	 */
 	function sortMinerals(){
 		Object.keys(minerals).forEach(function(mineral){
 			minerals[mineral].intervals.sort(function(a, b){
@@ -242,6 +337,11 @@ function View(projectURL) {
 		});
 	}
 
+	/**
+	 * Make a single, massive mesh for all of the cylinders of a single type
+	 * of mineral. This is used to easily add and remove minerals of a type
+	 * to the scene.
+	 */
 	function makeBigMeshes() {
 		if (meshes.length === 0) {
 			console.log("`meshes` is empty. Are there any intervals?");
@@ -283,23 +383,15 @@ function View(projectURL) {
 		setProgressBar(100);
 	}
 
-	/* Layout of the holes object:
-	holes = {
-		lines: {
-			tracecolor: THREE.Line
-		},
-		ids: {
-			id: {
-				name: String,
-				longitude: Float,
-				latitude: Float,
-				location: [Float],
-				zOffset: Float
-			}
-		}
-	}
-	*/
-
+	/**
+	 * Load the survey holes from `projectJSON`, and then adjust them up, so
+	 * they coincide with the surface terrain mesh.
+	 *
+	 * @param {THREE.PlaneGeometry} surfaceMesh A plane representing the
+	 *                                          surface mesh.
+	 *
+	 * @todo Unspaghettify this.
+	 */
 	function addSurveyLines(surfaceMesh) {
 		var surveyCaster = new THREE.Raycaster();
 		var geometries = {};
@@ -389,16 +481,49 @@ function View(projectURL) {
 		addLastElements();
 	}
 
+	/**
+	 * Convert a hex-color string starting with "#" to a THREE.Color object.
+	 *
+	 * @example
+	 * // Returns "0x123456"
+	 * colorFromString("#0123456");
+	 *
+	 * @param  {String} stringColor
+	 *
+	 * @return {THREE.Color}
+	 */
 	function colorFromString(stringColor){
 			var color = stringColor.split("#");
 			color = "0x"+color[1];
 			return new THREE.Color(parseInt(color, 16));
 	}
 
+	/**
+	 * Change which range of concentrations for a mineral are displayed.
+	 * Anything out of the given range is not rendered.
+	 *
+	 * @param  {String} mineralName The string identifier from the property
+	 *                              JSON file for the mineral.
+	 * @param  {Number} lowerIndex  The lower INDEX in the meshes array to
+	 *                              keep visible.
+	 * @param  {Number} higherIndex The upper INDEX in the meshes array to
+	 *                              keep visible.
+	 *
+	 * @todo I think Mason changed this to concentration values, not indices.
+	 */
 	function updateVisibility(mineralName, lowerIndex, higherIndex){
 
 	}
 
+	/**
+	 * When `visible` is a truthy value, the current range on `mineralName`
+	 * minerals is enabled.
+	 * When `visible` is a falsey value, the current range on `mineralName`
+	 * minerals is disabled.
+	 *
+	 * @param  {[type]} mineralName [description]
+	 * @param  {[type]} visible     [description]
+	 */
 	function toggleVisible(mineralName, visible){
 		var mineral = minerals[mineralName];
 		mineral.mesh.visible = visible;
@@ -411,12 +536,20 @@ function View(projectURL) {
 			}
 		}
 		else{
+			var emptyMesh             = new THREE.Mesh(new THREE.BoxGeometry(0, 0, 0));
 			for(var i = mineral.minVisibleIndex; i < mineral.maxVisibleIndex; i += 1){
 				visibleMeshes[intervals[i].id] = emptyMesh;
 			}
 		}
 	}
 
+	/**
+	 * Loads the axis labels - incremental values and the axis label at the end.
+	 * The distance between concecutive labels has a minimum. (See source).
+	 *
+	 * @todo  Move some assumptions here (like a minimum distance) into
+	 *        arguments to make them easier to notice and update.
+	 */
 	function addAxisLabels() {
 		function wrapText(text, x, y, maxWidth, lineHeight) {
 			var lines = text.split("\n");
@@ -446,12 +579,29 @@ function View(projectURL) {
 		// Need this function for creating multi-line text sprites.
 		CanvasRenderingContext2D.prototype.wrapText = wrapText;
 
-		// Formats numbers with a km or m prefix.
+		/**
+		 * Round a number to two digits and append a meter(m) or kilometer(km)
+		 * label to it.
+		 *
+		 * @param  {Number} num The distance in meters.
+		 *
+		 * @return {[type]}     The rounded number.
+		 */
 		function formatKm(num) {
 			num = parseFloat(Math.floor(num).toPrecision(2));
 			return (num > 1000 ? (num/1000) + ' k' : num) + "m";
 		};
 
+		/**
+		 * Helper function to make a text sprite with standard formatting.
+		 *
+		 * @param  {Object} name  An object, which will be converted to string.
+		 * @param  {Number} x     The x coordinate to place the label.
+		 * @param  {Number} y     The y coordinate to place the label.
+		 * @param  {Number} z     The z coordinate to place the label.
+		 *
+		 * @return {THREE.Sprite} The requested sprite.
+		 */
 		function makeLabel(name, x, y, z) {
 			var sprite = makeTextSprite(name, {
 				backgroundColor: {r:0, g:0, b:0, a:0},
@@ -507,6 +657,13 @@ function View(projectURL) {
 		})();
 	}
 
+	/**
+	 * Loads the scene with the lights we use. This includes:
+	 *     - Ambient lighting
+	 *     - A point light in the sky
+	 *     - A point light superimposed over the camera
+	 *     - A light at the center of our reticle
+	 */
 	function addLights() {
 		var ambientLight = new THREE.AmbientLight(colors.soft_white);
 		scene.add(ambientLight);
@@ -529,6 +686,9 @@ function View(projectURL) {
 		scene.add(reticleLight);
 	}
 
+	/**
+	 * The main render loop.
+	 */
 	function render() {
 		requestAnimationFrame(render);
 		controls.update();
@@ -555,6 +715,16 @@ function View(projectURL) {
 		renderer.render(sceneOrtho,cameraOrtho);
 	}
 
+	/**
+	 * Create a sprite with text.
+	 * @param  {Object} message    A string or string-able object to put as the
+	 *                             text on the sprite.
+	 * @param  {Object} parameters Settings for the sprite. (see source)
+	 *
+	 * @return {THREE.Sprite}      The resulting sprite.
+	 *
+	 * @todo  Document `parameters`.
+	 */
 	function makeTextSprite(message, parameters) {
 		if (parameters === undefined) parameters = {};
 		var fontface  = parameters.hasOwnProperty("fontface")
@@ -624,6 +794,38 @@ function View(projectURL) {
 		return sprite;
 	}
 
+	/**
+	 * Create a property object from the JSON format.
+	 *
+	 * Property objects look like this:
+	 * {
+	 *     name: String,
+	 *     description: String,
+	 *     numHoles: Number,
+	 *     epsg: Number,
+	 *     originShift: THREE.Vector3,
+	 *     boxMin: THREE.Vector3,
+	 *     boxMax: THREE.Vector3,
+	 *     longLatMin: THREE.Vector3,
+	 *     longLatMax: THREE.Vector3,
+	 *     desurveyMethod: String,
+	 *     analytes: [{
+	 *         color: String,
+	 *         description: String
+	 *     }],
+	 *     formatVersion: Number,
+	 *     box: {
+	 *         size:   THREE.Vector3,
+	 *         center: THREE.Vector3
+	 *     }
+	 * }
+	 * @param  {Object} projectJSON The property JSON loaded as a javascript
+	 *                              object.
+	 *
+	 * @return {Object} The property object.
+	 *
+	 * @todo  Use a string to store format versions?
+	 */
 	function getProperty(projectJSON){
 		var boxMin = vec3FromArray(projectJSON["boxMin"]);
 		var boxMax = vec3FromArray(projectJSON["boxMax"]);
@@ -659,9 +861,14 @@ function View(projectURL) {
 		return property;
 	}
 
+	/**
+	 * Checks if the mouse is "hovering over" any cylinders in `visibleMeshes`
+	 * on the screen. If it finds something, it adds tool tip.
+	 */
 	function checkMouseIntercept() {
-		if(!checkMouse)
+		if(!raycaster) {
 			return;
+		}
 		raycaster.setFromCamera(mouse, camera);
 		var intersects = raycaster.intersectObjects(visibleMeshes);
 
@@ -694,6 +901,21 @@ function View(projectURL) {
 		sceneOrtho.add(tooltipSprite);
 
 	}
+
+	/**
+	 * Convert [a, b, c, d..] into {x: a, y: b, z: c}, disregarding anything
+	 * after the third element. Anything missing is given a default by
+	 * THREE.Vector3. This is, as of r71, 0.0.
+
+	 * @param  {[Number]}      An array of coordinate values.
+	 *
+	 * @return {THREE.Vector3} The Vector3 made from the array.
+	 */
+	function vec3FromArray(array) {
+		return new THREE.Vector3(array[0], array[1], array[2]);
+	}
+
+// Below here is only setup functions, typically called once.
 
 	function setupWindowListeners() {
 		// Resize the camera when the window is resized.
@@ -850,10 +1072,7 @@ function View(projectURL) {
 		container.appendChild(stats.domElement);
 	}
 
-	// Convert [a, b, c, d..] into {x: a, y: b, z: c}.
-	//   Disregard anything after the third element.
-	//   Anything missing is assumed to be 0.
-	function vec3FromArray(array) {
-		return new THREE.Vector3(array[0], array[1], array[2]);
+	function setupRaycaster() {
+		raycaster = new THREE.Raycaster();
 	}
 }
