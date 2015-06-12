@@ -447,7 +447,7 @@ function View(projectURL) {
 				console.log(
 					"Survey hole #" + jsonHole["id"]
 					+ "'s raycast did not intersect the terrain mesh."
-					+ "Maybe it's out of bounds, or the raycaster is broken.");
+					+ " Maybe it's out of bounds, or the raycaster is broken?");
 			}
 
 			var hole = {
