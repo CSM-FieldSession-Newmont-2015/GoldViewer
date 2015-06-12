@@ -1,5 +1,5 @@
 
 
-GOLDVIEWER.addTerrain = function(){
+function addTerrain(_scene, _property, _onComplete) {
 	
 }
