@@ -1310,12 +1310,14 @@ function View(projectURL) {
 		tempVec1.normalize();
 		tempVec1.multiplyScalar(-1 * reticle.geometry.boundingSphere.radius);
 		movementVector.add(tempVec1);
+
+		//get the total length of the movement
 		var length = movementVector.length();
 
 		//now construct a motion array of Vector3's that will constantly
 		//accelerate and then decelerate towards the object.
 
-		var acceleration = 0.05;
+		var acceleration = 0.01 * Math.log(length / 100 + 1) + 0.02;
 		var normalMovement = movementVector.clone();
 		normalMovement.normalize();
 		var totalMovement = 0;
@@ -1353,7 +1355,7 @@ function View(projectURL) {
 		//Start an interval to move the reticle around!
 		//Trigger 100 times a second
 		motionInterval = setInterval(function(){
-			controls.target.add(motion.shift());
+			controls.target.add(motion.pop());
 			if(motion.length === 0){
 				window.clearInterval(motionInterval);
 				motionInterval = null;
