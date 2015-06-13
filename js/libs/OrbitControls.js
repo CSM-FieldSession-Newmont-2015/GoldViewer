@@ -179,6 +179,14 @@ THREE.OrbitControls = function ( object, domElement ) {
 
 	};
 
+	this.panIn = function (delta){
+
+	}
+
+	this.panOut = function (delta){
+
+	}
+
 	// pass in x,y of change desired in pixel space,
 	// right and down are positive
 	this.pan = function ( deltaX, deltaY ) {
