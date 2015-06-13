@@ -53,8 +53,11 @@ text-shadow: 1px 1px 0 #fff;
     border-width: medium;
     border-radius: 10px;
     margin: 10px;
+    width: 250px;
+    height: 150px;
     text-align: center;
     cursor: pointer;
+    float: left;
 }
 
 #sidebar {

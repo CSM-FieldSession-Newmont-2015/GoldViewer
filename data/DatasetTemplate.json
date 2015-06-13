@@ -2,7 +2,6 @@
     "tag": "div",
     "class": "dataset",
     "data-url": "${url}",
-    "style": "width:300px; float:left",
     "children": [
         {
             "tag": "div",
