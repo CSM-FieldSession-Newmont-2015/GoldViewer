@@ -11,15 +11,13 @@
  * @todo  Rename these to refer to their use case, not color.
  */
 var colors = {
-	axes: 0x5d5d5d,
-	background: 0xdedede,
-	black: 0x000000,
-	pink: 0xff00ff,
-	soft_white: 0x404040,
-	terrain_frame: 0x26466d,
-	white: 0xffffff,
-	gold: 0xd1b419,
-	dark_gold: 0xccac00
+	ambientLight     : 0x404040, // Soft white
+	axes             : 0x5d5d5d, // Dark gray
+	background       : 0xdedede, // White with a smidgen of gray
+	cameraLight      : 0x404040, // Soft white
+	reticleLight     : 0xd1b419, // Solid gold
+	terrain_frame    : 0x26466d, // Dark-ish blue
+	tooltipsSelection: 0xff00ff, // Bright pink
 }
 
 /**
@@ -86,14 +84,16 @@ function View(projectURL) {
 	var holes                 = {};
 	var intersected           = null;
 	var maxDimension          = 0;
+	var maxPossibleSegments   = 60;
 	var meshes                = [];
 	var mineralData           = [];
 	var minerals              = {};
 	var mouse                 = new THREE.Vector2();
+	var mouseMoved            = false;
 	var mouseTimeout          = null;
 	var projectJSON           = null;
 	var property              = null;
-	var raycaster             = null;
+	var raycaster             = new THREE.Raycaster();
 	var renderer              = null;
 	var reticle               = null;
 	var reticleLight          = null;
@@ -105,6 +105,7 @@ function View(projectURL) {
 	var tooltipSpriteLocation = new THREE.Vector2();
 	var totalGeometries       = 0;
 	var visibleMeshes         = [];
+	var zoomSpeed = 1.2;
 
 	/**
 	 * Entry point for view. Call this after `new View();`.
@@ -125,21 +126,21 @@ function View(projectURL) {
 		setupStats();
 		setupWindowListeners();
 
-		addTerrain(scene, property, addSurveyLines);
+		addTerrain();
 	};
 
 	/**
 	 * Handle used by the controls to zoom in on an event, like a button press.
 	 */
 	this.zoomIn = function () {
-		controls.dollyIn(1.2);
+		controls.dollyIn(zoomSpeed);
 	};
 
 	/**
 	 * Handle used by the controls to zoom out on an event, like a button press.
 	 */
 	this.zoomOut = function () {
-		controls.dollyIn(1.0/1.2);
+		controls.dollyIn(1.0/zoomSpeed);
 	};
 
 	/**
@@ -159,26 +160,28 @@ function View(projectURL) {
 	/**
 	 * Parse `projectJSON["holes"]` into `minerals`, which looks like this:
 	 * ```
-	 *  MineralString: {
-	 *      intervals: [
-	 *          {
-	 *              value: Number,
-	 *              hole:  String,
-	 *              id:    Number,
-	 *              depth: {
-	 *                  start: Number,
-	 *                  end:   Number
-	 *              },
-	 *              path: {
-	 *                  start: THREE.Vector3,
-	 *                  end: THREE.Vector3
+	 * {
+	 *      MineralString: {
+	 *          intervals: [
+	 *              {
+	 *                  value: Number,
+	 *                  hole:  String,
+	 *                  id:    Number,
+	 *                  depth: {
+	 *                      start: Number,
+	 *                      end:   Number
+	 *                  },
+	 *                  path: {
+	 *                      start: THREE.Vector3,
+	 *                      end: THREE.Vector3
+	 *                  }
 	 *              }
-	 *          }
-	 *      ],
-	 *      mesh: THREE.Mesh,
-	 *      minVisibleIndex: Integer,
-	 *      maxVisibleIndex: Integer
-	 *  }
+	 *          ],
+	 *          mesh: THREE.Mesh,
+	 *          geometry: THREE.BufferGeometry,
+	 *          minVisibleIndex: Integer,
+	 *          maxVisibleIndex: Integer
+	 *      }
 	 * }
 	 * ```
 	 * Where `MineralString` is the string used to mark the mineral in the
@@ -201,11 +204,11 @@ function View(projectURL) {
 						mesh: {
 							vertices: null
 						}
-					};
+					}
 				}
 
 				mineral["intervals"].forEach(
-					function mienralIntervalsForEach(interval) {
+					function mineralIntervalsForEach(interval) {
 					var path = interval["path"][0].concat(interval["path"][1]);
 					var data = {
 						mineral: mineral["name"],
@@ -228,9 +231,10 @@ function View(projectURL) {
 		totalGeometries = currentID;
 		Object.keys(minerals).forEach(function(mineral){
 			minerals[mineral].minVisibleIndex = 0;
-			minerals[mineral].maxVisibleIndex = minerals[mineral].intervals.length-1;
+			minerals[mineral].maxVisibleIndex = minerals[mineral].intervals.length - 1;
 		})
 		sortMinerals();
+		//pass the histogram data
 		delegate(minerals);
 	}
 
@@ -251,7 +255,9 @@ function View(projectURL) {
 	function makeMesh(data){
 		var intervalID = data[1];
 
-		var material = new THREE.MeshBasicMaterial({color: colors.pink});
+		var material = new THREE.MeshBasicMaterial({
+			color: colors.tooltipsSelection
+		});
 		var geometry = new THREE.BufferGeometry();
 
 		geometry.addAttribute('position',
@@ -359,9 +365,9 @@ function View(projectURL) {
 
 			var counter = 0;
 			minerals[mineral].intervals.forEach(function(interval){
-				var logMe = new Float32Array(
+				var floatArray = new Float32Array(
 					meshes[interval['id']].geometry.attributes.position.array);
-				verts.set(logMe, counter * verticesPerInterval);
+				verts.set(floatArray, counter * verticesPerInterval);
 				counter += 1;
 			});
 			var geometry = new THREE.BufferGeometry();
@@ -375,12 +381,15 @@ function View(projectURL) {
 				color: color,
 				refractionRatio: 1.0,
 				shininess: 4.0});
+			minerals[mineral]["geometry"] = geometry;
 			minerals[mineral]["mesh"] = new THREE.Mesh(geometry, material);
 
 			scene.add(minerals[mineral]["mesh"]);
 
 		});
 		setProgressBar(100);
+		updateVisibility('Au', 1, 100000000);
+		updateVisibility('As', .5, 1000);
 	}
 
 	/**
@@ -394,8 +403,10 @@ function View(projectURL) {
 	 */
 	function addSurveyLines(surfaceMesh) {
 		var surveyCaster = new THREE.Raycaster();
+		surveyCaster.far = 1e6;
 		var geometries = {};
 		var up = vec3FromArray([0, 0, 1]);
+		var down = vec3FromArray([0, 0, -1]);
 		holes.lines = {};
 		holes.ids = {};
 
@@ -412,20 +423,25 @@ function View(projectURL) {
 			var initialLocation = surveys[0].location;
 			var lineGeometry = geometries[color];
 
+			//console.log("Initial location: "+(initialLocation[2] - property.box.center.z));
 			//Now we use the Raycaster to find the initial z value
 			surveyCaster.set(vec3FromArray([
 					initialLocation[0] - property.box.center.x,
 					initialLocation[1] - property.box.center.y,
 					0]),
-				up);
-			var intersect = surveyCaster.intersectObject(surfaceMesh);
+					up);
+			var intersect = surveyCaster.intersectObject(surfaceMesh);	//look up
+			//console.log(surveyCaster);
+			surveyCaster.set(surveyCaster.ray.origin, down);
+			Array.prototype.push.apply(intersect, surveyCaster.intersectObject(surfaceMesh));	//and down
 			var zOffset = 0;
 			if(intersect.length != 0){
 				zOffset = intersect[0].distance - initialLocation[2];
 			}else{
 				console.log(
 					"Survey hole #" + jsonHole["id"]
-					+ " is outside the bounding box.");
+					+ "'s raycast did not intersect the terrain mesh."
+					+ " Maybe it's out of bounds, or the raycaster is broken?");
 			}
 
 			var hole = {
@@ -480,6 +496,242 @@ function View(projectURL) {
 		});
 		addLastElements();
 	}
+	/**
+	* Retrieve image to display on terrain mesh
+	*
+	*/
+	function addTerrainImage(mesh){
+		//get the center of the property
+		var latCenter =(property.longLatMin.y+ property.longLatMax.y)/2;
+		var lngCenter =(property.longLatMin.x+property.longLatMax.x)/2;
+		//construct google maps request
+		var mapImage="https://maps.googleapis.com/maps/api/staticmap?"+
+					"center="+latCenter+","+lngCenter+
+					"&zoom=12&size=640x640&maptype=satellite"+
+					"&visible="+property.longLatMin.y+","+property.longLatMin.x+
+					"&visible="+property.longLatMax.y+","+property.longLatMax.x;
+
+		// load a texture, set wrap mode to repeat
+		THREE.ImageUtils.crossOrigin = '';
+		var texture = THREE.ImageUtils.loadTexture( mapImage );
+		var material = new THREE.MeshPhongMaterial( { map: texture } );
+		mesh.material=material;
+	}
+
+	function addTerrain(){
+
+		var sizeX = property.box.size.x * 1.01;
+		var sizeY = property.box.size.y * 1.01;
+
+
+		var maxTerrainDim = Math.max(sizeX, sizeY);
+		var minTerrainDim = Math.min(sizeX, sizeY);
+		var longSegments = Math.min(Math.ceil(maxTerrainDim/2.0), maxPossibleSegments);
+		var segmentLength = maxTerrainDim / longSegments;
+		var shortSegments = Math.ceil(minTerrainDim / segmentLength);
+		minTerrainDim = shortSegments * segmentLength;
+
+		var xSegments, ySegments;
+		var elevations = [];
+
+		if(sizeX > sizeY){
+			xSegments = longSegments;
+			ySegments = shortSegments;
+			sizeY = minTerrainDim;
+		}else{
+			ySegments = longSegments;
+			xSegments = shortSegments;
+			sizeX = minTerrainDim;
+		};
+
+		var saveName = property.name + ".terrain";
+		if(localStorage.hasOwnProperty(saveName)){
+			elevations = JSON.parse(localStorage[saveName]);
+			makeTerrainMesh();
+			return;
+		}
+
+		var elevator = new google.maps.ElevationService();
+		var openRequests = 0;
+
+		var latLngMin = new google.maps.LatLng(property.longLatMin.y, property.longLatMin.x);
+		var latLngMax = new google.maps.LatLng(property.longLatMax.y, property.longLatMax.x);
+
+		var dx = (latLngMax.lng() - latLngMin.lng()) / xSegments;
+		var dy = (latLngMax.lat() - latLngMin.lat()) / ySegments;
+
+		var path = [];
+
+		var intervals = 0;
+		var timeout = 0;
+
+		for(var i = latLngMin.lng(); i <= latLngMax.lng(); i += 2*dx){
+			path.push(new google.maps.LatLng(latLngMin.lat(), i));
+			path.push(new google.maps.LatLng(latLngMax.lat(), i));
+			if(i + dx <= latLngMax.lng()){
+				path.push(new google.maps.LatLng(latLngMax.lat(), i + dx));
+				path.push(new google.maps.LatLng(latLngMin.lat(), i + dx));
+			}
+			intervals += ySegments * 2;
+
+			//make sure we aren't requesting more than 512 intervals at a time
+			if(intervals > 512 - ySegments * 2){
+				(function(){
+					var pathRequest = {
+						'path': path.slice(),
+						'samples': intervals
+					};
+					sendElevationRequest(pathRequest, timeout);
+				})();
+				path = [];
+				intervals = 0;
+				timeout += 200;
+				openRequests += 1;
+			}
+
+		}
+		if(path.length != 0){
+			var pathRequest = {
+				'path': path,
+				'samples': intervals
+			};
+			sendElevationRequest(pathRequest, timeout);
+			openRequests += 1;
+		}
+		var counter = 0;
+
+		function addToTerrain(results, status){
+			openRequests -= 1;
+			if(status != google.maps.ElevationStatus.OK) {
+				console.error(status);
+				return;
+			}
+			results.forEach(function(thing){
+				var indeces = LatLongtoIndeces(thing);
+				if(elevations[indeces[0]] === undefined){
+					elevations[indeces[0]] = [];
+				}
+				elevations[indeces[0]][indeces[1]] = thing.elevation;
+			});
+			if(openRequests == 0){
+				makeTerrainMesh();
+				saveToCache(saveName, elevations);
+			}
+
+		}
+
+		function sendElevationRequest(pathRequest, timeout){
+			setTimeout(function(){elevator.getElevationAlongPath(pathRequest, handleResults)}, timeout);
+			function handleResults(results, status){
+				if(status == google.maps.ElevationStatus.OVER_QUERY_LIMIT){
+					setTimeout(sendElevationRequest(pathRequest, 2000));
+				}else{
+					addToTerrain(results, status);
+				}
+			}
+		}
+
+		function LatLongtoIndeces(latLong){
+			//location.A: Latitude!
+			//location.F: Longitude!
+			var width = Math.round((latLong.location.A - latLngMin.A) /
+				(latLngMax.A - latLngMin.A) * (ySegments-1));
+			var height = Math.round((latLong.location.F - latLngMin.F) /
+				(latLngMax.F - latLngMin.F) * xSegments);
+			return [width, height];
+		};
+
+		function makeTerrainMesh(){
+			var geometry = new THREE.PlaneGeometry(sizeX, sizeY, xSegments, ySegments-1);
+			var counter = 0;
+			var vertices = geometry.vertices;
+			for(var j = 0; j < ySegments; j += 1){
+				for(var i = 0; i <= xSegments; i += 1){
+					geometry.vertices[counter].z = elevations[j][i];
+					counter += 1;
+				}
+			}
+
+			var material = new THREE.MeshBasicMaterial({
+				color: colors.terrain_frame,
+				side: THREE.DoubleSide,
+				transparent: true,
+				wireframe: true,
+				opacity: 0.2
+			});
+			var surfaceMesh = new THREE.Mesh(geometry, material);
+			surfaceMesh.position.x += property.box.size.x / 2;
+			surfaceMesh.position.y += property.box.size.y / 2;
+
+			var lineMaterial = new THREE.LineBasicMaterial({
+				color: colors.terrain_frame,
+				transparent: true,
+				opacity: 0.2
+			})
+			var squareMesh = lineGeometryFromElevation(elevations, sizeX, sizeY);
+			var noDiagonals = new THREE.Line(squareMesh, lineMaterial, THREE.LinePieces);
+			noDiagonals.position.x -= (sizeX - property.box.size.x) / 2;
+			noDiagonals.position.y -= (sizeY - property.box.size.y) / 2;
+
+			//scene.add(noDiagonals);
+			scene.add(surfaceMesh);
+			addSurveyLines(surfaceMesh);
+		}
+	}
+
+	function lineGeometryFromElevation(elevation, width, height){
+		var geometry = new THREE.BufferGeometry();
+		var dx = width / (elevation[0].length-1);
+		var dy = height / (elevation.length-1);
+
+		var length1 = elevation.length;
+		var length2 = elevation[0].length;
+
+		//this should be the right size!
+		var points = new Float32Array(((length1 - 1) * 2 * length2 + (length2 - 1) * 2 * length1) * 3);
+
+		var y = 0;
+		var offset = 0;
+		for(var i = 0; i < elevation.length; i += 1){
+			var x = 0;
+			points.set([x, y, elevation[i][0]], offset);
+			offset += 3;
+			for(var j = 1; j < elevation[0].length-1; j += 1){
+				points.set([x, y, elevation[i][j]], offset);
+				points.set([x, y, elevation[i][j]], offset + 3);
+				offset += 6;
+				x += dx;
+			}
+			points.set([x, y, elevation[i][elevation[0].length-1]], offset);
+			offset += 3;
+			y += dy;
+		}
+
+		var x = 0;
+		for(var j = 0; j < elevation[0].length; j += 1){
+			var y = 0;
+			points.set([x, y, elevation[0][j]], offset);
+			offset += 3;
+			for(var i = 1; i < elevation.length-1; i += 1){
+				points.set([x, y, elevation[i][j]], offset);
+				points.set([x, y, elevation[i][j]], offset + 3);
+				offset += 6;
+				y += dy;
+			}
+			points.set([x, y, elevation[elevation.length-1][j]], offset);
+			offset += 3;
+			x += dx;
+		}
+
+		geometry.addAttribute("position", new THREE.BufferAttribute(points, 3));
+
+		return geometry;
+	}
+
+	function saveToCache(name, object){
+		localStorage[name] = JSON.stringify(object);
+		console.log("Saving " + name + " data to cache.");
+	}
 
 	/**
 	 * Convert a hex-color string starting with "#" to a THREE.Color object.
@@ -504,15 +756,51 @@ function View(projectURL) {
 	 *
 	 * @param  {String} mineralName The string identifier from the property
 	 *                              JSON file for the mineral.
-	 * @param  {Number} lowerIndex  The lower INDEX in the meshes array to
-	 *                              keep visible.
-	 * @param  {Number} higherIndex The upper INDEX in the meshes array to
-	 *                              keep visible.
+	 * @param  {Number} lowerValue  The lower bound to keep meshes visible.
+	 * @param  {Number} higherValue The upper bound to keep meshes visible.
 	 *
 	 * @todo I think Mason changed this to concentration values, not indices.
 	 */
-	function updateVisibility(mineralName, lowerIndex, higherIndex){
+	function updateVisibility(mineralName, lowerValue, higherValue){
+		var mineral = minerals[mineralName];
+		var intervals = mineral.intervals;
+		var emptyMesh = new THREE.Mesh(new THREE.BoxGeometry(0, 0, 0));
+		mineral.minVisibleIndex = -1;
+		mineral.maxVisibleIndex = -1;
 
+		//Here we iterate through all of the meshes of the mineral, setting
+		//the interval to be visible if it is between the value bounds
+		for(var i = 0; i < intervals.length; i += 1){
+			var value = intervals[i].value;
+			if(value >= lowerValue && value <= higherValue){
+				visibleMeshes[intervals[i].id] = meshes[intervals[i].id];
+				if(mineral.minVisibleIndex < 0){
+					mineral.minVisibleIndex = i;
+				}
+			}
+			else{
+				visibleMeshes[intervals[i].id] = emptyMesh;
+				if(mineral.minVisibleIndex >= 0 && mineral.maxVisibleIndex < 0){
+					mineral.maxVisibleIndex = i - 1;
+				}
+			}
+		}
+		if(mineral.maxVisibleIndex < 0){
+			mineral.maxVisibleIndex = intervals.length - 1;
+		}
+
+		//Now we make a new BufferGeometry from the old one, and add it to our mesh!
+		var verticesPerInterval = meshes[0].geometry.attributes.position.array.length;
+
+		var newGeometryVertices = mineral.geometry.attributes.position.array.subarray(
+								mineral.minVisibleIndex * verticesPerInterval,
+								mineral.maxVisibleIndex * verticesPerInterval);
+
+		var newGeometry = new THREE.BufferGeometry();
+		newGeometry.addAttribute('position', new THREE.BufferAttribute(newGeometryVertices, 3));
+		newGeometry.computeFaceNormals();
+		newGeometry.computeVertexNormals();
+		mineral.mesh.geometry = newGeometry;
 	}
 
 	/**
@@ -521,22 +809,23 @@ function View(projectURL) {
 	 * When `visible` is a falsey value, the current range on `mineralName`
 	 * minerals is disabled.
 	 *
-	 * @param  {[type]} mineralName [description]
-	 * @param  {[type]} visible     [description]
+	 *
+	 * @param  {String}  mineralName Which type of minerals to filter.
+	 * @param  {Boolean} visible     Whether minerals of this type should be
+	 *                               rendered or not.
 	 */
 	function toggleVisible(mineralName, visible){
 		var mineral = minerals[mineralName];
 		mineral.mesh.visible = visible;
-		scene.updateVisibility;
 		var intervals = mineral.intervals;
 		console.log(visible)
 		if(visible){
-			for(var i = mineral.minVisibleIndex; i < mineral.maxVisibleIndex; i += 1){
+			for(var i = mineral.minVisibleIndex; i <= mineral.maxVisibleIndex; i += 1){
 				visibleMeshes[intervals[i].id] = meshes[intervals[i].id];
 			}
 		}
 		else{
-			var emptyMesh             = new THREE.Mesh(new THREE.BoxGeometry(0, 0, 0));
+			var emptyMesh = new THREE.Mesh(new THREE.BoxGeometry(0, 0, 0));
 			for(var i = mineral.minVisibleIndex; i < mineral.maxVisibleIndex; i += 1){
 				visibleMeshes[intervals[i].id] = emptyMesh;
 			}
@@ -665,24 +954,16 @@ function View(projectURL) {
 	 *     - A light at the center of our reticle
 	 */
 	function addLights() {
-		var ambientLight = new THREE.AmbientLight(colors.soft_white);
+		var ambientLight = new THREE.AmbientLight(colors.ambientLight);
 		scene.add(ambientLight);
 
 		// Apply the adjustment that our box gets.
 		var offset = property.box.center.z - 0.5 * property.box.size.z;
 
-		var light = new THREE.PointLight(
-			colors.soft_white,
-			6.0,
-			20.0 * maxDimension);
-		// Position the point light above the box, in a corner.
-		light.position.z = 3.0 * property.box.size.z + offset;
-		scene.add(light);
-
-		cameraLight = new THREE.PointLight(colors.soft_white, 3, maxDimension);
+		cameraLight = new THREE.PointLight(colors.cameraLight, 3, maxDimension);
 		scene.add(cameraLight);
 
-		reticleLight = new THREE.PointLight(colors.gold, 5, maxDimension / 15);
+		reticleLight = new THREE.PointLight(colors.reticleLight, 5, maxDimension / 15);
 		scene.add(reticleLight);
 	}
 
@@ -764,10 +1045,10 @@ function View(projectURL) {
 			+ backgroundColor.a
 			+ ")";
 
-		context.fillRect(0.5*size,
-			0.5*size - fontsize,
-			maxTextWidth,
-			lines.length*lineHeight);
+		context.fillRect(0.5*size-15,
+			0.5*size - fontsize-15,
+			maxTextWidth+30,
+			lines.length*lineHeight+30);
 
 		context.textAlign = 'left';
 		context.fillStyle = "rgba("
@@ -866,20 +1147,21 @@ function View(projectURL) {
 	 * on the screen. If it finds something, it adds tool tip.
 	 */
 	function checkMouseIntercept() {
-		if(!raycaster) {
+		if(!raycaster || controls.autoRotate) {
 			return;
 		}
 		raycaster.setFromCamera(mouse, camera);
 		var intersects = raycaster.intersectObjects(visibleMeshes);
 
 		if(intersects.length == 0){
+			intersected = null;
 			return;
 		}
 
 		intersected = intersects[0].object;
 
 		intersected.material = new THREE.MeshLambertMaterial({
-			emissive: colors.pink
+			emissive: colors.tooltipsSelection
 		});
 		scene.add(intersected);
 
@@ -901,6 +1183,17 @@ function View(projectURL) {
 		sceneOrtho.add(tooltipSprite);
 
 	}
+
+	/**
+	 * Save a rendered frame as an image, returning the image data.
+	 * @return {String} The image data.
+	 */
+	function takeScreenshot() {
+		renderer.render(scene, camera)
+		return renderer.domElement.toDataURL();
+	}
+	// Expose this to the console.
+	this.takeScreenshot = takeScreenshot;
 
 	/**
 	 * Convert [a, b, c, d..] into {x: a, y: b, z: c}, disregarding anything
@@ -937,13 +1230,20 @@ function View(projectURL) {
 			function mousemoveEventListener(event) {
 			event.preventDefault();
 
-			mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-			mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
-
 			// This will update the mouse position as well as make the
 			//   tooltipSprite follow the mouse.
-			tooltipSpriteLocation.x=event.clientX-(window.innerWidth/2) + 15;
-			tooltipSpriteLocation.y=-event.clientY+(window.innerHeight/2) - 20;
+			var newX = event.clientX-(window.innerWidth/2) + 20;
+			var newY = -event.clientY+(window.innerHeight/2) - 40;
+			if(tooltipSpriteLocation.x == newX && tooltipSpriteLocation.y == newY){
+				//If the mouse wasn't moved, ignore the following logic
+				return;
+			}
+			tooltipSpriteLocation.x = newX;
+			tooltipSpriteLocation.y = newY;
+
+			mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+			mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+			mouseMoved = true;
 
 			sceneOrtho.remove(tooltipSprite);
 			scene.remove(intersected);
@@ -954,10 +1254,25 @@ function View(projectURL) {
 			}
 		}, false);
 
+		container.addEventListener("click",
+			function mouseClickEventListener(event){
+				if(!mouseMoved){
+					if(intersected){
+						//controls.target = vec3FromArray(intersected.geometry.attributes.position);
+					}
+				}
+			});
+
 		container.addEventListener("mousedown",
 			function mousedownEventListener(event) {
 				event.preventDefault();
-				if (controls.autoRotate) {
+				mouseMoved = false;
+				//autoRotate set to true when both left and right buttons are clicked simultaneously
+				//and false otherwise
+				if (event.buttons == 3) {
+					controls.autoRotate = true;
+				}
+				else{
 					controls.autoRotate = false;
 				}
 			});
@@ -985,7 +1300,7 @@ function View(projectURL) {
 		reticle = new THREE.Mesh(
 			new THREE.IcosahedronGeometry(maxDimension / 1000, 3),
 			new THREE.MeshBasicMaterial({
-				color: colors.gold,
+				color: colors.reticleLight,
 				wireframe: true
 			}));
 		reticle.position.x = controls.target.x;
@@ -1025,7 +1340,10 @@ function View(projectURL) {
 	}
 
 	function setupRenderer() {
-		renderer = new THREE.WebGLRenderer({antialias: true});
+		renderer = new THREE.WebGLRenderer({
+			antialias: true,
+			preserveDrawingBuffer: true // This might have performance impacts.
+		});
 		renderer.setSize(window.innerWidth, window.innerHeight);
 		renderer.setClearColor(colors.background, 1);
 		renderer.sortObjects = false;
