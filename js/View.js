@@ -185,6 +185,7 @@ function View(projectURL) {
 	 *              }
 	 *          ],
 	 *          mesh: THREE.Mesh,
+	 *			geometry: THREE.BufferGeometry,
 	 *          minVisibleIndex: Integer,
 	 *          maxVisibleIndex: Integer
 	 *      }
@@ -210,11 +211,11 @@ function View(projectURL) {
 						mesh: {
 							vertices: null
 						}
-					};
+					}
 				}
 
 				mineral["intervals"].forEach(
-					function mienralIntervalsForEach(interval) {
+					function mineralIntervalsForEach(interval) {
 					var path = interval["path"][0].concat(interval["path"][1]);
 					var data = {
 						mineral: mineral["name"],
@@ -371,9 +372,9 @@ function View(projectURL) {
 
 			var counter = 0;
 			minerals[mineral].intervals.forEach(function(interval){
-				var logMe = new Float32Array(
+				var floatArray = new Float32Array(
 					meshes[interval['id']].geometry.attributes.position.array);
-				verts.set(logMe, counter * verticesPerInterval);
+				verts.set(floatArray, counter * verticesPerInterval);
 				counter += 1;
 			});
 			var geometry = new THREE.BufferGeometry();
@@ -387,12 +388,15 @@ function View(projectURL) {
 				color: color,
 				refractionRatio: 1.0,
 				shininess: 4.0});
+			minerals[mineral]["geometry"] = geometry;
 			minerals[mineral]["mesh"] = new THREE.Mesh(geometry, material);
 
 			scene.add(minerals[mineral]["mesh"]);
 
 		});
 		setProgressBar(100);
+		updateVisibility('Au', 1, 100000000);
+		updateVisibility('As', .5, 1000);
 	}
 
 	/**
@@ -633,7 +637,7 @@ function View(projectURL) {
 					counter += 1;
 				}
 			}
-			//var buffered = new THREE.BufferGeometry().fromGeometry(geometry);
+
 			var material = new THREE.MeshBasicMaterial({
 				color: colors.terrain_frame,
 				side: THREE.DoubleSide,
@@ -644,10 +648,73 @@ function View(projectURL) {
 			var surfaceMesh = new THREE.Mesh(geometry, material);
 			surfaceMesh.position.x += property.box.size.x / 2;
 			surfaceMesh.position.y += property.box.size.y / 2;
+
+			var lineMaterial = new THREE.LineBasicMaterial({
+				color: colors.terrain_frame,
+				transparent: true,
+				opacity: 0.2
+			})
+			var squareMesh = lineGeometryFromElevation(elevations, sizeX, sizeY);
+			var noDiagonals = new THREE.Line(squareMesh, lineMaterial, THREE.LinePieces);
+			noDiagonals.position.x -= (sizeX - property.box.size.x) / 2;
+			noDiagonals.position.y -= (sizeY - property.box.size.y) / 2;
+
+			//scene.add(noDiagonals);
 			scene.add(surfaceMesh);
 			addSurveyLines(surfaceMesh);
 		}
 	}
+
+	function lineGeometryFromElevation(elevation, width, height){
+		var geometry = new THREE.BufferGeometry();
+		var dx = width / (elevation[0].length-1);
+		var dy = height / (elevation.length-1);
+
+		var length1 = elevation.length;
+		var length2 = elevation[0].length;
+
+		//this should be the right size!
+		var points = new Float32Array(((length1 - 1) * 2 * length2 + (length2 - 1) * 2 * length1) * 3);
+
+		var y = 0;
+		var offset = 0;
+		for(var i = 0; i < elevation.length; i += 1){
+			var x = 0;
+			points.set([x, y, elevation[i][0]], offset);
+			offset += 3;
+			for(var j = 1; j < elevation[0].length-1; j += 1){
+				points.set([x, y, elevation[i][j]], offset);
+				points.set([x, y, elevation[i][j]], offset + 3);
+				offset += 6;
+				x += dx;
+			}
+			points.set([x, y, elevation[i][elevation[0].length-1]], offset);
+			offset += 3;
+			y += dy;
+		}
+
+		var x = 0;
+		for(var j = 0; j < elevation[0].length; j += 1){
+			var y = 0;
+			points.set([x, y, elevation[0][j]], offset);
+			offset += 3;
+			for(var i = 1; i < elevation.length-1; i += 1){
+				points.set([x, y, elevation[i][j]], offset);
+				points.set([x, y, elevation[i][j]], offset + 3);
+				offset += 6;
+				y += dy;
+			}
+			points.set([x, y, elevation[elevation.length-1][j]], offset);
+			offset += 3;
+			x += dx;
+		}
+
+		geometry.addAttribute("position", new THREE.BufferAttribute(points, 3));
+
+		return geometry;
+	}
+
+
 
 	function saveToCache(name, object){
 		localStorage[name] = JSON.stringify(object);
@@ -685,31 +752,47 @@ function View(projectURL) {
 	 *
 	 * @todo I think Mason changed this to concentration values, not indices.
 	 */
-	function updateVisibility(mineralName, lowerIndex, higherIndex){
+	function updateVisibility(mineralName, lowerValue, higherValue){
 		var mineral = minerals[mineralName];
 		var intervals = mineral.intervals;
-		lowerIndex *= intervals.length;
-		higherIndex *= intervals.length;
-		console.log('lower:' + lowerIndex + '\nhigher:' + higherIndex
-			+ '\nmin:' + mineral.minVisibleIndex + '\nmax:' + mineral.maxVisibleIndex)
+		var emptyMesh = new THREE.Mesh(new THREE.BoxGeometry(0, 0, 0));
+		mineral.minVisibleIndex = -1;
+		mineral.maxVisibleIndex = -1;
 
-		for(var i = mineral.minVisibleIndex; i < lowerIndex; i += 1){
-			visibleMeshes[intervals[i].id] = emptyMesh;
+		//Here we iterate through all of the meshes of the mineral, setting
+		//the interval to be visible if it is between the value bounds
+
+		for(var i = 0; i < intervals.length; i += 1){
+			var value = intervals[i].value;
+			if(value >= lowerValue && value <= higherValue){
+				visibleMeshes[intervals[i].id] = meshes[intervals[i].id];
+				if(mineral.minVisibleIndex < 0){
+					mineral.minVisibleIndex = i;
+				}
+			}
+			else{
+				visibleMeshes[intervals[i].id] = emptyMesh;
+				if(mineral.minVisibleIndex >= 0 && mineral.maxVisibleIndex < 0){
+					mineral.maxVisibleIndex = i - 1;
+				}
+			}
 		}
-		for(var i = mineral.maxVisibleIndex; i < higherIndex; i += 1){
-			visibleMeshes[intervals[i].id] = meshes[intervals[i].id];
+		if(mineral.maxVisibleIndex < 0){
+			mineral.maxVisibleIndex = intervals.length - 1;
 		}
-		for(var i = mineral.minVisibleIndex; i >= lowerIndex; i -= 1){
-			visibleMeshes[intervals[i].id] = meshes[intervals[i].id];
-		}
-		for(var i = mineral.maxVisibleIndex; i >= higherIndex; i -= 1){
-			visibleMeshes[intervals[i].id] = emptyMesh;
-		}
-		mineral.minVisibleIndex = lowerIndex;
-		mineral.maxVisibleIndex = higherIndex;
-		mineral.mesh.geometry.drawCalls = [];
-		mineral.mesh.geometry.addDrawCall({start: 199, count: 200, index: 0});
-		console.log(visibleMeshes);
+
+		//Now we make a new BufferGeometry from the old one, and add it to our mesh!
+		var verticesPerInterval = meshes[0].geometry.attributes.position.array.length;
+
+		var newGeometryVertices = mineral.geometry.attributes.position.array.subarray(
+								mineral.minVisibleIndex * verticesPerInterval,
+								mineral.maxVisibleIndex * verticesPerInterval);
+
+		var newGeometry = new THREE.BufferGeometry();
+		newGeometry.addAttribute('position', new THREE.BufferAttribute(newGeometryVertices, 3));
+		newGeometry.computeFaceNormals();
+		newGeometry.computeVertexNormals();
+		mineral.mesh.geometry = newGeometry;
 	}
 
 	/**
@@ -724,16 +807,15 @@ function View(projectURL) {
 	function toggleVisible(mineralName, visible){
 		var mineral = minerals[mineralName];
 		mineral.mesh.visible = visible;
-		scene.updateVisibility;
 		var intervals = mineral.intervals;
 		console.log(visible)
 		if(visible){
-			for(var i = mineral.minVisibleIndex; i < mineral.maxVisibleIndex; i += 1){
+			for(var i = mineral.minVisibleIndex; i <= mineral.maxVisibleIndex; i += 1){
 				visibleMeshes[intervals[i].id] = meshes[intervals[i].id];
 			}
 		}
 		else{
-			var emptyMesh             = new THREE.Mesh(new THREE.BoxGeometry(0, 0, 0));
+			var emptyMesh = new THREE.Mesh(new THREE.BoxGeometry(0, 0, 0));
 			for(var i = mineral.minVisibleIndex; i < mineral.maxVisibleIndex; i += 1){
 				visibleMeshes[intervals[i].id] = emptyMesh;
 			}
