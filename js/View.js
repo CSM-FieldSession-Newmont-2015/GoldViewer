@@ -89,6 +89,7 @@ function View(projectURL) {
 	var scene                 = new THREE.Scene();
 	var sceneOrtho            = new THREE.Scene();
 	var mouse                 = new THREE.Vector2();
+	var mouseMoved            = false;
 	var tooltipSpriteLocation = new THREE.Vector2();
 	var raycaster             = new THREE.Raycaster();
 	var tooltipSprite         = null;
@@ -1165,6 +1166,7 @@ function View(projectURL) {
 		var intersects = raycaster.intersectObjects(visibleMeshes);
 
 		if(intersects.length == 0){
+			intersected = null;
 			return;
 		}
 
@@ -1253,6 +1255,7 @@ function View(projectURL) {
 
 			mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
 			mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+			mouseMoved = true;
 
 			sceneOrtho.remove(tooltipSprite);
 			scene.remove(intersected);
@@ -1263,10 +1266,26 @@ function View(projectURL) {
 			}
 		}, false);
 
+		container.addEventListener("click",
+			function mouseClickEventListener(event){
+				if(mouseMoved === false){
+					if(intersected){
+						//todo: put the reticle on that mesh
+						//controls.target = vec3FromArray(intersected.geometry.attributes.position);
+					}
+				}
+			});
+
 		container.addEventListener("mousedown",
 			function mousedownEventListener(event) {
 				event.preventDefault();
-				if (controls.autoRotate) {
+				mouseMoved = false;
+				//autoRotate set to true when both left and right buttons are clicked simultaneously
+				//and false otherwise
+				if (event.buttons == 3) {
+					controls.autoRotate = true;
+				}
+				else{
 					controls.autoRotate = false;
 				}
 			});
