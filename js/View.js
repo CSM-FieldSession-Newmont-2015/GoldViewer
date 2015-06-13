@@ -70,6 +70,7 @@ function View(projectURL) {
 	/**
 	 * The DOM element containing our canvas.
 	 * @type {???}
+	 *
 	 * @todo  What type is this?
 	 */
 	var container = $('#viewFrame');
@@ -80,32 +81,175 @@ function View(projectURL) {
 	 */
 	var controls = null;
 
-	// TODO: Comment the rest of these.
-	var holes                 = {};
-	var intersected           = null;
-	var maxDimension          = 0;
+	/**
+	 * Stores the data and metadata for the survey line holes.
+	 *
+	 * `holes.lines` contains the THREE.Mesh objects used to give lines their
+	 * formatting.
+	 *
+	 * `holes.ids` contains the the meta data for each hole, stored in an object
+	 * indexed by the hole's id, as a number.
+	 */
+	var holes = {};
+
+	/**
+	 * The object our ray caster is currently hitting, or null if it isn't
+	 * intersecting anything.
+	 * @type {THREE.Mesh}
+	 */
+	var intersected = null;
+
+	/**
+	 * The largest dimension of the property box. It cannot be calculated until
+	 * the property is fully loaded.
+	 * @type {Number}
+	 *
+	 * @todo  Move this into the property object.
+	 */
+	var maxDimension = 0;
+
+	/**
+	 * The number of segments used on the longest side of the property box.
+	 * The other side uses however many fit, ensuring the terrain has square
+	 * sides on its wireframe.
+	 * @type {Number}
+	 */
 	var maxPossibleSegments   = 60;
-	var meshes                = [];
-	var mineralData           = [];
-	var minerals              = {};
-	var mouse                 = new THREE.Vector2();
-	var mouseMoved            = false;
-	var mouseTimeout          = null;
-	var motion                = [];
-	var projectJSON           = null;
-	var property              = null;
-	var raycaster             = new THREE.Raycaster();
-	var renderer              = null;
+
+	/**
+	 * Array of all the meshes for ray casting, indexed with their mesh id.
+	 * @type {Array<THREE.Mesh>}
+	 */
+	var meshes = [];
+
+	/**
+	 * Metadata for intervals indexed with their mesh id.
+	 * @type {Array}
+	 */
+	var mineralData = [];
+
+	/**
+	 * Fancy array with minerals meta-data.
+	 * @see getMinerals
+	 */
+	var minerals = {};
+
+	/**
+	 * Store the mouse position for ray casting.
+	 * @type {THREE.Vector2}
+	 */
+	var mouse = new THREE.Vector2();
+
+	/**
+	 * We only activate ray casting when the mouse has stopped moving for a c
+	 * certain amount of time. We keep track of whether the mouse has moved to
+	 * aid in ray casting.
+	 * @see  mouseTimeout
+	 * @type {Boolean}
+	 */
+	var mouseMoved = false;
+
+	/**
+	 * If the mouse moves, we want to kill the setTimeout function we use.
+	 * This stores the return value which we use to kill it.
+	 */
+	var mouseTimeout = null;
+
+	/**
+	 * The property JSON after it's loaded.
+	 */
+	var projectJSON = null;
+
+	/**
+	 * The property object after it's been processed.
+	 */
+	var property = null;
+
+	/**
+	 * The raycaster used for tooltips.
+	 * @type {THREE.Raycaster}
+	 */
+	var raycaster = null;
+
+	/**
+	 * The threejs WebGL rendering object.
+	 * @type {THREE.WebGLRenderer}
+	 */
+	var renderer = null;
+
+	/**
+	 * Our orbital controls rotate, or orbit, around a centeral point. It's
+	 * hard to tell where that is, so we keep a sphere positioned there.
+	 * @see  reticleLight
+	 * @type {THREE.Mesh}
+	 */
 	var reticle               = null;
+
+	/**
+	 * Our reticle emits a point light from its center.
+	 * @type {THREE.PointLight}
+	 */
 	var reticleLight          = null;
+
+	/**
+	 * ???
+	 * @type {Number}
+	 */
 	var returnedGeometry      = 0;
+
+	/**
+	 * The objects threejs uses to represent what it needs to draw.
+	 * @type {THREE.Scene}
+	 */
 	var scene                 = new THREE.Scene();
+
+	/**
+	 * We emulate a second scene to get tool tips to work. This is the scene
+	 *  for that.
+	 *  @see  cameraOrtho
+	 * @type {THREE.Scene}
+	 */
 	var sceneOrtho            = new THREE.Scene();
+
+	/**
+	 * FPS counter. https://github.com/mrdoob/stats.js/
+	 * @type {[type]}
+	 */
 	var stats                 = null;
+
+	/**
+	 * We reuse the same sprite object for tooltips. If the user isn't hovering
+	 * over something, we remove it from the scene and don't use it.
+	 * @see  tooltipSpriteLocation
+	 * @type {THREE.Sprite}
+	 */
 	var tooltipSprite         = null;
+
+	/**
+	 * The location of the tooltip sprite.
+	 * @see  tooltipSprite
+	 * @type {THREE}
+	 */
 	var tooltipSpriteLocation = new THREE.Vector2();
+
+	/**
+	 * The count of total geometries we need to load for the minerals.
+	 * This is used in the "Loading geometries" progress bar.
+	 * @type {Number}
+	 */
 	var totalGeometries       = 0;
+
+	/**
+	 * An array representing which meshes, out of the many we have, we actually
+	 * want to render right now.
+	 * @type {Array}
+	 */
 	var visibleMeshes         = [];
+
+	/**
+	 * How quickly the mouse wheel zooms.
+	 * @type {Number}
+	 */
 	var zoomSpeed = 1.2;
 
 	/**
@@ -243,6 +387,7 @@ function View(projectURL) {
 	 * Make a mesh, ready to render, from a buffer of vertices. This is intended
 	 * to be called with data from the workers (see `delegate`) to create
 	 * a single cylinder mesh, and save it in `meshes`.
+	 * @see  delegate
 	 * `data` is expected to be a flat array of floats.
 	 *
 	 * The array`[new THREE.Vector3(1, 2, 3), new THREE.Vector3(4, 5, 6)]`
@@ -401,6 +546,7 @@ function View(projectURL) {
 	 *                                          surface mesh.
 	 *
 	 * @todo Unspaghettify this.
+	 * @todo Return the holes object instead of modifying a global object.
 	 */
 	function addSurveyLines(surfaceMesh) {
 		var surveyCaster = new THREE.Raycaster();
@@ -451,7 +597,18 @@ function View(projectURL) {
 				location: jsonHole["location"],
 				zOffset: zOffset
 			}
-			holes.ids[jsonHole['id']] = hole;
+			var holeId = jsonHole['id'];
+
+			// Javascript uses 64-bit doubles to store all numbers. If they're
+			// smaller than that, we can use them as exact integers.
+			// We treat survey hole ids as integers, so it's important to check
+			// that every id we load is within this bound.
+			if (holeId >= (1 << 53)) {
+				console.warn("Survey hole # " + holeId
+					+ " is too large to store as an integer. "
+					+ "Some hole ids may be rounded and behave strangely.");
+			}
+			holes.ids[holeId] = hole;
 
 			lineGeometry.push(
 				initialLocation[0],
@@ -496,6 +653,7 @@ function View(projectURL) {
 		});
 		addLastElements();
 	}
+
 	/**
 	* Retrieve image to display on terrain mesh
 	*
