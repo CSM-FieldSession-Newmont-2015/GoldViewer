@@ -499,6 +499,27 @@ function View(projectURL) {
 		});
 		addLastElements();
 	}
+	/**
+	* Retrieve image to display on terrain mesh
+	*
+	*/
+	function addTerrainImage(mesh){
+		//get the center of the property
+		var latCenter =(property.longLatMin.y+ property.longLatMax.y)/2;
+		var lngCenter =(property.longLatMin.x+property.longLatMax.x)/2;
+		//construct google maps request
+		var mapImage="https://maps.googleapis.com/maps/api/staticmap?"+
+					"center="+latCenter+","+lngCenter+
+					"&zoom=12&size=640x640&maptype=satellite"+
+					"&visible="+property.longLatMin.y+","+property.longLatMin.x+
+					"&visible="+property.longLatMax.y+","+property.longLatMax.x;
+
+		// load a texture, set wrap mode to repeat
+		THREE.ImageUtils.crossOrigin = '';
+		var texture = THREE.ImageUtils.loadTexture( mapImage );
+		var material = new THREE.MeshPhongMaterial( { map: texture } );
+		mesh.material=material;
+	}
 
 	function addTerrain(){
 
