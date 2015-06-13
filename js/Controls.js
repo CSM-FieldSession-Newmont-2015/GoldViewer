@@ -3,6 +3,8 @@
 /* global View */
 
 function loadMenu() {
+	var windowWidth = $(window).width();
+	var windowHeight = $(window).height();
 	$.get("html/Menu.html", function (data) {
 		$("#divTopMenu").append(data);
 		$("ul#TopMenu").menu({
@@ -11,8 +13,8 @@ function loadMenu() {
 					case 'menuDatasets':
 						$('#dialogDatasets').dialog({
 							resizable: true,
-							height: 480,
-							width: 800,
+							height: windowHeight-40,
+							width: windowWidth-40,
 							modal: true,
 							buttons: {
 								Cancel: function () {
@@ -122,6 +124,8 @@ function resizeFrames() {
 	$('#viewFrame').height(height);
 	$('.sidebar-container').css('top', ($('#viewFrame').position().top));
 	$('.sidebar-container').height(height);
+	var windowWidth = $(window).width();
+	var windowHeight = $(window).height();
 }
 
 function initProgressBar() {
