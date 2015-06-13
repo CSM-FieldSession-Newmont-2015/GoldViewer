@@ -113,6 +113,7 @@ function View(projectURL) {
 	var tooltipSpriteLocation = new THREE.Vector2();
 	var totalGeometries       = 0;
 	var visibleMeshes         = [];
+	var zoomSpeed = 1.2;
 
 	/**
 	 * Entry point for view. Call this after `new View();`.
@@ -140,14 +141,14 @@ function View(projectURL) {
 	 * Handle used by the controls to zoom in on an event, like a button press.
 	 */
 	this.zoomIn = function () {
-		controls.dollyIn(1.2);
+		controls.dollyIn(zoomSpeed);
 	};
 
 	/**
 	 * Handle used by the controls to zoom out on an event, like a button press.
 	 */
 	this.zoomOut = function () {
-		controls.dollyIn(1.0/1.2);
+		controls.dollyIn(1.0/zoomSpeed);
 	};
 
 	/**
