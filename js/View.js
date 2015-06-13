@@ -1159,7 +1159,7 @@ function View(projectURL) {
 	 * on the screen. If it finds something, it adds tool tip.
 	 */
 	function checkMouseIntercept() {
-		if(!raycaster) {
+		if(!raycaster || controls.autoRotate) {
 			return;
 		}
 		raycaster.setFromCamera(mouse, camera);
@@ -1268,9 +1268,8 @@ function View(projectURL) {
 
 		container.addEventListener("click",
 			function mouseClickEventListener(event){
-				if(mouseMoved === false){
+				if(!mouseMoved){
 					if(intersected){
-						//todo: put the reticle on that mesh
 						//controls.target = vec3FromArray(intersected.geometry.attributes.position);
 					}
 				}
