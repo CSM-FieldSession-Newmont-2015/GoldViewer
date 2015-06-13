@@ -100,6 +100,7 @@ function View(projectURL) {
 	var minerals              = {};
 	var mouse                 = new THREE.Vector2();
 	var mouseTimeout          = null;
+	var motion                = [];
 	var projectJSON           = null;
 	var property              = null;
 	var raycaster             = null;
@@ -396,8 +397,6 @@ function View(projectURL) {
 
 		});
 		setProgressBar(100);
-		updateVisibility('Au', 1, 100000000);
-		updateVisibility('As', .5, 1000);
 	}
 
 	/**
@@ -411,7 +410,6 @@ function View(projectURL) {
 	 */
 	function addSurveyLines(surfaceMesh) {
 		var surveyCaster = new THREE.Raycaster();
-		surveyCaster.far = 1e6;
 		var geometries = {};
 		var up = vec3FromArray([0, 0, 1]);
 		var down = vec3FromArray([0, 0, -1]);
@@ -776,6 +774,10 @@ function View(projectURL) {
 	 */
 	function updateVisibility(mineralName, lowerValue, higherValue){
 		var mineral = minerals[mineralName];
+		if(mineral === undefined){
+			console.log("can't update the visibility of " + mineralName + " as it is not in the data set");
+			return;
+		}
 		var intervals = mineral.intervals;
 		var emptyMesh = new THREE.Mesh(new THREE.BoxGeometry(0, 0, 0));
 		mineral.minVisibleIndex = -1;
@@ -990,6 +992,16 @@ function View(projectURL) {
 
 		camera.updateMatrixWorld();
 
+		updatePositions();
+
+		renderer.clear();
+		renderer.render(scene,camera);
+		renderer.clearDepth();
+		renderer.render(sceneOrtho,cameraOrtho);
+	}
+
+	function updatePositions(){
+
 		reticle.position.x = controls.target.x;
 		reticle.position.y = controls.target.y;
 		reticle.position.z = controls.target.z;
@@ -1002,12 +1014,11 @@ function View(projectURL) {
 		cameraLight.position.y = camera.position.y;
 		cameraLight.position.z = camera.position.z;
 
-		renderer.clear();
-		renderer.render(scene,camera);
-		renderer.clearDepth();
-		renderer.render(sceneOrtho,cameraOrtho);
-	}
+		if(motion.length != 0){
+			controls.target.add(motion.pop());
+		}
 
+	}
 	/**
 	 * Create a sprite with text.
 	 * @param  {Object} message    A string or string-able object to put as the
@@ -1270,7 +1281,10 @@ function View(projectURL) {
 			function mouseClickEventListener(event){
 				if(!mouseMoved){
 					if(intersected){
-						//controls.target = vec3FromArray(intersected.geometry.attributes.position);
+						startMotion(intersected);
+					}
+					else{
+						motion = [];
 					}
 				}
 			});
@@ -1288,6 +1302,31 @@ function View(projectURL) {
 					controls.autoRotate = false;
 				}
 			});
+	}
+
+	function startMotion(toHere){
+		if(toHere.geometry.boundingSphere === undefined){
+			toHere.computeBoundingSphere();
+		}
+
+		var toSphere = toHere.geometry.boundingSphere;
+		var movementVector = new THREE.Vector3();
+		movementVector.subVectors(toSphere.center, controls.target);
+		var tempVec1 = movementVector.clone();
+		tempVec1.normalize();
+		tempVec1.multiplyScalar(-1 * toSphere.radius);
+		movementVector.add(tempVec1);
+
+		tempVec1 = movementVector.clone();
+		tempVec1.normalize();
+		tempVec1.multiplyScalar(-1 * reticle.geometry.boundingSphere.radius);
+		movementVector.add(tempVec1);
+
+		var by20 = movementVector.clone();
+		movementVector.divideScalar(20);
+		for(var i = 0; i < 20; i++){
+			motion.push(movementVector);
+		}
 	}
 
 	function addBoundingBox() {
