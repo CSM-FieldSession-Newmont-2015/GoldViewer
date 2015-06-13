@@ -67,8 +67,16 @@ function calcGeometry(intervalData){
 
 function makeCylinderGeometry(pointA, pointB, width) {
 
+	// Sometimes, cylinders' ends overlap *exactly* and the two planes start Z-fighting.
+	// By adding a random variance to each coordinate, this shouldn't happen.
+	// These values are chosen to be much too small for anyone to ever notice,
+	// but if this does cause problems it'll be fun to debug.
+	var dx = 3e-2 * (Math.random() - 0.5);
+	var dy = 3e-2 * (Math.random() - 0.5);
+	var dz = 3e-2 * (Math.random() - 0.5);
+
 	var transform = new THREE.Matrix4();
-	transform.makeTranslation((pointB.x + pointA.x) / 2, (pointB.y + pointA.y) / 2, (pointB.z + pointA.z) / 2);
+	transform.makeTranslation((pointB.x + pointA.x) / 2 + dx, (pointB.y + pointA.y) / 2 + dy, (pointB.z + pointA.z) / 2 + dz);
 
 	var orientation = new THREE.Matrix4();
 	orientation.lookAt(pointA, pointB, new THREE.Object3D().up);

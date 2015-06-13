@@ -7,6 +7,8 @@
  * Color constants used by different parts of the view.
  *
  * @type {Object.<string, number>}
+ *
+ * @todo  Rename these to refer to their use case, not color.
  */
 var colors = {
 	ambientLight     : 0x404040, // Soft white
@@ -80,30 +82,19 @@ function View(projectURL) {
 
 	// TODO: Comment the rest of these.
 	var holes                 = {};
-	var minerals              = {};
-	var meshes                = [];
-	var visibleMeshes         = [];
-	var returnedGeometry      = 0;
-	var totalGeometries       = 0;
-	var maxPossibleSegments   = 60;
-	var scene                 = new THREE.Scene();
-	var sceneOrtho            = new THREE.Scene();
-	var mouse                 = new THREE.Vector2();
-	var mouseMoved            = false;
-	var tooltipSpriteLocation = new THREE.Vector2();
-	var raycaster             = new THREE.Raycaster();
-	var tooltipSprite         = null;
 	var intersected           = null;
 	var maxDimension          = 0;
+	var maxPossibleSegments   = 60;
 	var meshes                = [];
 	var mineralData           = [];
 	var minerals              = {};
 	var mouse                 = new THREE.Vector2();
+	var mouseMoved            = false;
 	var mouseTimeout          = null;
 	var motion                = [];
 	var projectJSON           = null;
 	var property              = null;
-	var raycaster             = null;
+	var raycaster             = new THREE.Raycaster();
 	var renderer              = null;
 	var reticle               = null;
 	var reticleLight          = null;
@@ -115,6 +106,7 @@ function View(projectURL) {
 	var tooltipSpriteLocation = new THREE.Vector2();
 	var totalGeometries       = 0;
 	var visibleMeshes         = [];
+	var zoomSpeed = 1.2;
 
 	/**
 	 * Entry point for view. Call this after `new View();`.
@@ -142,14 +134,14 @@ function View(projectURL) {
 	 * Handle used by the controls to zoom in on an event, like a button press.
 	 */
 	this.zoomIn = function () {
-		controls.dollyIn(1.2);
+		controls.dollyIn(zoomSpeed);
 	};
 
 	/**
 	 * Handle used by the controls to zoom out on an event, like a button press.
 	 */
 	this.zoomOut = function () {
-		controls.dollyIn(1.0/1.2);
+		controls.dollyIn(1.0/zoomSpeed);
 	};
 
 	/**
@@ -187,7 +179,7 @@ function View(projectURL) {
 	 *              }
 	 *          ],
 	 *          mesh: THREE.Mesh,
-	 *			geometry: THREE.BufferGeometry,
+	 *          geometry: THREE.BufferGeometry,
 	 *          minVisibleIndex: Integer,
 	 *          maxVisibleIndex: Integer
 	 *      }
@@ -734,13 +726,10 @@ function View(projectURL) {
 		return geometry;
 	}
 
-
-
 	function saveToCache(name, object){
 		localStorage[name] = JSON.stringify(object);
 		console.log("Saving " + name + " data to cache.");
 	}
-
 
 	/**
 	 * Convert a hex-color string starting with "#" to a THREE.Color object.
@@ -765,10 +754,8 @@ function View(projectURL) {
 	 *
 	 * @param  {String} mineralName The string identifier from the property
 	 *                              JSON file for the mineral.
-	 * @param  {Number} lowerIndex  The lower INDEX in the meshes array to
-	 *                              keep visible.
-	 * @param  {Number} higherIndex The upper INDEX in the meshes array to
-	 *                              keep visible.
+	 * @param  {Number} lowerValue  The lower bound to keep meshes visible.
+	 * @param  {Number} higherValue The upper bound to keep meshes visible.
 	 *
 	 * @todo I think Mason changed this to concentration values, not indices.
 	 */
@@ -785,7 +772,6 @@ function View(projectURL) {
 
 		//Here we iterate through all of the meshes of the mineral, setting
 		//the interval to be visible if it is between the value bounds
-
 		for(var i = 0; i < intervals.length; i += 1){
 			var value = intervals[i].value;
 			if(value >= lowerValue && value <= higherValue){
@@ -825,8 +811,10 @@ function View(projectURL) {
 	 * When `visible` is a falsey value, the current range on `mineralName`
 	 * minerals is disabled.
 	 *
-	 * @param  {} mineralName [description]
-	 * @param  {[type]} visible     [description]
+	 *
+	 * @param  {String}  mineralName Which type of minerals to filter.
+	 * @param  {Boolean} visible     Whether minerals of this type should be
+	 *                               rendered or not.
 	 */
 	function toggleVisible(mineralName, visible){
 		var mineral = minerals[mineralName];
@@ -1068,10 +1056,10 @@ function View(projectURL) {
 			+ backgroundColor.a
 			+ ")";
 
-		context.fillRect(0.5*size,
-			0.5*size - fontsize,
-			maxTextWidth,
-			lines.length*lineHeight);
+		context.fillRect(0.5*size-15,
+			0.5*size - fontsize-15,
+			maxTextWidth+30,
+			lines.length*lineHeight+30);
 
 		context.textAlign = 'left';
 		context.fillStyle = "rgba("
@@ -1255,8 +1243,8 @@ function View(projectURL) {
 
 			// This will update the mouse position as well as make the
 			//   tooltipSprite follow the mouse.
-			var newX = event.clientX-(window.innerWidth/2) + 15;
-			var newY = -event.clientY+(window.innerHeight/2) - 20;
+			var newX = event.clientX-(window.innerWidth/2) + 20;
+			var newY = -event.clientY+(window.innerHeight/2) - 40;
 			if(tooltipSpriteLocation.x == newX && tooltipSpriteLocation.y == newY){
 				//If the mouse wasn't moved, ignore the following logic
 				return;
