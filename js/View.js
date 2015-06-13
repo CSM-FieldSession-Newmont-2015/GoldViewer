@@ -606,7 +606,6 @@ function View(projectURL) {
 			setTimeout(function(){elevator.getElevationAlongPath(pathRequest, handleResults)}, timeout);
 			function handleResults(results, status){
 				if(status == google.maps.ElevationStatus.OVER_QUERY_LIMIT){
-					console.log("over query");
 					setTimeout(sendElevationRequest(pathRequest, 2000));
 				}else{
 					addToTerrain(results, status);
@@ -652,7 +651,7 @@ function View(projectURL) {
 
 	function saveToCache(name, object){
 		localStorage[name] = JSON.stringify(object);
-		console.log('SUCCESS');
+		console.log("Saving " + name + " data to cache.");
 	}
 
 
