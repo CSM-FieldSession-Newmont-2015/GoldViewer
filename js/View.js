@@ -389,6 +389,8 @@ function View(projectURL) {
 
 		});
 		setProgressBar(100);
+		updateVisibility('Au', 1, 100000000);
+		updateVisibility('As', .5, 1000);
 	}
 
 	/**
@@ -1310,9 +1312,9 @@ function View(projectURL) {
 		tempVec1.multiplyScalar(-1 * reticle.geometry.boundingSphere.radius);
 		movementVector.add(tempVec1);
 
-		var by20 = movementVector.clone();
-		movementVector.divideScalar(20);
-		for(var i = 0; i < 20; i++){
+		var by200 = movementVector.clone();
+		movementVector.divideScalar(200);
+		for(var i = 0; i < 200; i++){
 			motion.push(movementVector);
 		}
 	}
