@@ -91,10 +91,10 @@ function View(projectURL) {
 	var mouse                 = new THREE.Vector2();
 	var mouseMoved            = false;
 	var mouseTimeout          = null;
-	var motion                = [];
+	var motionInterval        = null;
 	var projectJSON           = null;
 	var property              = null;
-	var raycaster             = new THREE.Raycaster();
+	var raycaster             = null;
 	var renderer              = null;
 	var reticle               = null;
 	var reticleLight          = null;
@@ -389,7 +389,7 @@ function View(projectURL) {
 
 		});
 		setProgressBar(100);
-		updateVisibility('Au', 1, 100000000);
+		updateVisibility('Au', .5, 100000000);
 		updateVisibility('As', .5, 1000);
 	}
 
@@ -982,7 +982,9 @@ function View(projectURL) {
 
 		camera.updateMatrixWorld();
 
-		updatePositions();
+		reticle.position.copy(controls.target);
+		reticleLight.position.copy(controls.target);
+		cameraLight.position.copy(camera.position);
 
 		renderer.clear();
 		renderer.render(scene,camera);
@@ -990,25 +992,6 @@ function View(projectURL) {
 		renderer.render(sceneOrtho,cameraOrtho);
 	}
 
-	function updatePositions(){
-
-		reticle.position.x = controls.target.x;
-		reticle.position.y = controls.target.y;
-		reticle.position.z = controls.target.z;
-
-		reticleLight.position.x = controls.target.x;
-		reticleLight.position.y = controls.target.y;
-		reticleLight.position.z = controls.target.z;
-
-		cameraLight.position.x = camera.position.x;
-		cameraLight.position.y = camera.position.y;
-		cameraLight.position.z = camera.position.z;
-
-		if(motion.length != 0){
-			controls.target.add(motion.pop());
-		}
-
-	}
 	/**
 	 * Create a sprite with text.
 	 * @param  {Object} message    A string or string-able object to put as the
@@ -1160,7 +1143,10 @@ function View(projectURL) {
 	 * on the screen. If it finds something, it adds tool tip.
 	 */
 	function checkMouseIntercept() {
-		if(!raycaster || controls.autoRotate) {
+
+		// Don't ray cast if we're rotating, moving the reticle or haven't yet
+		// set up the mineral intervals
+		if(!raycaster || controls.autoRotate || motionInterval) {
 			return;
 		}
 		raycaster.setFromCamera(mouse, camera);
@@ -1265,11 +1251,18 @@ function View(projectURL) {
 			if(event.buttons == 0 && raycaster){
 				mouseTimeout = window.setTimeout(checkMouseIntercept, 150);
 			}
+
+			if(event.buttons % 4 - event.buttons % 2 == 2){ //panning!
+				window.clearInterval(motionInterval);
+				motionInterval = null;
+			}
 		}, false);
 
 		container.addEventListener("click",
 			function mouseClickEventListener(event){
 				if(!mouseMoved){
+					clearTimeout(motionInterval);
+					motionInterval = null;
 					if(intersected){
 						startMotion(intersected);
 					}
@@ -1299,9 +1292,15 @@ function View(projectURL) {
 			toHere.computeBoundingSphere();
 		}
 
+		//use the bounding sphere to get the center of the mesh
+		//and to determine a reasonable distance to approach to
 		var toSphere = toHere.geometry.boundingSphere;
 		var movementVector = new THREE.Vector3();
+
+		//get the movement vector
 		movementVector.subVectors(toSphere.center, controls.target);
+
+		//and subtract the radius of both of the bounding spheres from the vector
 		var tempVec1 = movementVector.clone();
 		tempVec1.normalize();
 		tempVec1.multiplyScalar(-1 * toSphere.radius);
@@ -1312,11 +1311,56 @@ function View(projectURL) {
 		tempVec1.multiplyScalar(-1 * reticle.geometry.boundingSphere.radius);
 		movementVector.add(tempVec1);
 
-		var by200 = movementVector.clone();
-		movementVector.divideScalar(200);
-		for(var i = 0; i < 200; i++){
-			motion.push(movementVector);
+		//get the total length of the movement
+		var length = movementVector.length();
+
+		//now construct a motion array of Vector3's that will constantly
+		//accelerate and then decelerate towards the object.
+
+		var acceleration = 0.01 * Math.log(length / 100 + 1) + 0.02;
+		var normalMovement = movementVector.clone();
+		normalMovement.normalize();
+		var totalMovement = 0;
+
+		var speed = 0;
+		var accelerate = [];
+		var decelerate = [];
+
+		while(totalMovement < length){
+			speed += acceleration;
+			var movement = normalMovement.clone().multiplyScalar(speed);
+			accelerate.push(movement);
+			totalMovement += speed;
+			if(totalMovement >= length){
+				break;
+			}
+			decelerate.unshift(movement);
+			totalMovement += speed;
 		}
+
+		//we probably just overshot it, so pop off the movements until
+		//we're in front of it, then touch us to the sphere
+
+		var motion = accelerate.concat(decelerate);
+
+		while(totalMovement > length){
+			totalMovement -= motion.pop().length();
+		}
+		normalMovement.multiplyScalar(length - totalMovement);
+		motion.push(normalMovement);
+
+		//get rid of the last interval, in case it exists
+		window.clearInterval(motionInterval);
+
+		//Start an interval to move the reticle around!
+		//Trigger 100 times a second
+		motionInterval = setInterval(function(){
+			controls.target.add(motion.pop());
+			if(motion.length === 0){
+				window.clearInterval(motionInterval);
+				motionInterval = null;
+			}
+		}, 10);
 	}
 
 	function addBoundingBox() {
