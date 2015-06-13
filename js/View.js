@@ -1301,6 +1301,7 @@ function View(projectURL) {
 		movementVector.subVectors(toSphere.center, controls.target);
 
 		//and subtract the radius of both of the bounding spheres from the vector
+		
 		var tempVec1 = movementVector.clone();
 		tempVec1.normalize();
 		tempVec1.multiplyScalar(-1 * toSphere.radius);
@@ -1310,6 +1311,7 @@ function View(projectURL) {
 		tempVec1.normalize();
 		tempVec1.multiplyScalar(-1 * reticle.geometry.boundingSphere.radius);
 		movementVector.add(tempVec1);
+		
 
 		//get the total length of the movement
 		var length = movementVector.length();
@@ -1317,7 +1319,7 @@ function View(projectURL) {
 		//now construct a motion array of Vector3's that will constantly
 		//accelerate and then decelerate towards the object.
 
-		var acceleration = 0.01 * Math.log(length / 100 + 1) + 0.02;
+		var acceleration = length / 50000 + 0.01;
 		var normalMovement = movementVector.clone();
 		normalMovement.normalize();
 		var totalMovement = 0;
@@ -1383,7 +1385,7 @@ function View(projectURL) {
 
 	function addReticle() {
 		reticle = new THREE.Mesh(
-			new THREE.IcosahedronGeometry(maxDimension / 1000, 3),
+			new THREE.IcosahedronGeometry(maxDimension / 2000, 3),
 			new THREE.MeshBasicMaterial({
 				color: colors.reticleLight,
 				wireframe: true
@@ -1457,7 +1459,7 @@ function View(projectURL) {
 		controls = new THREE.OrbitControls(camera,
 			$('#viewFrame').contents().find('div').get(0));
 		controls.zoomSpeed = 3.0;
-		controls.minDistance = maxDimension / 100;
+		controls.minDistance = maxDimension / 200;
 		controls.maxDistance = maxDimension * 2;
 		controls.target = property.box.center;
 		controls.autoRotate = true;
