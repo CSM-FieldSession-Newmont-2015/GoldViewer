@@ -1058,10 +1058,10 @@ function View(projectURL) {
 			+ backgroundColor.a
 			+ ")";
 
-		context.fillRect(0.5*size,
-			0.5*size - fontsize,
-			maxTextWidth,
-			lines.length*lineHeight);
+		context.fillRect(0.5*size-15,
+			0.5*size - fontsize-15,
+			maxTextWidth+30,
+			lines.length*lineHeight+30);
 
 		context.textAlign = 'left';
 		context.fillStyle = "rgba("
@@ -1245,8 +1245,8 @@ function View(projectURL) {
 
 			// This will update the mouse position as well as make the
 			//   tooltipSprite follow the mouse.
-			var newX = event.clientX-(window.innerWidth/2) + 15;
-			var newY = -event.clientY+(window.innerHeight/2) - 20;
+			var newX = event.clientX-(window.innerWidth/2) + 20;
+			var newY = -event.clientY+(window.innerHeight/2) - 40;
 			if(tooltipSpriteLocation.x == newX && tooltipSpriteLocation.y == newY){
 				//If the mouse wasn't moved, ignore the following logic
 				return;
