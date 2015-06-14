@@ -43,7 +43,7 @@
 		var formatDensity = d3.format(",.3f");
 
 		var margin = {
-				top: 30,
+				top: 50,
 				right: 30,
 				bottom: 75,
 				left: 30
@@ -57,7 +57,7 @@
 			.nice(intervals);
 
 		// Generate a histogram using uniformly-spaced bins.
-		var intervals = 20;
+		var intervals = 24;
 		var data = d3.layout.histogram()
 			.bins(x.ticks(intervals))
 			(values);
@@ -114,7 +114,7 @@
 			// This offset is chosen by brute force. It works for 20 intervals.
 			// If you change the intervals count, you'll need to change this.
 			.attr("x", Math.floor(width / intervals) - 8)
-			.attr("text-anchor", "middle")
+//			.attr("text-anchor", "middle")
 			.text(function (d) {
 				if (d.y <= 0) {
 					// Don't add a "0" for empty bins.
@@ -124,11 +124,15 @@
 					// Only label small-ish bars that are hard to see otherwise.
 					// TODO: Base this off of the maximum bar height.
 					// We chose 99 now to make sure our labels are all 2 digits.
-					return "";
+					return formatCount(d.y);
 				} else {
 					// Otherwise, just format it.
 					return formatCount(d.y);
 				}
+			})
+			.style("text-anchor", "start")
+			.attr("transform", function (d) {
+				return "translate(10,5) rotate(-65)";
 			});
 
 		svg.append("g")
@@ -145,7 +149,7 @@
 
 		var brush = d3.svg.brush()
 			.x(x)
-			.extent([d3.min(values), d3.max(values)])
+			.extent(xAxis.scale().domain())
 			.on("brushstart", brushstart)
 			.on("brush", brushmove)
 			.on("brushend", brushend);
