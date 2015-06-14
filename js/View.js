@@ -1589,7 +1589,6 @@ function View(projectURL) {
 	function setupRenderer() {
 		renderer = new THREE.WebGLRenderer({
 			antialias: true,
-			preserveDrawingBuffer: true // This might have performance impacts.
 		});
 		renderer.setSize(window.innerWidth, window.innerHeight);
 		renderer.setClearColor(colors.background, 1);
