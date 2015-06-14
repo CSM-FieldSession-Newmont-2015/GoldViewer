@@ -15,6 +15,7 @@
 			'" type="checkbox" data-mineral="' + mineral + '"><label>' +
 			mineral + '</label>');
 		$('<svg id="svg' + chartIndex + '" class="chart">').appendTo(div);
+		$('#cb' + mineral).prop('checked', true);
 		$('#cb' + mineral).click(callToggleVisibile);
 		addChart(minerals[mineral], chartIndex, mineral);
 		chartIndex += 1;
@@ -45,7 +46,7 @@
 		var margin = {
 				top: 10,
 				right: 30,
-				bottom: 30,
+				bottom: 50,
 				left: 30
 			},
 			width = 400 - margin.left - margin.right,
@@ -57,7 +58,7 @@
 
 
 		// Generate a histogram using uniformly-spaced bins.
-		var intervals = 10;
+		var intervals = 20;
 		var data = d3.layout.histogram()
 			.bins(x.ticks(intervals))
 			(values);
@@ -109,7 +110,14 @@
 		svg.append("g")
 			.attr("class", "x axis")
 			.attr("transform", "translate(0," + height + ")")
-			.call(xAxis);
+			.call(xAxis)
+			.selectAll("text")
+			.style("text-anchor", "end")
+			.attr("dx", "-.8em")
+			.attr("dy", ".15em")
+			.attr("transform", function (d) {
+				return "rotate(-65)"
+			});
 
 		var brush = d3.svg.brush()
 			.x(x)
@@ -121,7 +129,6 @@
 		var gBrush = svg.append("g")
 			.attr("class", "brush")
 			.call(brush);
-		//        .call(brush.event);
 
 		gBrush.selectAll(".resize")
 			.append("path")
@@ -129,9 +136,6 @@
 
 		gBrush.selectAll("rect")
 			.attr("height", height);
-
-		//		brushstart();
-		//		brushmove();
 
 		function resizePath(d) {
 			var e = +(d == "e"),
@@ -153,6 +157,7 @@
 		}
 
 		function brushmove() {
+/*
 			var extent = brush.extent().map(function (d) {
 				var step = 0.1;
 				var low = 0.05;
@@ -160,6 +165,7 @@
 			});
 
 			d3.select(this).call(brush.extent(extent));
+*/
 		}
 
 		function brushend() {
