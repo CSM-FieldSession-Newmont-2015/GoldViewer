@@ -32,7 +32,7 @@
 			.range([0, width]);
 
 		// Generate a histogram using uniformly-spaced bins.
-		var intervals = 10;
+		var intervals = 20;
 		var data = d3.layout.histogram()
 			.bins(x.ticks(intervals))
 			(values);
