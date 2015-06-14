@@ -1,13 +1,20 @@
 ﻿function loadSidebar(minerals) {
 	var chartIndex = 0;
+
 	$('.minerals').html('');
+
+	// Don't make functions in loops.
+	function callToggleVisibile() {
+		view.toggleVisible($(this).attr('data-mineral'), $(this).is(':checked'));
+	}
+
 	for (var mineral in minerals) {
 		var div = $('<div class="mineral-container">').appendTo('.minerals');
-		div.append('<input type="checkbox"><label>' + mineral + '</label>');
+		div.append('<input id="cb' + mineral + '" type="checkbox" data-mineral="' + mineral + '"><label>' + mineral + '</label>');
 		$('<svg id="svg' + chartIndex + '" class="chart">').appendTo(div);
-
+		$('#cb' + mineral).click(callToggleVisibile);
 		addChart(minerals[mineral], chartIndex, mineral);
-		chartIndex++;
+		chartIndex += 1;
 	}
 
 	function addChart(mineralIntervals, chartIndex, mineral) {

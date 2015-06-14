@@ -975,7 +975,7 @@ function View(projectURL) {
 	 * minerals is enabled.
 	 * When `visible` is a falsey value, the current range on `mineralName`
 	 * minerals is disabled.
-	 *
+	 * @public
 	 *
 	 * @param  {String}  mineralName Which type of minerals to filter.
 	 * @param  {Boolean} visible     Whether minerals of this type should be
@@ -998,6 +998,9 @@ function View(projectURL) {
 			}
 		}
 	}
+	// Export this function.
+	this.toggleVisible = toggleVisible;
+
 
 	/**
 	 * Loads the axis labels - incremental values and the axis label at the end.
@@ -1612,7 +1615,6 @@ function View(projectURL) {
 	function setupRenderer() {
 		renderer = new THREE.WebGLRenderer({
 			antialias: true,
-			preserveDrawingBuffer: true // This might have performance impacts.
 		});
 		renderer.setSize(window.innerWidth, window.innerHeight);
 		renderer.setClearColor(colors.background, 1);
