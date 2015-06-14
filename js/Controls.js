@@ -114,10 +114,9 @@ function initSidebar() {
 		$("#sidebar").append(data);
 
 		$('.sidebar-container').click(function (e) {
-			sideBarOut=!sideBarOut;
 			if ($(this).width() - e.pageX > 20)
 				return;
-
+			sideBarOut=!sideBarOut;
 			if (!sideBarOut) {
 				$('.sidebar-container').width(20);
 			}
