@@ -301,6 +301,7 @@ function View(projectURL) {
 		addAxisLabels();
 		addReticle();
 		addLights();
+		toggleVisible("surveyHoles", false);
 		render();
 	}
 
@@ -998,6 +999,14 @@ function View(projectURL) {
 	 *                               rendered or not.
 	 */
 	function toggleVisible(mineralName, visible) {
+		console.log(mineralName);
+		if(mineralName == "surveyHoles"){
+			for(var line in holes.lines){
+				holes.lines[line].visible = visible;
+			}
+			return;
+		}
+
 		var mineral = minerals[mineralName];
 		var intervals = mineral.intervals;
 		mineral.mesh.visible = visible;
@@ -1509,7 +1518,7 @@ function View(projectURL) {
 		var acceleration = movementVector.length() / 25000 + 0.01;
 
 		var reticleMotion = getDeltasForMovement(movementVector, acceleration);
-		var cameraMotion = getDeltasForMovement(movementVector, acceleration * 0.8);
+		var cameraMotion = getDeltasForMovement(movementVector, acceleration * 0.9);
 
 		//get rid of the last interval, in case it exists
 		window.clearInterval(motionInterval);
