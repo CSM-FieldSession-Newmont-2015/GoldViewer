@@ -979,7 +979,8 @@ function View(projectURL) {
 	 * @param  {Boolean} visible     Whether minerals of this type should be
 	 *                               rendered or not.
 	 */
-	function toggleVisible(mineralName, visible){
+	this.toggleVisible = toggleVisible;
+	function toggleVisible(mineralName, visible) {
 		var mineral = minerals[mineralName];
 		mineral.mesh.visible = visible;
 		var intervals = mineral.intervals;

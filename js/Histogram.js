@@ -3,8 +3,11 @@
 	$('.minerals').html('');
 	for(var mineral in minerals) {
 		var div = $('<div class="mineral-container">').appendTo('.minerals');
-		div.append('<input type="checkbox"><label>' + mineral + '</label>');
+		div.append('<input id="cb' + mineral + '" type="checkbox" data-mineral="' + mineral + '"><label>' + mineral + '</label>');
 		$('<svg id="svg' + chartIndex + '" class="chart">').appendTo(div);
+		$('#cb' + mineral).click(function () {
+			view.toggleVisible($(this).attr('data-mineral'), $(this).is(':checked'));
+		});
 
 		addChart(minerals[mineral], chartIndex, mineral);
 		chartIndex++;
@@ -13,7 +16,6 @@
 	function addChart(mineralIntervals, chartIndex, mineral) {
 		var values = [];
 		for (var interval in mineralIntervals.intervals) {
-		    console.log(mineralIntervals.intervals[interval].value);
 			values.push(Math.log(mineralIntervals.intervals[interval].value));
 		}
 
