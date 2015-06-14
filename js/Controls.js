@@ -60,7 +60,7 @@ function loadControls() {
 		$("#zoomIn").button({
 			text: false,
 			icons: {
-				primary: "ui-icon-zoomin"
+				primary: "ui-icon-circle-plus"
 			}
 		});
 		$("#zoomIn").click(function () {
@@ -69,11 +69,29 @@ function loadControls() {
 		$("#zoomOut").button({
 			text: false,
 			icons: {
-				primary: "ui-icon-zoomout"
+				primary: "ui-icon-circle-minus"
 			}
 		});
 		$("#zoomOut").click(function () {
 			view.zoomOut();
+		});
+		$("#toggleTerrain").button({
+			text: false,
+			icons: {
+				primary: "ui-icon-calculator"
+			}
+		});
+		$("#toggleTerrain").click(function () {
+			view.setVisible("terrain");
+		});
+		$("#autoRotate").button({
+			text: false,
+			icons: {
+				primary: "ui-icon-arrowrefresh-1-s"
+			}
+		});
+		$("#autoRotate").click(function () {
+			view.autoRotate();
 		});
 
 		$(document).keydown(function (event) {
