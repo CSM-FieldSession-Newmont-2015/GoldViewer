@@ -90,25 +90,34 @@ function loadControls() {
 }
 
 function initSidebar() {
+	//This horrible global variable keeps the sidebar from lagging when it slides in and out
+	sideBarOut=false;
 	$.get("html/Sidebar.html", function (data) {
 		$("#sidebar").append(data);
 
 		$('.sidebar-container').click(function (e) {
+			sideBarOut=!sideBarOut;
 			if ($(this).width() - e.pageX > 20)
 				return;
+
+			if (!sideBarOut) {
+				$('.sidebar-container').width(20);
+			}
 
 			$('#sidebar').toggle('slide', {
 				direction: 'left'
 			}, function () {
 				if ($('#sidebar').css('display') == 'none') {
 					$('.sidebar-container').width(20);
+					sideBarOut=false;
 				} else {
 					$('.sidebar-container').width($('#sidebar').width() + 20);
+					sidebarOut=true;
 				}
 			});
-		});
 	});
 
+});
 }
 
 function setWindowResizeEvent() {
@@ -132,7 +141,7 @@ function initProgressBar() {
 	$('#progressbar').progressbar({
 		value: false,
 		change: function () {
-			$('.progress-label').text("Loading Geometries...");
+			$('.progress-label').text("Calculating Geometries...");
 		},
 		complete: function () {
 			$('.progress-label').text("Complete!");
