@@ -219,6 +219,12 @@ function View(projectURL) {
 	var stats = null;
 
 	/**
+	 * The terrain mesh to be laid over the property box.
+	 *@type {THREE.Mesh}
+	 */
+	 var terrainMesh = null;
+
+	/**
 	 * We reuse the same sprite object for tooltips. If the user isn't hovering
 	 * over something, we remove it from the scene and don't use it.
 	 * @see  tooltipSpriteLocation
@@ -300,6 +306,7 @@ function View(projectURL) {
 		addAxisLabels();
 		addReticle();
 		addLights();
+		toggleVisible("terrain", false);
 		toggleVisible("surveyHoles", false);
 		render();
 	}
@@ -547,13 +554,13 @@ function View(projectURL) {
 	 * Load the survey holes from `projectJSON`, and then adjust them up, so
 	 * they coincide with the surface terrain mesh.
 	 *
-	 * @param {THREE.PlaneGeometry} surfaceMesh A plane representing the
+	 * @param {THREE.PlaneGeometry} terrainMesh A plane representing the
 	 *                                          surface mesh.
 	 *
 	 * @todo Unspaghettify this.
 	 * @todo Return the holes object instead of modifying a global object.
 	 */
-	function addSurveyLines(surfaceMesh) {
+	function addSurveyLines() {
 		var totalMetersDrilled = 0;
 		var surveyCaster = new THREE.Raycaster();
 		var geometries = {};
@@ -583,12 +590,10 @@ function View(projectURL) {
 					0
 				]),
 				up);
-			// Look up...
-			var intersect = surveyCaster.intersectObject(surfaceMesh);
+			var intersect = surveyCaster.intersectObject(terrainMesh); //look up
+			//console.log(surveyCaster);
 			surveyCaster.set(surveyCaster.ray.origin, down);
-			// and down
-			Array.prototype.push.apply(intersect,
-				surveyCaster.intersectObject(surfaceMesh));
+			Array.prototype.push.apply(intersect, surveyCaster.intersectObject(terrainMesh)); //and down
 			var zOffset = 0;
 			if (intersect.length !== 0) {
 				zOffset = intersect[0].distance - initialLocation[2];
@@ -833,13 +838,14 @@ function View(projectURL) {
 				wireframe: true,
 				opacity: 0.2
 			});
-			var surfaceMesh = new THREE.Mesh(geometry, material);
-			surfaceMesh.geometry.computeBoundingBox();
-			surfaceMesh.geometry.computeBoundingSphere();
-			//surfaceMesh.position.z += property.box.size.z - surfaceMesh.geometry.boundingBox.max.z;
-			surfaceMesh.geometry.computeBoundingBox();
-			surfaceMesh.position.x += property.box.size.x / 2 - surfaceMesh.geometry.boundingSphere.center.x;
-			surfaceMesh.position.y += property.box.size.y / 2 - surfaceMesh.geometry.boundingSphere.center.y;
+			terrainMesh = new THREE.Mesh(geometry, material);
+			terrainMesh.geometry.computeBoundingBox();
+			terrainMesh.geometry.computeBoundingSphere();
+			console.log(terrainMesh);
+			//terrainMesh.position.z += property.box.size.z - terrainMesh.geometry.boundingBox.max.z;
+			terrainMesh.geometry.computeBoundingBox();
+			terrainMesh.position.x += property.box.size.x / 2 - terrainMesh.geometry.boundingSphere.center.x;
+			terrainMesh.position.y += property.box.size.y / 2 - terrainMesh.geometry.boundingSphere.center.y;
 
 			var lineMaterial = new THREE.LineBasicMaterial({
 				color: colors.terrain_frame,
@@ -851,9 +857,8 @@ function View(projectURL) {
 			noDiagonals.position.x -= (sizeX - property.box.size.x) / 2;
 			noDiagonals.position.y -= (sizeY - property.box.size.y) / 2;
 
-			//scene.add(noDiagonals);
-			scene.add(surfaceMesh);
-			addSurveyLines(surfaceMesh);
+			scene.add(terrainMesh);
+			addSurveyLines();
 		}
 	}
 
@@ -1029,6 +1034,10 @@ function View(projectURL) {
 			for(var line in holes.lines){
 				holes.lines[line].visible = visible;
 			}
+			return;
+		}
+		if(mineralName == "terrain"){
+			terrainMesh.visible = visible;
 			return;
 		}
 
