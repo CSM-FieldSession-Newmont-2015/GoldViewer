@@ -55,6 +55,7 @@
 			.domain([d3.min(values), d3.max(values)])
 			.range([0, width]);
 
+
 		// Generate a histogram using uniformly-spaced bins.
 		var intervals = 10;
 		var data = d3.layout.histogram()
@@ -96,6 +97,14 @@
 			.attr("height", function (d) {
 				return height - y(d.y);
 			});
+
+		// Labels for the bar frequency
+		bar.append("text")
+			.attr("dy", ".75em")
+			.attr("y", -10)
+			.attr("x", width/intervals / 2)
+			.attr("text-anchor", "middle")
+			.text(function(d) { return d.y > 0 ? formatCount(d.y) : ''; });
 
 		svg.append("g")
 			.attr("class", "x axis")
