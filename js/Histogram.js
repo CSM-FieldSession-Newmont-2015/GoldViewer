@@ -1,6 +1,14 @@
-﻿function loadSidebar(minerals) {
-	var chartIndex = 0;
+﻿function loadSidebar(minerals, property) {
+	var latCenter = ((property.longLatMin.y + property.longLatMax.y) / 2).toFixed(8);;
+	var lngCenter = ((property.longLatMin.x + property.longLatMax.x) / 2).toFixed(8);;
 
+	$('.propertyOverview').append('<div class= "propertyTitle">'+property["name"]+"</div>");
+	$('.propertyOverview').append(property["description"]+"<br><br>");
+	$('.propertyOverview').append("Holes: "+property["numHoles"]+"<br>");
+	$('.propertyOverview').append("Meters Drilled: "+property["totalMetersDrilled"]+"<br>");
+	$('.propertyOverview').append("LatLong: "+latCenter+","+lngCenter+"<br>");	var chartIndex = 0;
+
+	var chartIndex = 0;
 	$('.minerals').html('');
 
 	// Don't make functions in loops.
@@ -51,13 +59,13 @@
 			width = 400 - margin.left - margin.right,
 			height = 200 - margin.top - margin.bottom;
 
+		// Generate a histogram using uniformly-spaced bins.
+		var intervals = 24;
 		var x = d3.scale.linear()
 			.domain([d3.min(values), d3.max(values)])
 			.range([0, width])
 			.nice(intervals);
 
-		// Generate a histogram using uniformly-spaced bins.
-		var intervals = 24;
 		var data = d3.layout.histogram()
 			.bins(x.ticks(intervals))
 			(values);
