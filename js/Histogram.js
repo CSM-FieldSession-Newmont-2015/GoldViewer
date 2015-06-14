@@ -143,8 +143,8 @@
 
 			// Our data is stored as a natural log, so we need to
 			// exponentiate it before sending it back to ivew.
-			var lower = Math.exp(brush.extend()[0]);
-			var upper = Math.exp(brush.extend()[1]);
+			var lower = Math.exp(brush.extent()[0]);
+			var upper = Math.exp(brush.extent()[1]);
 
 			view.updateVisibility(mineral, lower, upper);
 		}
