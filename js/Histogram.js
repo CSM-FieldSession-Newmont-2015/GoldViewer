@@ -1,4 +1,4 @@
-﻿function loadSidebar(minerals, property) {
+function loadSidebar(minerals, property) {
 	var latCenter = ((property.longLatMin.y + property.longLatMax.y) / 2).toFixed(8);;
 	var lngCenter = ((property.longLatMin.x + property.longLatMax.x) / 2).toFixed(8);;
 
