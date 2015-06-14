@@ -5,7 +5,8 @@
 
 	// Don't make functions in loops.
 	function callToggleVisibile() {
-		view.toggleVisible($(this).attr('data-mineral'), $(this).is(':checked'));
+		view.toggleVisible($(this).attr('data-mineral'),
+			$(this).is(':checked'));
 	}
 
 	for (var mineral in minerals) {
@@ -22,7 +23,19 @@
 	function addChart(mineralIntervals, chartIndex, mineral) {
 		var values = [];
 		for (var interval in mineralIntervals.intervals) {
-			values.push(Math.log(mineralIntervals.intervals[interval].value));
+			// We want to see the log of the data, because reasons.
+			var concentration = mineralIntervals.intervals[interval].value;
+			if (concentration < 0.0) {
+				console.warn(
+					"Found negative concentration when loading minerals:" +
+					JSON.stringify(mineralIntervals.intervals[interval]));
+			}
+			values.push(Math.log(concentration));
+		}
+
+		if (values.length === 0) {
+			console.log("No data found when parsing " + mineral + ".");
+			return;
 		}
 
 		// Formatters for counts and times (converting numbers to Dates).
@@ -30,7 +43,7 @@
 		var formatDensity = d3.format(",.3f");
 
 		var margin = {
-				top: 10,
+				top: 30,
 				right: 30,
 				bottom: 75,
 				left: 30
@@ -93,6 +106,31 @@
 				return height - y(d.y);
 			});
 
+		// Labels for the bar frequency
+		bar.append("text")
+			// 2 looks nice. This offset should scale with graph size,
+			// but is otherwise unimportant.
+			.attr("y", -2)
+			// This offset is chosen by brute force. It works for 20 intervals.
+			// If you change the intervals count, you'll need to change this.
+			.attr("x", Math.floor(width / intervals) - 8)
+			.attr("text-anchor", "middle")
+			.text(function (d) {
+				if (d.y <= 0) {
+					// Don't add a "0" for empty bins.
+					// We shouldn't see negative bins.
+					return "";
+				} else if (d.y > 99) {
+					// Only label small-ish bars that are hard to see otherwise.
+					// TODO: Base this off of the maximum bar height.
+					// We chose 99 now to make sure our labels are all 2 digits.
+					return "";
+				} else {
+					// Otherwise, just format it.
+					return formatCount(d.y);
+				}
+			});
+
 		svg.append("g")
 			.attr("class", "x axis")
 			.attr("transform", "translate(0," + height + ")")
@@ -102,7 +140,7 @@
 			.attr("dx", "-.8em")
 			.attr("dy", ".15em")
 			.attr("transform", function (d) {
-				return "rotate(-65)"
+				return "rotate(-65)";
 			});
 
 		var brush = d3.svg.brush()
@@ -143,15 +181,16 @@
 		}
 
 		function brushmove() {
-/*
-			var extent = brush.extent().map(function (d) {
-				var step = 0.1;
-				var low = 0.05;
-				return d - ((d - low) % step);
-			});
+			// TODO: Do something with this.
+			/*
+						var extent = brush.extent().map(function (d) {
+							var step = 0.1;
+							var low = 0.05;
+							return d - ((d - low) % step);
+						});
 
-			d3.select(this).call(brush.extent(extent));
-*/
+						d3.select(this).call(brush.extent(extent));
+			*/
 		}
 
 		function brushend() {

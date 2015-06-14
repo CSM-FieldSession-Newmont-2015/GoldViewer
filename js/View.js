@@ -1,4 +1,3 @@
-
 // Don't warn about indexing objects with strings, we use it on JSON objects.
 /* jshint -W069 */
 
@@ -301,6 +300,7 @@ function View(projectURL) {
 		addAxisLabels();
 		addReticle();
 		addLights();
+		toggleVisible("surveyHoles", false);
 		render();
 	}
 
@@ -325,6 +325,7 @@ function View(projectURL) {
 	 *              }
 	 *          ],
 	 *          mesh: THREE.Mesh,
+	 *			color: String,
 	 *          geometry: THREE.BufferGeometry,
 	 *          minVisibleIndex: Integer,
 	 *          maxVisibleIndex: Integer
@@ -350,7 +351,8 @@ function View(projectURL) {
 							intervals: [],
 							mesh: {
 								vertices: null
-							}
+							},
+							color: property.analytes[mineral["name"]].color
 						};
 					}
 
@@ -379,7 +381,7 @@ function View(projectURL) {
 		Object.keys(minerals).forEach(function (mineral) {
 			minerals[mineral].minVisibleIndex = 0;
 			minerals[mineral].maxVisibleIndex = minerals[mineral].intervals.length - 1;
-			if(minerals[mineral].intervals.length == 0){
+			if (minerals[mineral].intervals.length === 0) {
 				delete minerals[mineral];
 			}
 		});
@@ -996,6 +998,14 @@ function View(projectURL) {
 	 *                               rendered or not.
 	 */
 	function toggleVisible(mineralName, visible) {
+		console.log(mineralName);
+		if(mineralName == "surveyHoles"){
+			for(var line in holes.lines){
+				holes.lines[line].visible = visible;
+			}
+			return;
+		}
+
 		var mineral = minerals[mineralName];
 		var intervals = mineral.intervals;
 		mineral.mesh.visible = visible;
@@ -1458,8 +1468,7 @@ function View(projectURL) {
 						sceneOrtho.remove(tooltipSprite);
 						scene.remove(intersected);
 						intersected = null;
-					}
-					else{
+					} else {
 						motion = [];
 					}
 				}
@@ -1504,11 +1513,10 @@ function View(projectURL) {
 		tempVec1.multiplyScalar(-1 * reticle.geometry.boundingSphere.radius);
 		movementVector.add(tempVec1);
 
-		var acceleration = movementVector.length() / 20000 + 0.01;
-		console.log('acceleration: ' + acceleration);
+		var acceleration = movementVector.length() / 25000 + 0.01;
 
 		var reticleMotion = getDeltasForMovement(movementVector, acceleration);
-		var cameraMotion = getDeltasForMovement(movementVector, acceleration * 0.8);
+		var cameraMotion = getDeltasForMovement(movementVector, acceleration * 0.9);
 
 		//get rid of the last interval, in case it exists
 		window.clearInterval(motionInterval);
