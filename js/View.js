@@ -325,6 +325,7 @@ function View(projectURL) {
 	 *              }
 	 *          ],
 	 *          mesh: THREE.Mesh,
+	 *			color: String,
 	 *          geometry: THREE.BufferGeometry,
 	 *          minVisibleIndex: Integer,
 	 *          maxVisibleIndex: Integer
@@ -350,7 +351,8 @@ function View(projectURL) {
 							intervals: [],
 							mesh: {
 								vertices: null
-							}
+							},
+							color: property.analytes[mineral["name"]].color
 						};
 					}
 
@@ -1504,8 +1506,7 @@ function View(projectURL) {
 		tempVec1.multiplyScalar(-1 * reticle.geometry.boundingSphere.radius);
 		movementVector.add(tempVec1);
 
-		var acceleration = movementVector.length() / 20000 + 0.01;
-		console.log('acceleration: ' + acceleration);
+		var acceleration = movementVector.length() / 25000 + 0.01;
 
 		var reticleMotion = getDeltasForMovement(movementVector, acceleration);
 		var cameraMotion = getDeltasForMovement(movementVector, acceleration * 0.8);
