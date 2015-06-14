@@ -1,4 +1,3 @@
-
 // Don't warn about indexing objects with strings, we use it on JSON objects.
 /* jshint -W069 */
 
@@ -381,7 +380,7 @@ function View(projectURL) {
 		Object.keys(minerals).forEach(function (mineral) {
 			minerals[mineral].minVisibleIndex = 0;
 			minerals[mineral].maxVisibleIndex = minerals[mineral].intervals.length - 1;
-			if(minerals[mineral].intervals.length == 0){
+			if (minerals[mineral].intervals.length === 0) {
 				delete minerals[mineral];
 			}
 		});
@@ -1460,8 +1459,7 @@ function View(projectURL) {
 						sceneOrtho.remove(tooltipSprite);
 						scene.remove(intersected);
 						intersected = null;
-					}
-					else{
+					} else {
 						motion = [];
 					}
 				}

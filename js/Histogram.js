@@ -105,23 +105,23 @@
 			.attr("y", -2)
 			// This offset is chosen by brute force. It works for 20 intervals.
 			// If you change the intervals count, you'll need to change this.
-			.attr("x", Math.floor(width/intervals) - 8)
+			.attr("x", Math.floor(width / intervals) - 8)
 			.attr("text-anchor", "middle")
-			.text(function(d) {
-				// Don't add a "0" for empty bins.
-				// We shouldn't see negative bins.
+			.text(function (d) {
 				if (d.y <= 0) {
+					// Don't add a "0" for empty bins.
+					// We shouldn't see negative bins.
 					return "";
-				// Only label small-ish bars that are hard to see otherwise.
-				// TODO: Base this off of the maximum bar height.
-				// We chose 99 now to make sure our labels are all 2 digits.
 				} else if (d.y > 99) {
+					// Only label small-ish bars that are hard to see otherwise.
+					// TODO: Base this off of the maximum bar height.
+					// We chose 99 now to make sure our labels are all 2 digits.
 					return "";
-				// Otherwise, just format it.
 				} else {
+					// Otherwise, just format it.
 					return formatCount(d.y);
 				}
-			})
+			});
 
 		svg.append("g")
 			.attr("class", "x axis")
@@ -132,7 +132,7 @@
 			.attr("dx", "-.8em")
 			.attr("dy", ".15em")
 			.attr("transform", function (d) {
-				return "rotate(-65)"
+				return "rotate(-65)";
 			});
 
 		var brush = d3.svg.brush()
@@ -173,15 +173,16 @@
 		}
 
 		function brushmove() {
-/*
-			var extent = brush.extent().map(function (d) {
-				var step = 0.1;
-				var low = 0.05;
-				return d - ((d - low) % step);
-			});
+			// TODO: Do something with this.
+			/*
+						var extent = brush.extent().map(function (d) {
+							var step = 0.1;
+							var low = 0.05;
+							return d - ((d - low) % step);
+						});
 
-			d3.select(this).call(brush.extent(extent));
-*/
+						d3.select(this).call(brush.extent(extent));
+			*/
 		}
 
 		function brushend() {
