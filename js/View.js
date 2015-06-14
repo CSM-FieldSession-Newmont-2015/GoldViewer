@@ -1,7 +1,7 @@
-/* global $ */
-/* global colors */
-/* global Stats */
-/* global THREE */
+
+// Don't warn about indexing objects with strings, we use it on JSON objects.
+/* jshint -W069 */
+
 
 /**
  * Color constants used by different parts of the view.
@@ -11,14 +11,14 @@
  * @todo  Rename these to refer to their use case, not color.
  */
 var colors = {
-	ambientLight     : 0x404040, // Soft white
-	axes             : 0x5d5d5d, // Dark gray
-	background       : 0xdedede, // White with a smidgen of gray
-	cameraLight      : 0x404040, // Soft white
-	reticleLight     : 0xd1b419, // Solid gold
-	terrain_frame    : 0x26466d, // Dark-ish blue
+	ambientLight: 0x404040, // Soft white
+	axes: 0x5d5d5d, // Dark gray
+	background: 0xdedede, // White with a smidgen of gray
+	cameraLight: 0x404040, // Soft white
+	reticleLight: 0xd1b419, // Solid gold
+	terrain_frame: 0x26466d, // Dark-ish blue
 	tooltipsSelection: 0xff00ff, // Bright pink
-}
+};
 
 /**
  * // TODO: Figure out what should be used in place of markdown.
@@ -31,11 +31,11 @@ var colors = {
 function loadJSON(url) {
 	var json = null;
 	$.ajax({
-		'async':    false,
-		'global':   false,
-		'url':      url,
+		'async': false,
+		'global': false,
+		'url': url,
 		'dataType': "json",
-		'success':  function (data) {
+		'success': function (data) {
 			json = data;
 		}
 	});
@@ -114,7 +114,7 @@ function View(projectURL) {
 	 * sides on its wireframe.
 	 * @type {Number}
 	 */
-	var maxPossibleSegments   = 60;
+	var maxPossibleSegments = 60;
 
 	/**
 	 * Array of all the meshes for ray casting, indexed with their mesh id.
@@ -185,25 +185,25 @@ function View(projectURL) {
 	 * @see  reticleLight
 	 * @type {THREE.Mesh}
 	 */
-	var reticle               = null;
+	var reticle = null;
 
 	/**
 	 * Our reticle emits a point light from its center.
 	 * @type {THREE.PointLight}
 	 */
-	var reticleLight          = null;
+	var reticleLight = null;
 
 	/**
 	 * ???
 	 * @type {Number}
 	 */
-	var returnedGeometry      = 0;
+	var returnedGeometry = 0;
 
 	/**
 	 * The objects threejs uses to represent what it needs to draw.
 	 * @type {THREE.Scene}
 	 */
-	var scene                 = new THREE.Scene();
+	var scene = new THREE.Scene();
 
 	/**
 	 * We emulate a second scene to get tool tips to work. This is the scene
@@ -211,13 +211,13 @@ function View(projectURL) {
 	 *  @see  cameraOrtho
 	 * @type {THREE.Scene}
 	 */
-	var sceneOrtho            = new THREE.Scene();
+	var sceneOrtho = new THREE.Scene();
 
 	/**
 	 * FPS counter. https://github.com/mrdoob/stats.js/
 	 * @type {[type]}
 	 */
-	var stats                 = null;
+	var stats = null;
 
 	/**
 	 * We reuse the same sprite object for tooltips. If the user isn't hovering
@@ -225,7 +225,7 @@ function View(projectURL) {
 	 * @see  tooltipSpriteLocation
 	 * @type {THREE.Sprite}
 	 */
-	var tooltipSprite         = null;
+	var tooltipSprite = null;
 
 	/**
 	 * The location of the tooltip sprite.
@@ -239,14 +239,14 @@ function View(projectURL) {
 	 * This is used in the "Loading geometries" progress bar.
 	 * @type {Number}
 	 */
-	var totalGeometries       = 0;
+	var totalGeometries = 0;
 
 	/**
 	 * An array representing which meshes, out of the many we have, we actually
 	 * want to render right now.
 	 * @type {Array}
 	 */
-	var visibleMeshes         = [];
+	var visibleMeshes = [];
 
 	/**
 	 * How quickly the mouse wheel zooms.
@@ -287,7 +287,7 @@ function View(projectURL) {
 	 * Handle used by the controls to zoom out on an event, like a button press.
 	 */
 	this.zoomOut = function () {
-		controls.dollyIn(1.0/zoomSpeed);
+		controls.dollyIn(1.0 / zoomSpeed);
 	};
 
 	/**
@@ -295,7 +295,7 @@ function View(projectURL) {
 	 *  and start rendering. This is called in addSurveyLines, which is called
 	 *  after Terrain loads.
 	 */
-	function addLastElements(){
+	function addLastElements() {
 		getMinerals();
 		addBoundingBox();
 		addAxisLabels();
@@ -345,41 +345,41 @@ function View(projectURL) {
 		holesJSON.forEach(function holesJsonForEach(hole) {
 			hole["downholeDataValues"].forEach(
 				function downholeDataForEach(mineral) {
-				if (minerals[mineral["name"]] === undefined) {
-					minerals[mineral["name"]] = {
-						intervals: [],
-						mesh: {
-							vertices: null
-						}
+					if (minerals[mineral["name"]] === undefined) {
+						minerals[mineral["name"]] = {
+							intervals: [],
+							mesh: {
+								vertices: null
+							}
+						};
 					}
-				}
 
-				mineral["intervals"].forEach(
-					function mineralIntervalsForEach(interval) {
-					var path = interval["path"][0].concat(interval["path"][1]);
-					var data = {
-						mineral: mineral["name"],
-						value:   interval["value"],
-						depth: {
-							start : interval["from"],
-							end   : interval["to"]
-						},
-						path:    new Float32Array(path),
-						hole:    hole["id"],
-						id : currentID
-					};
-					minerals[mineral["name"]].intervals.push(data);
-					mineralData[currentID] = data;
-					currentID += 1;
+					mineral["intervals"].forEach(
+						function mineralIntervalsForEach(interval) {
+							var path = interval["path"][0].concat(interval["path"][1]);
+							var data = {
+								mineral: mineral["name"],
+								value: interval["value"],
+								depth: {
+									start: interval["from"],
+									end: interval["to"]
+								},
+								path: new Float32Array(path),
+								hole: hole["id"],
+								id: currentID
+							};
+							minerals[mineral["name"]].intervals.push(data);
+							mineralData[currentID] = data;
+							currentID += 1;
+						});
 				});
-			});
 		});
 
 		totalGeometries = currentID;
-		Object.keys(minerals).forEach(function(mineral){
+		Object.keys(minerals).forEach(function (mineral) {
 			minerals[mineral].minVisibleIndex = 0;
 			minerals[mineral].maxVisibleIndex = minerals[mineral].intervals.length - 1;
-		})
+		});
 		sortMinerals();
 		loadSidebar(minerals);
 		delegate(minerals);
@@ -400,7 +400,7 @@ function View(projectURL) {
 	 * @todo  Return the data, instead of writing out to globals.
 	 * @todo  Unspaghettify this.
 	 */
-	function makeMesh(data){
+	function makeMesh(data) {
 		var intervalID = data[1];
 
 		var material = new THREE.MeshBasicMaterial({
@@ -411,12 +411,12 @@ function View(projectURL) {
 		geometry.addAttribute('position',
 			new THREE.BufferAttribute(new Float32Array(data[0]), 3));
 
-		var mesh           = new THREE.Mesh(geometry, material);
+		var mesh = new THREE.Mesh(geometry, material);
 		// Piggy back our data into the mesh, for easier access later.
-		mesh.mineralData   = mineralData[intervalID];
+		mesh.mineralData = mineralData[intervalID];
 		// These meshes only exist for tool tips, so we don't actually
 		//   want to render them.
-		mesh.autoUpdate    = false;
+		mesh.autoUpdate = false;
 
 		// Save all of the meshes for tool tips.
 		meshes[intervalID] = mesh;
@@ -424,14 +424,14 @@ function View(projectURL) {
 
 		// Keep us up to date on how much has procssed ever x%.
 		var percentInterval = Math.ceil(0.005 * totalGeometries);
-		if (returnedGeometry % percentInterval == 0) {
+		if (returnedGeometry % percentInterval === 0) {
 			// We can measure how many of the geometries we've loaded,
 			//   but we can't easily predict how long the BigMesh will
 			//   take, so assume 2%.
 			setProgressBar(98 * returnedGeometry / totalGeometries);
 		}
 
-		if (returnedGeometry >= totalGeometries){
+		if (returnedGeometry >= totalGeometries) {
 			makeBigMeshes();
 			setupRaycaster();
 		}
@@ -446,31 +446,31 @@ function View(projectURL) {
 	 *
 	 * @todo Return the data instead of just assigning it to minerals.
 	 */
-	function delegate(meshlessData){
+	function delegate(meshlessData) {
 		var numWorkers = 1;
-		var workers    = [];
+		var workers = [];
 
-		for(var i = 0; i < numWorkers; i += 1){
+		function workerMessageEventListener(e) {
+			returnedGeometry += 1;
+			makeMesh(e.data);
+		}
+
+		for (var i = 0; i < numWorkers; i += 1) {
 			var worker = new Worker('js/MeshWorker.js');
-			worker.addEventListener('message',
-				function workerMessageEventListener(e) {
-					returnedGeometry += 1;
-					makeMesh(e.data);
-			});
+			worker.addEventListener('message', workerMessageEventListener);
 			workers.push(worker);
 		}
 
 		var index = 0;
-		Object.keys(minerals).forEach(function(mineral){
-			minerals[mineral].intervals.forEach(function(interval){
+		Object.keys(minerals).forEach(function (mineral) {
+			minerals[mineral].intervals.forEach(function (interval) {
 				interval.path[2] += holes.ids[interval.hole].zOffset;
 				interval.path[5] += holes.ids[interval.hole].zOffset;
-				workers[index%numWorkers].postMessage([
-						interval.path.buffer,
-						interval.value,
-						interval.id
-					],
-						[interval.path.buffer]);
+				workers[index % numWorkers].postMessage([
+					interval.path.buffer,
+					interval.value,
+					interval.id
+				], [interval.path.buffer]);
 				index += 1;
 			});
 		});
@@ -483,9 +483,9 @@ function View(projectURL) {
 	 *
 	 * @todo Take in an array of intervals and sort it / return a sorted copy.
 	 */
-	function sortMinerals(){
-		Object.keys(minerals).forEach(function(mineral){
-			minerals[mineral].intervals.sort(function(a, b){
+	function sortMinerals() {
+		Object.keys(minerals).forEach(function (mineral) {
+			minerals[mineral].intervals.sort(function (a, b) {
 				return a.value - b.value;
 			});
 		});
@@ -505,14 +505,13 @@ function View(projectURL) {
 		var verticesPerInterval = meshes[0].geometry.attributes
 			.position.array.length;
 
-		Object.keys(minerals).forEach(function(mineral){
+		Object.keys(minerals).forEach(function (mineral) {
 
-			var numVertices = verticesPerInterval
-				* minerals[mineral].intervals.length;
+			var numVertices = verticesPerInterval * minerals[mineral].intervals.length;
 			var verts = new Float32Array(numVertices);
 
 			var counter = 0;
-			minerals[mineral].intervals.forEach(function(interval){
+			minerals[mineral].intervals.forEach(function (interval) {
 				var floatArray = new Float32Array(
 					meshes[interval['id']].geometry.attributes.position.array);
 				verts.set(floatArray, counter * verticesPerInterval);
@@ -528,7 +527,8 @@ function View(projectURL) {
 			var material = new THREE.MeshPhongMaterial({
 				color: color,
 				refractionRatio: 1.0,
-				shininess: 4.0});
+				shininess: 4.0
+			});
 			minerals[mineral]["geometry"] = geometry;
 			minerals[mineral]["mesh"] = new THREE.Mesh(geometry, material);
 
@@ -536,8 +536,6 @@ function View(projectURL) {
 
 		});
 		setProgressBar(100);
-		updateVisibility('Au', .5, 100000000);
-		updateVisibility('As', .5, 1000);
 	}
 
 	/**
@@ -563,7 +561,7 @@ function View(projectURL) {
 
 			var color = jsonHole["traceColor"];
 
-			if(geometries[color] === undefined){
+			if (geometries[color] === undefined) {
 				geometries[color] = [];
 			}
 
@@ -576,20 +574,19 @@ function View(projectURL) {
 			surveyCaster.set(vec3FromArray([
 					initialLocation[0] - property.box.center.x,
 					initialLocation[1] - property.box.center.y,
-					0]),
-					up);
-			var intersect = surveyCaster.intersectObject(surfaceMesh);	//look up
+					0
+				]),
+				up);
+			var intersect = surveyCaster.intersectObject(surfaceMesh); //look up
 			//console.log(surveyCaster);
 			surveyCaster.set(surveyCaster.ray.origin, down);
-			Array.prototype.push.apply(intersect, surveyCaster.intersectObject(surfaceMesh));	//and down
+			Array.prototype.push.apply(intersect, surveyCaster.intersectObject(surfaceMesh)); //and down
 			var zOffset = 0;
-			if(intersect.length != 0){
+			if (intersect.length !== 0) {
 				zOffset = intersect[0].distance - initialLocation[2];
-			}else{
+			} else {
 				console.log(
-					"Survey hole #" + jsonHole["id"]
-					+ "'s raycast did not intersect the terrain mesh."
-					+ " Maybe it's out of bounds, or the raycaster is broken?");
+					"Survey hole #" + jsonHole["id"] + "'s raycast did not intersect the terrain mesh." + " Maybe it's out of bounds, or the raycaster is broken?");
 			}
 
 			var hole = {
@@ -598,7 +595,7 @@ function View(projectURL) {
 				latitude: jsonHole["longLat"][1],
 				location: jsonHole["location"],
 				zOffset: zOffset
-			}
+			};
 			var holeId = jsonHole['id'];
 
 			// Javascript uses 64-bit doubles to store all numbers. If they're
@@ -606,9 +603,7 @@ function View(projectURL) {
 			// We treat survey hole ids as integers, so it's important to check
 			// that every id we load is within this bound.
 			if (holeId >= (1 << 53)) {
-				console.warn("Survey hole # " + holeId
-					+ " is too large to store as an integer. "
-					+ "Some hole ids may be rounded and behave strangely.");
+				console.warn("Survey hole # " + holeId + " is too large to store as an integer. " + "Some hole ids may be rounded and behave strangely.");
 			}
 			holes.ids[holeId] = hole;
 
@@ -617,7 +612,7 @@ function View(projectURL) {
 				initialLocation[1],
 				initialLocation[2] + zOffset);
 
-			for (var i = 1; i < surveys.length - 1; i += 1 ) {
+			for (var i = 1; i < surveys.length - 1; i += 1) {
 				// Push the point twice.
 				lineGeometry.push(
 					surveys[i].location[0],
@@ -627,13 +622,13 @@ function View(projectURL) {
 					surveys[i].location[1],
 					surveys[i].location[2] + zOffset);
 			}
-				lineGeometry.push(
-					surveys[surveys.length-1].location[0],
-					surveys[surveys.length-1].location[1],
-					surveys[surveys.length-1].location[2] + zOffset);
+			lineGeometry.push(
+				surveys[surveys.length - 1].location[0],
+				surveys[surveys.length - 1].location[1],
+				surveys[surveys.length - 1].location[2] + zOffset);
 		});
 
-		Object.keys(geometries).forEach(function(jsonColor){
+		Object.keys(geometries).forEach(function (jsonColor) {
 			var color = colorFromString(jsonColor);
 
 			var material = new THREE.LineBasicMaterial({
@@ -657,28 +652,30 @@ function View(projectURL) {
 	}
 
 	/**
-	* Retrieve image to display on terrain mesh
-	*
-	*/
-	function addTerrainImage(mesh){
+	 * Retrieve image to display on terrain mesh
+	 *
+	 */
+	function addTerrainImage(mesh) {
 		//get the center of the property
-		var latCenter =(property.longLatMin.y+ property.longLatMax.y)/2;
-		var lngCenter =(property.longLatMin.x+property.longLatMax.x)/2;
+		var latCenter = (property.longLatMin.y + property.longLatMax.y) / 2;
+		var lngCenter = (property.longLatMin.x + property.longLatMax.x) / 2;
 		//construct google maps request
-		var mapImage="https://maps.googleapis.com/maps/api/staticmap?"+
-					"center="+latCenter+","+lngCenter+
-					"&zoom=12&size=640x640&maptype=satellite"+
-					"&visible="+property.longLatMin.y+","+property.longLatMin.x+
-					"&visible="+property.longLatMax.y+","+property.longLatMax.x;
+		var mapImage = "https://maps.googleapis.com/maps/api/staticmap?" +
+			"center=" + latCenter + "," + lngCenter +
+			"&zoom=12&size=640x640&maptype=satellite" +
+			"&visible=" + property.longLatMin.y + "," + property.longLatMin.x +
+			"&visible=" + property.longLatMax.y + "," + property.longLatMax.x;
 
 		// load a texture, set wrap mode to repeat
 		THREE.ImageUtils.crossOrigin = '';
-		var texture = THREE.ImageUtils.loadTexture( mapImage );
-		var material = new THREE.MeshPhongMaterial( { map: texture } );
-		mesh.material=material;
+		var texture = THREE.ImageUtils.loadTexture(mapImage);
+		var material = new THREE.MeshPhongMaterial({
+			map: texture
+		});
+		mesh.material = material;
 	}
 
-	function addTerrain(){
+	function addTerrain() {
 
 		var sizeX = property.box.size.x * 1.01;
 		var sizeY = property.box.size.y * 1.01;
@@ -686,7 +683,7 @@ function View(projectURL) {
 
 		var maxTerrainDim = Math.max(sizeX, sizeY);
 		var minTerrainDim = Math.min(sizeX, sizeY);
-		var longSegments = Math.min(Math.ceil(maxTerrainDim/2.0), maxPossibleSegments);
+		var longSegments = Math.min(Math.ceil(maxTerrainDim / 2.0), maxPossibleSegments);
 		var segmentLength = maxTerrainDim / longSegments;
 		var shortSegments = Math.ceil(minTerrainDim / segmentLength);
 		minTerrainDim = shortSegments * segmentLength;
@@ -694,18 +691,18 @@ function View(projectURL) {
 		var xSegments, ySegments;
 		var elevations = [];
 
-		if(sizeX > sizeY){
+		if (sizeX > sizeY) {
 			xSegments = longSegments;
 			ySegments = shortSegments;
 			sizeY = minTerrainDim;
-		}else{
+		} else {
 			ySegments = longSegments;
 			xSegments = shortSegments;
 			sizeX = minTerrainDim;
-		};
+		}
 
 		var saveName = property.name + ".terrain";
-		if(localStorage.hasOwnProperty(saveName)){
+		if (localStorage.hasOwnProperty(saveName)) {
 			elevations = JSON.parse(localStorage[saveName]);
 			makeTerrainMesh();
 			return;
@@ -725,32 +722,31 @@ function View(projectURL) {
 		var intervals = 0;
 		var timeout = 0;
 
-		for(var i = latLngMin.lng(); i <= latLngMax.lng(); i += 2*dx){
+		for (var i = latLngMin.lng(); i <= latLngMax.lng(); i += 2 * dx) {
 			path.push(new google.maps.LatLng(latLngMin.lat(), i));
 			path.push(new google.maps.LatLng(latLngMax.lat(), i));
-			if(i + dx <= latLngMax.lng()){
+			if (i + dx <= latLngMax.lng()) {
 				path.push(new google.maps.LatLng(latLngMax.lat(), i + dx));
 				path.push(new google.maps.LatLng(latLngMin.lat(), i + dx));
 			}
 			intervals += ySegments * 2;
 
-			//make sure we aren't requesting more than 512 intervals at a time
-			if(intervals > 512 - ySegments * 2){
-				(function(){
-					var pathRequest = {
-						'path': path.slice(),
-						'samples': intervals
-					};
-					sendElevationRequest(pathRequest, timeout);
-				})();
+			// Make sure we aren't requesting more than 512 intervals at a time.
+			// (Google's limit)
+			if (intervals > 512 - ySegments * 2) {
+				// It's important to pass in a unique object for each iteration
+				// of the loop. Otherwise, they all have the same object!
+				sendElevationRequest({
+					'path': path.slice(),
+					'samples': intervals
+				}, timeout);
 				path = [];
 				intervals = 0;
 				timeout += 200;
 				openRequests += 1;
 			}
-
 		}
-		if(path.length != 0){
+		if (path.length !== 0) {
 			var pathRequest = {
 				'path': path,
 				'samples': intervals
@@ -760,53 +756,56 @@ function View(projectURL) {
 		}
 		var counter = 0;
 
-		function addToTerrain(results, status){
+		function addToTerrain(results, status) {
 			openRequests -= 1;
-			if(status != google.maps.ElevationStatus.OK) {
+			if (status != google.maps.ElevationStatus.OK) {
 				console.error(status);
 				return;
 			}
-			results.forEach(function(thing){
+			results.forEach(function (thing) {
 				var indeces = LatLongtoIndeces(thing);
-				if(elevations[indeces[0]] === undefined){
+				if (elevations[indeces[0]] === undefined) {
 					elevations[indeces[0]] = [];
 				}
 				elevations[indeces[0]][indeces[1]] = thing.elevation;
 			});
-			if(openRequests == 0){
+			if (openRequests === 0) {
 				makeTerrainMesh();
 				saveToCache(saveName, elevations);
 			}
 
 		}
 
-		function sendElevationRequest(pathRequest, timeout){
-			setTimeout(function(){elevator.getElevationAlongPath(pathRequest, handleResults)}, timeout);
-			function handleResults(results, status){
-				if(status == google.maps.ElevationStatus.OVER_QUERY_LIMIT){
+		function sendElevationRequest(pathRequest, timeout) {
+			setTimeout(function () {
+				elevator.getElevationAlongPath(pathRequest, handleResults);
+			}, timeout);
+
+			function handleResults(results, status) {
+				if (status == google.maps.ElevationStatus.OVER_QUERY_LIMIT) {
 					setTimeout(sendElevationRequest(pathRequest, 2000));
-				}else{
+				} else {
 					addToTerrain(results, status);
 				}
 			}
 		}
 
-		function LatLongtoIndeces(latLong){
+		function LatLongtoIndeces(latLong) {
 			//location.A: Latitude!
 			//location.F: Longitude!
 			var width = Math.round((latLong.location.A - latLngMin.A) /
-				(latLngMax.A - latLngMin.A) * (ySegments-1));
+				(latLngMax.A - latLngMin.A) * (ySegments - 1));
 			var height = Math.round((latLong.location.F - latLngMin.F) /
 				(latLngMax.F - latLngMin.F) * xSegments);
 			return [width, height];
-		};
+		}
 
-		function makeTerrainMesh(){
-			var geometry = new THREE.PlaneGeometry(sizeX, sizeY, xSegments, ySegments-1);
+		function makeTerrainMesh() {
+			var geometry = new THREE.PlaneGeometry(sizeX, sizeY, xSegments, ySegments - 1);
 			var counter = 0;
 			var vertices = geometry.vertices;
-			for(var j = 0; j < ySegments; j += 1){
-				for(var i = 0; i <= xSegments; i += 1){
+			for (var j = 0; j < ySegments; j += 1) {
+				for (var i = 0; i <= xSegments; i += 1) {
 					geometry.vertices[counter].z = elevations[j][i];
 					counter += 1;
 				}
@@ -827,7 +826,7 @@ function View(projectURL) {
 				color: colors.terrain_frame,
 				transparent: true,
 				opacity: 0.2
-			})
+			});
 			var squareMesh = lineGeometryFromElevation(elevations, sizeX, sizeY);
 			var noDiagonals = new THREE.Line(squareMesh, lineMaterial, THREE.LinePieces);
 			noDiagonals.position.x -= (sizeX - property.box.size.x) / 2;
@@ -839,10 +838,10 @@ function View(projectURL) {
 		}
 	}
 
-	function lineGeometryFromElevation(elevation, width, height){
+	function lineGeometryFromElevation(elevation, width, height) {
 		var geometry = new THREE.BufferGeometry();
-		var dx = width / (elevation[0].length-1);
-		var dy = height / (elevation.length-1);
+		var dx = width / (elevation[0].length - 1);
+		var dy = height / (elevation.length - 1);
 
 		var length1 = elevation.length;
 		var length2 = elevation[0].length;
@@ -850,35 +849,38 @@ function View(projectURL) {
 		//this should be the right size!
 		var points = new Float32Array(((length1 - 1) * 2 * length2 + (length2 - 1) * 2 * length1) * 3);
 
+		var i, j;
+		var x = 0;
 		var y = 0;
 		var offset = 0;
-		for(var i = 0; i < elevation.length; i += 1){
-			var x = 0;
+
+		for (i = 0; i < elevation.length; i += 1) {
+			x = 0;
 			points.set([x, y, elevation[i][0]], offset);
 			offset += 3;
-			for(var j = 1; j < elevation[0].length-1; j += 1){
+			for (j = 1; j < elevation[0].length - 1; j += 1) {
 				points.set([x, y, elevation[i][j]], offset);
 				points.set([x, y, elevation[i][j]], offset + 3);
 				offset += 6;
 				x += dx;
 			}
-			points.set([x, y, elevation[i][elevation[0].length-1]], offset);
+			points.set([x, y, elevation[i][elevation[0].length - 1]], offset);
 			offset += 3;
 			y += dy;
 		}
 
-		var x = 0;
-		for(var j = 0; j < elevation[0].length; j += 1){
-			var y = 0;
+		x = 0;
+		for (j = 0; j < elevation[0].length; j += 1) {
+			y = 0;
 			points.set([x, y, elevation[0][j]], offset);
 			offset += 3;
-			for(var i = 1; i < elevation.length-1; i += 1){
+			for (i = 1; i < elevation.length - 1; i += 1) {
 				points.set([x, y, elevation[i][j]], offset);
 				points.set([x, y, elevation[i][j]], offset + 3);
 				offset += 6;
 				y += dy;
 			}
-			points.set([x, y, elevation[elevation.length-1][j]], offset);
+			points.set([x, y, elevation[elevation.length - 1][j]], offset);
 			offset += 3;
 			x += dx;
 		}
@@ -888,7 +890,7 @@ function View(projectURL) {
 		return geometry;
 	}
 
-	function saveToCache(name, object){
+	function saveToCache(name, object) {
 		localStorage[name] = JSON.stringify(object);
 		console.log("Saving " + name + " data to cache.");
 	}
@@ -904,10 +906,10 @@ function View(projectURL) {
 	 *
 	 * @return {THREE.Color}
 	 */
-	function colorFromString(stringColor){
-			var color = stringColor.split("#");
-			color = "0x"+color[1];
-			return new THREE.Color(parseInt(color, 16));
+	function colorFromString(stringColor) {
+		var color = stringColor.split("#");
+		color = "0x" + color[1];
+		return new THREE.Color(parseInt(color, 16));
 	}
 
 	/**
@@ -922,9 +924,10 @@ function View(projectURL) {
 	 * @todo I think Mason changed this to concentration values, not indices.
 	 */
 	this.updateVisibility = updateVisibility;
-	function updateVisibility(mineralName, lowerValue, higherValue){
+
+	function updateVisibility(mineralName, lowerValue, higherValue) {
 		var mineral = minerals[mineralName];
-		if(mineral === undefined){
+		if (mineral === undefined) {
 			console.log("can't update the visibility of " + mineralName + " as it is not in the data set");
 			return;
 		}
@@ -935,22 +938,21 @@ function View(projectURL) {
 
 		//Here we iterate through all of the meshes of the mineral, setting
 		//the interval to be visible if it is between the value bounds
-		for(var i = 0; i < intervals.length; i += 1){
+		for (var i = 0; i < intervals.length; i += 1) {
 			var value = intervals[i].value;
-			if(value >= lowerValue && value <= higherValue){
+			if (value >= lowerValue && value <= higherValue) {
 				visibleMeshes[intervals[i].id] = meshes[intervals[i].id];
-				if(mineral.minVisibleIndex < 0){
+				if (mineral.minVisibleIndex < 0) {
 					mineral.minVisibleIndex = i;
 				}
-			}
-			else{
+			} else {
 				visibleMeshes[intervals[i].id] = emptyMesh;
-				if(mineral.minVisibleIndex >= 0 && mineral.maxVisibleIndex < 0){
+				if (mineral.minVisibleIndex >= 0 && mineral.maxVisibleIndex < 0) {
 					mineral.maxVisibleIndex = i - 1;
 				}
 			}
 		}
-		if(mineral.maxVisibleIndex < 0){
+		if (mineral.maxVisibleIndex < 0) {
 			mineral.maxVisibleIndex = intervals.length - 1;
 		}
 
@@ -958,8 +960,8 @@ function View(projectURL) {
 		var verticesPerInterval = meshes[0].geometry.attributes.position.array.length;
 
 		var newGeometryVertices = mineral.geometry.attributes.position.array.subarray(
-								mineral.minVisibleIndex * verticesPerInterval,
-								mineral.maxVisibleIndex * verticesPerInterval);
+			mineral.minVisibleIndex * verticesPerInterval,
+			mineral.maxVisibleIndex * verticesPerInterval);
 
 		var newGeometry = new THREE.BufferGeometry();
 		newGeometry.addAttribute('position', new THREE.BufferAttribute(newGeometryVertices, 3));
@@ -979,19 +981,19 @@ function View(projectURL) {
 	 * @param  {Boolean} visible     Whether minerals of this type should be
 	 *                               rendered or not.
 	 */
-	function toggleVisible(mineralName, visible){
+	function toggleVisible(mineralName, visible) {
 		var mineral = minerals[mineralName];
-		mineral.mesh.visible = visible;
 		var intervals = mineral.intervals;
-		console.log(visible)
-		if(visible){
-			for(var i = mineral.minVisibleIndex; i <= mineral.maxVisibleIndex; i += 1){
+		mineral.mesh.visible = visible;
+
+		var i;
+		if (visible) {
+			for (i = mineral.minVisibleIndex; i <= mineral.maxVisibleIndex; i += 1) {
 				visibleMeshes[intervals[i].id] = meshes[intervals[i].id];
 			}
-		}
-		else{
+		} else {
 			var emptyMesh = new THREE.Mesh(new THREE.BoxGeometry(0, 0, 0));
-			for(var i = mineral.minVisibleIndex; i < mineral.maxVisibleIndex; i += 1){
+			for (i = mineral.minVisibleIndex; i < mineral.maxVisibleIndex; i += 1) {
 				visibleMeshes[intervals[i].id] = emptyMesh;
 			}
 		}
@@ -1029,7 +1031,7 @@ function View(projectURL) {
 				this.fillText(line, x, y);
 				y += lineHeight;
 			}
-		};
+		}
 		// Need this function for creating multi-line text sprites.
 		CanvasRenderingContext2D.prototype.wrapText = wrapText;
 
@@ -1043,8 +1045,8 @@ function View(projectURL) {
 		 */
 		function formatKm(num) {
 			num = parseFloat(Math.floor(num).toPrecision(2));
-			return (num > 1000 ? (num/1000) + ' k' : num) + "m";
-		};
+			return (num > 1000 ? (num / 1000) + ' k' : num) + "m";
+		}
 
 		/**
 		 * Helper function to make a text sprite with standard formatting.
@@ -1058,12 +1060,17 @@ function View(projectURL) {
 		 */
 		function makeLabel(name, x, y, z) {
 			var sprite = makeTextSprite(name, {
-				backgroundColor: {r:0, g:0, b:0, a:0},
+				backgroundColor: {
+					r: 0,
+					g: 0,
+					b: 0,
+					a: 0
+				},
 				fontsize: 40
 			});
 			sprite.position.set(x, y, z);
 			return sprite;
-		};
+		}
 
 		// Our box is offset from the origin.
 		var base = property.box.center.z - property.box.size.z / 2;
@@ -1076,7 +1083,7 @@ function View(projectURL) {
 			//   with the "sprite.scale.set(*)" line.
 			var markerDistance = Math.max(
 				property.box.size.x / 5 - 1,
-				maxDimension/20);
+				maxDimension / 20);
 
 			//add zero
 			scene.add(makeLabel(formatKm(0), 0, 0, base));
@@ -1092,7 +1099,7 @@ function View(projectURL) {
 
 		(function () {
 			var length = property.box.size.y;
-			var markerDistance = Math.max(length / 5 - 1, maxDimension/20);
+			var markerDistance = Math.max(length / 5 - 1, maxDimension / 20);
 			for (var y = markerDistance; y < length; y += markerDistance) {
 				scene.add(makeLabel(formatKm(y), 0, y, base));
 			}
@@ -1102,7 +1109,7 @@ function View(projectURL) {
 
 		(function () {
 			var length = property.box.size.z;
-			var markerDistance = Math.max(length / 5 - 1, maxDimension/20);
+			var markerDistance = Math.max(length / 5 - 1, maxDimension / 20);
 			for (var z = markerDistance; z < length; z += markerDistance) {
 				scene.add(makeLabel(formatKm(z), 0, 0, z + base));
 			}
@@ -1148,9 +1155,9 @@ function View(projectURL) {
 		cameraLight.position.copy(camera.position);
 
 		renderer.clear();
-		renderer.render(scene,camera);
+		renderer.render(scene, camera);
 		renderer.clearDepth();
-		renderer.render(sceneOrtho,cameraOrtho);
+		renderer.render(sceneOrtho, cameraOrtho);
 	}
 
 	/**
@@ -1165,17 +1172,21 @@ function View(projectURL) {
 	 */
 	function makeTextSprite(message, parameters) {
 		if (parameters === undefined) parameters = {};
-		var fontface  = parameters.hasOwnProperty("fontface")
-			? parameters["fontface"] : "Arial";
-		var fontsize  = parameters.hasOwnProperty("fontsize")
-			? parameters["fontsize"] : 30;
-		var size      = parameters.hasOwnProperty("size")
-			? parameters["size"] : 512;
-		var textColor = parameters.hasOwnProperty("textColor")
-			? parameters["textColor"] : { r: 0, g: 0, b: 0, a: 1.0 };
-		var backgroundColor = parameters.hasOwnProperty("backgroundColor")
-			? parameters["backgroundColor"]
-			: { r: 255, g: 250, b: 200, a: 0.8 };
+		var fontface = parameters.hasOwnProperty("fontface") ? parameters["fontface"] : "Arial";
+		var fontsize = parameters.hasOwnProperty("fontsize") ? parameters["fontsize"] : 30;
+		var size = parameters.hasOwnProperty("size") ? parameters["size"] : 512;
+		var textColor = parameters.hasOwnProperty("textColor") ? parameters["textColor"] : {
+			r: 0,
+			g: 0,
+			b: 0,
+			a: 1.0
+		};
+		var backgroundColor = parameters.hasOwnProperty("backgroundColor") ? parameters["backgroundColor"] : {
+			r: 255,
+			g: 250,
+			b: 200,
+			a: 0.8
+		};
 
 		var canvas = document.createElement('canvas');
 		canvas.width = size;
@@ -1186,32 +1197,24 @@ function View(projectURL) {
 		// Draw background rectangle
 		//find the size of our text to draw the rectangle around
 		var lines = message.split("\n");
-		var lineHeight= fontsize;
-		var maxTextWidth=0;
-		lines.forEach(function (line){
-			var textWidth=context.measureText(line).width;
-			if(textWidth>maxTextWidth){
-				maxTextWidth=textWidth;
+		var lineHeight = fontsize;
+		var maxTextWidth = 0;
+		lines.forEach(function (line) {
+			var textWidth = context.measureText(line).width;
+			if (textWidth > maxTextWidth) {
+				maxTextWidth = textWidth;
 			}
 		});
 		//set the color to the input
-		context.fillStyle = "rgba("
-			+ backgroundColor.r + ","
-			+ backgroundColor.g + ","
-			+ backgroundColor.b + ","
-			+ backgroundColor.a
-			+ ")";
+		context.fillStyle = "rgba(" + backgroundColor.r + "," + backgroundColor.g + "," + backgroundColor.b + "," + backgroundColor.a + ")";
 
-		context.fillRect(0.5*size-15,
-			0.5*size - fontsize-15,
-			maxTextWidth+30,
-			lines.length*lineHeight+30);
+		context.fillRect(0.5 * size - 15,
+			0.5 * size - fontsize - 15,
+			maxTextWidth + 30,
+			lines.length * lineHeight + 30);
 
 		context.textAlign = 'left';
-		context.fillStyle = "rgba("
-			+ textColor.r + ", "
-			+ textColor.g + ", "
-			+ textColor.b + ", 1.0)";
+		context.fillStyle = "rgba(" + textColor.r + ", " + textColor.g + ", " + textColor.b + ", 1.0)";
 
 		context.wrapText(message, size / 2, size / 2, 10000, fontsize);
 
@@ -1226,9 +1229,9 @@ function View(projectURL) {
 		var sprite = new THREE.Sprite(spriteMaterial);
 
 		sprite.scale.set(
-			maxDimension/10,
-			maxDimension/10,
-			maxDimension/10);
+			maxDimension / 10,
+			maxDimension / 10,
+			maxDimension / 10);
 		return sprite;
 	}
 
@@ -1264,10 +1267,10 @@ function View(projectURL) {
 	 *
 	 * @todo  Use a string to store format versions?
 	 */
-	function getProperty(projectJSON){
+	function getProperty(projectJSON) {
 		var boxMin = vec3FromArray(projectJSON["boxMin"]);
 		var boxMax = vec3FromArray(projectJSON["boxMax"]);
-		var size   = boxMax.clone().sub(boxMin);
+		var size = boxMax.clone().sub(boxMin);
 		var center = size.clone().multiplyScalar(0.5).add(boxMin);
 
 		var property = {
@@ -1284,16 +1287,16 @@ function View(projectURL) {
 			analytes: {},
 			formatVersion: projectJSON["formatVersion"],
 			box: {
-				size:   size,
+				size: size,
 				center: center
 			}
 		};
 
-		projectJSON["analytes"].forEach(function (analyte){
+		projectJSON["analytes"].forEach(function (analyte) {
 			property.analytes[analyte.name] = {
 				color: analyte.color,
 				description: analyte.description
-			}
+			};
 		});
 
 		return property;
@@ -1307,13 +1310,13 @@ function View(projectURL) {
 
 		// Don't ray cast if we're rotating, moving the reticle or haven't yet
 		// set up the mineral intervals
-		if(!raycaster || controls.autoRotate || motionInterval) {
+		if (!raycaster || controls.autoRotate || motionInterval) {
 			return;
 		}
 		raycaster.setFromCamera(mouse, camera);
 		var intersects = raycaster.intersectObjects(visibleMeshes);
 
-		if(intersects.length == 0){
+		if (intersects.length === 0) {
 			intersected = null;
 			return;
 		}
@@ -1329,17 +1332,25 @@ function View(projectURL) {
 		//   is visible.
 		var data = intersected.mineralData;
 		tooltipSprite = makeTextSprite(
-			"Mineral:\t" + data.mineral
-			+ "\nValue:  \t" + data.value
-			+ "\nDepth:  \t" + data.depth.start + '-' + data.depth.end
-			+ "\nHole:\t" + holes.ids[data.hole].name,
-			{backgroundColor: {r:11, g:62, b:111, a:1},
-			 textColor: {r:246, g:246, b:246, a:1}});
+			"Mineral:\t" + data.mineral + "\nValue:  \t" + data.value + "\nDepth:  \t" + data.depth.start + '-' + data.depth.end + "\nHole:\t" + holes.ids[data.hole].name, {
+				backgroundColor: {
+					r: 11,
+					g: 62,
+					b: 111,
+					a: 1
+				},
+				textColor: {
+					r: 246,
+					g: 246,
+					b: 246,
+					a: 1
+				}
+			});
 
-		tooltipSprite.scale.set(250,250,1);
-		tooltipSprite.position.z=0;
-		tooltipSprite.position.x=tooltipSpriteLocation.x;
-		tooltipSprite.position.y=tooltipSpriteLocation.y;
+		tooltipSprite.scale.set(250, 250, 1);
+		tooltipSprite.position.z = 0;
+		tooltipSprite.position.x = tooltipSpriteLocation.x;
+		tooltipSprite.position.y = tooltipSpriteLocation.y;
 		sceneOrtho.add(tooltipSprite);
 
 	}
@@ -1349,7 +1360,7 @@ function View(projectURL) {
 	 * @return {String} The image data.
 	 */
 	function takeScreenshot() {
-		renderer.render(scene, camera)
+		renderer.render(scene, camera);
 		return renderer.domElement.toDataURL();
 	}
 	// Expose this to the console.
@@ -1368,7 +1379,7 @@ function View(projectURL) {
 		return new THREE.Vector3(array[0], array[1], array[2]);
 	}
 
-// Below here is only setup functions, typically called once.
+	// Below here is only setup functions, typically called once.
 
 	function setupWindowListeners() {
 		// Resize the camera when the window is resized.
@@ -1376,10 +1387,10 @@ function View(projectURL) {
 			camera.aspect = window.innerWidth / window.innerHeight;
 			camera.updateProjectionMatrix();
 
-			cameraOrtho.left= - window.innerWidth / 2;
-			cameraOrtho.right=  window.innerWidth / 2;
-			cameraOrtho.top= window.innerHeight / 2;
-			cameraOrtho.bottom=- window.innerHeight / 2;
+			cameraOrtho.left = -window.innerWidth / 2;
+			cameraOrtho.right = window.innerWidth / 2;
+			cameraOrtho.top = window.innerHeight / 2;
+			cameraOrtho.bottom = -window.innerHeight / 2;
 
 			cameraOrtho.updateProjectionMatrix();
 
@@ -1388,47 +1399,46 @@ function View(projectURL) {
 
 		container.addEventListener('mousemove',
 			function mousemoveEventListener(event) {
-			event.preventDefault();
+				event.preventDefault();
 
-			// This will update the mouse position as well as make the
-			//   tooltipSprite follow the mouse.
-			var newX = event.clientX-(window.innerWidth/2) + 20;
-			var newY = -event.clientY+(window.innerHeight/2) - 40;
-			if(tooltipSpriteLocation.x == newX && tooltipSpriteLocation.y == newY){
-				//If the mouse wasn't moved, ignore the following logic
-				return;
-			}
-			tooltipSpriteLocation.x = newX;
-			tooltipSpriteLocation.y = newY;
+				// This will update the mouse position as well as make the
+				//   tooltipSprite follow the mouse.
+				var newX = event.clientX - (window.innerWidth / 2) + 20;
+				var newY = -event.clientY + (window.innerHeight / 2) - 40;
+				if (tooltipSpriteLocation.x == newX && tooltipSpriteLocation.y == newY) {
+					//If the mouse wasn't moved, ignore the following logic
+					return;
+				}
+				tooltipSpriteLocation.x = newX;
+				tooltipSpriteLocation.y = newY;
 
-			mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-			mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
-			mouseMoved = true;
+				mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+				mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+				mouseMoved = true;
 
-			sceneOrtho.remove(tooltipSprite);
-			scene.remove(intersected);
-			intersected = null;
+				sceneOrtho.remove(tooltipSprite);
+				scene.remove(intersected);
+				intersected = null;
 
-			window.clearTimeout(mouseTimeout);
-			if(event.buttons == 0 && raycaster){
-				mouseTimeout = window.setTimeout(checkMouseIntercept, 150);
-			}
+				window.clearTimeout(mouseTimeout);
+				if (event.buttons === 0 && raycaster) {
+					mouseTimeout = window.setTimeout(checkMouseIntercept, 150);
+				}
 
-			if(event.buttons % 4 - event.buttons % 2 == 2){ //panning!
-				window.clearInterval(motionInterval);
-				motionInterval = null;
-			}
-		}, false);
+				if (event.buttons % 4 - event.buttons % 2 == 2) { //panning!
+					window.clearInterval(motionInterval);
+					motionInterval = null;
+				}
+			}, false);
 
 		container.addEventListener("click",
-			function mouseClickEventListener(event){
-				if(!mouseMoved){
+			function mouseClickEventListener(event) {
+				if (!mouseMoved) {
 					clearTimeout(motionInterval);
 					motionInterval = null;
-					if(intersected){
+					if (intersected) {
 						startMotion(intersected);
-					}
-					else{
+					} else {
 						motion = [];
 					}
 				}
@@ -1442,15 +1452,14 @@ function View(projectURL) {
 				//and false otherwise
 				if (event.buttons == 3) {
 					controls.autoRotate = true;
-				}
-				else{
+				} else {
 					controls.autoRotate = false;
 				}
 			});
 	}
 
-	function startMotion(toHere){
-		if(toHere.geometry.boundingSphere === undefined){
+	function startMotion(toHere) {
+		if (toHere.geometry.boundingSphere === undefined) {
 			toHere.computeBoundingSphere();
 		}
 
@@ -1484,22 +1493,22 @@ function View(projectURL) {
 
 		//Start an interval to move the reticle around!
 		//Trigger 100 times a second
-		motionInterval = setInterval(function(){
-			if(reticleMotion.length != 0){
+		motionInterval = setInterval(function () {
+			if (reticleMotion.length !== 0) {
 				controls.target.add(reticleMotion.pop());
 			}
-			if(cameraMotion.length != 0){
+			if (cameraMotion.length !== 0) {
 				camera.position.add(cameraMotion.pop());
 			}
 
-			if(reticleMotion.length === 0 && cameraMotion.length === 0){
+			if (reticleMotion.length === 0 && cameraMotion.length === 0) {
 				window.clearInterval(motionInterval);
 				motionInterval = null;
 			}
 		}, 10);
 	}
 
-	function getDeltasForMovement(movementVector, acceleration){
+	function getDeltasForMovement(movementVector, acceleration) {
 
 		//get the total length of the movement
 		var length = movementVector.length();
@@ -1514,12 +1523,12 @@ function View(projectURL) {
 		var accelerate = [];
 		var decelerate = [];
 
-		while(totalMovement < length){
+		while (totalMovement < length) {
 			speed += acceleration;
 			var movement = normalMovement.clone().multiplyScalar(speed);
 			accelerate.push(movement);
 			totalMovement += speed;
-			if(totalMovement >= length){
+			if (totalMovement >= length) {
 				break;
 			}
 			decelerate.unshift(movement);
@@ -1531,7 +1540,7 @@ function View(projectURL) {
 
 		var motion = accelerate.concat(decelerate);
 
-		while(totalMovement > length){
+		while (totalMovement > length) {
 			totalMovement -= motion.pop().length();
 		}
 		normalMovement.multiplyScalar(length - totalMovement);
@@ -1576,24 +1585,23 @@ function View(projectURL) {
 		camera = new THREE.PerspectiveCamera(45,
 			window.innerWidth / window.innerHeight,
 			0.1,
-			700*maxDimension);
+			700 * maxDimension);
 
-		camera.up.set(0,0,1);
+		camera.up.set(0, 0, 1);
 
 		camera.position.set(
 			1.5 * maxDimension,
 			1.5 * maxDimension,
-			1.5 * maxDimension
-				+ property.box.center.z - 0.5 * property.box.size.z);
+			1.5 * maxDimension + property.box.center.z - 0.5 * property.box.size.z);
 
 		camera.lookAt(property.box.center);
 
 		//Sets up the 2d orthographic camera for tooltips
 		cameraOrtho = new THREE.OrthographicCamera(
-			window.innerWidth/-2,
-			window.innerWidth/2,
-			window.innerHeight/2,
-			window.innerHeight/-2,
+			window.innerWidth / -2,
+			window.innerWidth / 2,
+			window.innerHeight / 2,
+			window.innerHeight / -2,
 			1,
 			1000);
 		cameraOrtho.position.z = 1;
@@ -1609,7 +1617,7 @@ function View(projectURL) {
 		renderer.setSize(window.innerWidth, window.innerHeight);
 		renderer.setClearColor(colors.background, 1);
 		renderer.sortObjects = false;
-		renderer.autoClear=false;
+		renderer.autoClear = false;
 		container.appendChild(renderer.domElement);
 
 		// Load GL stuff.
@@ -1657,47 +1665,48 @@ function View(projectURL) {
 	}
 
 	function getHistogramCSV(JSONData, ShowLabel) {
-	    //If JSONData is not an object then JSON.parse will parse the JSON string in an Object
-	    var arrData = typeof JSONData != 'object' ? JSON.parse(JSONData) : JSONData;
+		//If JSONData is not an object then JSON.parse will parse the JSON string in an Object
+		var arrData = typeof JSONData != 'object' ? JSON.parse(JSONData) : JSONData;
 
-	    var CSV = '';
+		var CSV = '';
+		var row = null;
+		var index = null;
 
-	    //This condition will generate the Label/Header
-	    if (ShowLabel) {
-	        var row = "";
+		//This condition will generate the Label/Header
+		if (ShowLabel) {
+			row = "";
 
-	        //This loop will extract the label from 1st index of on array
-	        for (var index in arrData[0]) {
+			//This loop will extract the label from 1st index of on array
+			for (index in arrData[0]) {
+				//Now convert each value to string and comma-seprated
+				row += index + ',';
+			}
 
-	            //Now convert each value to string and comma-seprated
-	            row += index + ',';
-	        }
+			row = row.slice(0, -1);
 
-	        row = row.slice(0, -1);
+			//append Label row with line break
+			CSV += row + '\r\n';
+		}
 
-	        //append Label row with line break
-	        CSV += row + '\r\n';
-	    }
+		//1st loop is to extract each row
+		for (var i = 0; i < arrData.length; i++) {
+			row = "";
 
-	    //1st loop is to extract each row
-	    for (var i = 0; i < arrData.length; i++) {
-	        var row = "";
+			//2nd loop will extract each column and convert it in string comma-seprated
+			for (index in arrData[i]) {
+				row += '"' + arrData[i][index] + '",';
+			}
 
-	        //2nd loop will extract each column and convert it in string comma-seprated
-	        for (var index in arrData[i]) {
-	            row += '"' + arrData[i][index] + '",';
-	        }
+			row.slice(0, row.length - 1);
 
-	        row.slice(0, row.length - 1);
+			//add a line break after each row
+			CSV += row + '\r\n';
+		}
 
-	        //add a line break after each row
-	        CSV += row + '\r\n';
-	    }
+		if (CSV === '') {
+			console.log("Invalid CSV data from minerals");
+		}
 
-	    if (CSV == '') {
-	        console.log("Invalid CSV data from minerals");
-	    }
-
-	    return CSV;
+		return CSV;
 	}
 }
