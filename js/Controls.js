@@ -29,7 +29,7 @@ function loadMenu() {
 														view = new View($(this).attr('data-url'));
 														setTimeout(function () {
 															view.start();
-														}, 10);
+														}, 0);
 													});
 												});
 											})

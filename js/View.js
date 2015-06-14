@@ -306,8 +306,7 @@ function View(projectURL) {
 		addAxisLabels();
 		addReticle();
 		addLights();
-		toggleVisible("terrain", false);
-		toggleVisible("surveyHoles", false);
+		toggleVisible("surveyHoles");
 		render();
 	}
 
@@ -561,6 +560,7 @@ function View(projectURL) {
 	 * @todo Return the holes object instead of modifying a global object.
 	 */
 	function addSurveyLines() {
+		console.log(terrainMesh);
 		var totalMetersDrilled = 0;
 		var surveyCaster = new THREE.Raycaster();
 		var geometries = {};
@@ -591,7 +591,6 @@ function View(projectURL) {
 				]),
 				up);
 			var intersect = surveyCaster.intersectObject(terrainMesh); //look up
-			//console.log(surveyCaster);
 			surveyCaster.set(surveyCaster.ray.origin, down);
 			Array.prototype.push.apply(intersect, surveyCaster.intersectObject(terrainMesh)); //and down
 			var zOffset = 0;
@@ -824,9 +823,16 @@ function View(projectURL) {
 			var geometry = new THREE.PlaneGeometry(sizeX, sizeY, xSegments, ySegments - 1);
 			var counter = 0;
 			var vertices = geometry.vertices;
+			var maxElevation = 0;
+
+			for(var j = 0; j < ySegments; j += 1)
+				for(var i = 0; i < xSegments; i += 1)
+					maxElevation = Math.max(maxElevation, elevations[j][i]);
+
+			var offset = property.box.center.z + property.box.size.z / 2 - maxElevation;
 			for (var j = 0; j < ySegments; j += 1) {
 				for (var i = 0; i <= xSegments; i += 1) {
-					geometry.vertices[counter].z = elevations[j][i];
+					geometry.vertices[counter].z = elevations[j][i] + offset;
 					counter += 1;
 				}
 			}
@@ -841,11 +847,10 @@ function View(projectURL) {
 			terrainMesh = new THREE.Mesh(geometry, material);
 			terrainMesh.geometry.computeBoundingBox();
 			terrainMesh.geometry.computeBoundingSphere();
-			console.log(terrainMesh);
-			//terrainMesh.position.z += property.box.size.z - terrainMesh.geometry.boundingBox.max.z;
-			terrainMesh.geometry.computeBoundingBox();
-			terrainMesh.position.x += property.box.size.x / 2 - terrainMesh.geometry.boundingSphere.center.x;
-			terrainMesh.position.y += property.box.size.y / 2 - terrainMesh.geometry.boundingSphere.center.y;
+			terrainMesh.position.x += property.box.center.x;
+			terrainMesh.position.y += property.box.center.y;
+
+			terrainMesh.elementsNeedUpdate = true;
 
 			var lineMaterial = new THREE.LineBasicMaterial({
 				color: colors.terrain_frame,
@@ -858,7 +863,7 @@ function View(projectURL) {
 			noDiagonals.position.y -= (sizeY - property.box.size.y) / 2;
 
 			scene.add(terrainMesh);
-			addSurveyLines();
+			setTimeout(function(){addSurveyLines()}, 0);
 		}
 	}
 
@@ -965,10 +970,6 @@ function View(projectURL) {
 			return;
 		}
 
-		// TODO: Round these values to make them prettier.
-		console.log("Changing visible range of " +
-			mineralName + ": " + (lowerValue) + ", " + (higherValue));
-
 		var intervals = mineral.intervals;
 		var emptyMesh = new THREE.Mesh(new THREE.BoxGeometry(0, 0, 0));
 		mineral.minVisibleIndex = -1;
@@ -1029,20 +1030,28 @@ function View(projectURL) {
 	 *                               rendered or not.
 	 */
 	function toggleVisible(mineralName, visible) {
-		console.log(mineralName);
 		if(mineralName == "surveyHoles"){
 			for(var line in holes.lines){
+				if(visible == null){
+					visible = !holes.lines[line].visible;
+				}
 				holes.lines[line].visible = visible;
 			}
 			return;
 		}
 		if(mineralName == "terrain"){
+			if(visible == null){
+				visible = !terrainMesh.visible;
+			}
 			terrainMesh.visible = visible;
 			return;
 		}
 
 		var mineral = minerals[mineralName];
 		var intervals = mineral.intervals;
+		if(visible == null){
+			visible = !mineral.mesh.visible;
+		}
 		mineral.mesh.visible = visible;
 
 		var i = null;

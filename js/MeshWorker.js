@@ -15,10 +15,10 @@ self.addEventListener('message', function (e) {
 var cylinderEdges = 7;
 var matrix4 = new THREE.Matrix4()
 	.set(
-		1, 0, 0, 0,
-		0, 0, 1, 0,
-		0, -1, 0, 0,
-		0, 0, 0, 1);
+		1,  0,  0,  0,
+		0,  0,  1,  0,
+		0, -1,  0,  0,
+		0,  0,  0,  1);
 
 function determineWidth(value) {
 	var min = 0.1;
