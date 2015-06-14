@@ -44,7 +44,7 @@
 		var formatDensity = d3.format(",.3f");
 
 		var margin = {
-				top: 10,
+				top: 30,
 				right: 30,
 				bottom: 50,
 				left: 30
@@ -55,7 +55,6 @@
 		var x = d3.scale.linear()
 			.domain([d3.min(values), d3.max(values)])
 			.range([0, width]);
-
 
 		// Generate a histogram using uniformly-spaced bins.
 		var intervals = 20;
@@ -101,11 +100,28 @@
 
 		// Labels for the bar frequency
 		bar.append("text")
-			.attr("dy", ".75em")
-			.attr("y", -10)
-			.attr("x", width/intervals / 2)
+			// 2 looks nice. This offset should scale with graph size,
+			// but is otherwise unimportant.
+			.attr("y", -2)
+			// This offset is chosen by brute force. It works for 20 intervals.
+			// If you change the intervals count, you'll need to change this.
+			.attr("x", Math.floor(width/intervals) - 8)
 			.attr("text-anchor", "middle")
-			.text(function(d) { return d.y > 0 ? formatCount(d.y) : ''; });
+			.text(function(d) {
+				// Don't add a "0" for empty bins.
+				// We shouldn't see negative bins.
+				if (d.y <= 0) {
+					return "";
+				// Only label small-ish bars that are hard to see otherwise.
+				// TODO: Base this off of the maximum bar height.
+				// We chose 99 now to make sure our labels are all 2 digits.
+				} else if (d.y > 99) {
+					return "";
+				// Otherwise, just format it.
+				} else {
+					return formatCount(d.y);
+				}
+			})
 
 		svg.append("g")
 			.attr("class", "x axis")
