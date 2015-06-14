@@ -669,6 +669,10 @@ function View(projectURL) {
 		addLastElements();
 	}
 
+	this.autoRotate = function(){
+		controls.autoRotate = !controls.autoRotate;
+	}
+
 	/**
 	 * Retrieve image to display on terrain mesh
 	 *
@@ -1583,7 +1587,7 @@ function View(projectURL) {
 
 		var reticleMotion = getDeltasForMovement(movementVector, acceleration);
 		var cameraMotion = getDeltasForMovement(movementVector,
-			acceleration * 0.9);
+			acceleration * 0.8);
 
 		//get rid of the last interval, in case it exists
 		window.clearInterval(motionInterval);

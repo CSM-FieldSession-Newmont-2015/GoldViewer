@@ -82,7 +82,7 @@ function loadControls() {
 			}
 		});
 		$("#toggleTerrain").click(function () {
-			view.setVisible("terrain");
+			view.toggleVisible("terrain");
 		});
 		$("#autoRotate").button({
 			text: false,
