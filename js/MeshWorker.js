@@ -21,7 +21,7 @@ var matrix4 = new THREE.Matrix4()
 		0,  0,  0,  1);
 
 function determineWidth(value) {
-	var min = 0.3;
+	var min = 0.1;
 	var max = 15.0;
 	var width = Math.log(value + 1.0) * 2.0 / Math.log(10);
 
