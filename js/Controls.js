@@ -60,7 +60,7 @@ function loadControls() {
 		$("#zoomIn").button({
 			text: false,
 			icons: {
-				primary: "ui-icon-zoomin"
+				primary: "ui-icon-circle-plus"
 			}
 		});
 		$("#zoomIn").click(function () {
@@ -69,11 +69,29 @@ function loadControls() {
 		$("#zoomOut").button({
 			text: false,
 			icons: {
-				primary: "ui-icon-zoomout"
+				primary: "ui-icon-circle-minus"
 			}
 		});
 		$("#zoomOut").click(function () {
 			view.zoomOut();
+		});
+		$("#toggleTerrain").button({
+			text: false,
+			icons: {
+				primary: "ui-icon-calculator"
+			}
+		});
+		$("#toggleTerrain").click(function () {
+			view.setVisible("terrain");
+		});
+		$("#autoRotate").button({
+			text: false,
+			icons: {
+				primary: "ui-icon-arrowrefresh-1-s"
+			}
+		});
+		$("#autoRotate").click(function () {
+			view.autoRotate();
 		});
 
 		$(document).keydown(function (event) {
@@ -90,25 +108,34 @@ function loadControls() {
 }
 
 function initSidebar() {
+	//This horrible global variable keeps the sidebar from lagging when it slides in and out
+	sideBarOut=false;
 	$.get("html/Sidebar.html", function (data) {
 		$("#sidebar").append(data);
 
 		$('.sidebar-container').click(function (e) {
+			sideBarOut=!sideBarOut;
 			if ($(this).width() - e.pageX > 20)
 				return;
+
+			if (!sideBarOut) {
+				$('.sidebar-container').width(20);
+			}
 
 			$('#sidebar').toggle('slide', {
 				direction: 'left'
 			}, function () {
 				if ($('#sidebar').css('display') == 'none') {
 					$('.sidebar-container').width(20);
+					sideBarOut=false;
 				} else {
 					$('.sidebar-container').width($('#sidebar').width() + 20);
+					sidebarOut=true;
 				}
 			});
-		});
 	});
 
+});
 }
 
 function setWindowResizeEvent() {
@@ -132,7 +159,7 @@ function initProgressBar() {
 	$('#progressbar').progressbar({
 		value: false,
 		change: function () {
-			$('.progress-label').text("Loading Geometries...");
+			$('.progress-label').text("Calculating Geometries...");
 		},
 		complete: function () {
 			$('.progress-label').text("Complete!");
