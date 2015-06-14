@@ -3,17 +3,18 @@
 	$('.minerals').html('');
 	for(var mineral in minerals) {
 		var div = $('<div class="mineral-container">').appendTo('.minerals');
-		div.append('<input type="checkbox">');
+		div.append('<input type="checkbox"><label>' + mineral + '</label>');
 		$('<svg id="svg' + chartIndex + '" class="chart">').appendTo(div);
 
 		addChart(minerals[mineral], chartIndex);
 		chartIndex++;
 	}
 
-	function addChart(mineral, chartIndex) {
+	function addChart(mineralIntervals, chartIndex, mineral) {
 		var values = [];
-		for(var interval in mineral.intervals) {
-			values.push(Math.log10(mineral.intervals[interval].value));
+		for (var interval in mineralIntervals.intervals) {
+		    console.log(mineralIntervals.intervals[interval].value);
+			values.push(Math.log(mineralIntervals.intervals[interval].value));
 		}
 
 		// Formatters for counts and times (converting numbers to Dates).
@@ -29,7 +30,7 @@
 			.range([0, width]);
 
 		// Generate a histogram using uniformly-spaced bins.
-		var intervals = 50;
+		var intervals = 10;
 		var data = d3.layout.histogram()
 			.bins(x.ticks(intervals))
 			(values);
@@ -60,14 +61,14 @@
 			.attr("width", width/intervals)
 			.attr("height", function(d) { return height - y(d.y); });
 
-	/*// Labels for the bar frequency
+	// Labels for the bar frequency
 		bar.append("text")
 			.attr("dy", ".75em")
 			.attr("y", -10)
 			.attr("x", width/intervals / 2)
 			.attr("text-anchor", "middle")
 			.text(function(d) { return d.y > 0 ? formatCount(d.y) : ''; });
-	*/
+	
 		svg.append("g")
 			.attr("class", "x axis")
 			.attr("transform", "translate(0," + height + ")")
@@ -75,24 +76,25 @@
 
 		var brush = d3.svg.brush()
 	    .x(x)
-	    .extent([.3, .5])
+	    .extent([d3.min(values), d3.max(values)])
 	    .on("brushstart", brushstart)
 	    .on("brush", brushmove)
 	    .on("brushend", brushend);
 
-	    var brushg = svg.append("g")
+	    var gBrush = svg.append("g")
 	    .attr("class", "brush")
-	    .call(brush);
+	    .call(brush)
+        .call(brush.event);
 
-		brushg.selectAll(".resize")
+		gBrush.selectAll(".resize")
 			.append("path")
 			.attr("d", resizePath);
 
-		brushg.selectAll("rect")
+		gBrush.selectAll("rect")
 		    .attr("height", height);
 
 		brushstart();
-		brushmove();
+//		brushmove();
 
 		function resizePath(d) {
 		var e = +(d == "e"),
@@ -114,12 +116,19 @@
 		}
 
 		function brushmove() {
-		  var s = brush.extent();
-//		  circle.classed("selected", function(d) { return s[0] <= d && d <= s[1]; });
+		    var extent = brush.extent().map(function (d) {
+		        var step = .1;
+		        var low = .05;
+		        return d - ((d - low) % step);
+		    });
+
+		    d3.select(this).call(brush.extent(extent))
 		}
 
 		function brushend() {
-		  svg.classed("selecting", !d3.event.target.empty());
+		    svg.classed("selecting", !d3.event.target.empty());
+
+		    view.updateVisiblity(mineral, brush.extent()[0], brush.extent()[1]);
 		}
 	}
 }
