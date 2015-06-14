@@ -22,6 +22,7 @@
 
     .mineral-container {
         position: relative;
+
  }
  .propertyOverview{
  		font-size: large;
@@ -54,32 +55,37 @@
  		
  }
 
+
+	svg {
+	  font: 10px sans-serif;
+	}
+
+	.resize path {
+	  fill: #666;
+	  fill-opacity: .8;
+	  stroke: #000;
+	  stroke-width: 1.5px;
+	}
+
+	.brush .extent {
+	  fill-opacity: .125;
+	  shape-rendering: crispEdges;
+	}
+
+	.mineral-container input {
+		margin: 10px;
+		width:20px;
+		height:20px;
+	}
+
+	.mineral-container label {
+		font-family: Arial, Helvetica, sans-serif;
+		position: absolute;
+		margin: 10px;
+		top: 0px;
+		left: 30px;
+	}
+
 </style>
 <div class ="propertyOverview"></div>
 <div class="minerals"></div>
-
-<style>
-
-svg {
-  font: 10px sans-serif;
-}
-
-.resize path {
-  fill: #666;
-  fill-opacity: .8;
-  stroke: #000;
-  stroke-width: 1.5px;
-}
-
-.axis path, .axis line {
-  fill: none;
-  stroke: #000;
-  shape-rendering: crispEdges;
-}
-
-.brush .extent {
-  fill-opacity: .125;
-  shape-rendering: crispEdges;
-}
-
-</style>
