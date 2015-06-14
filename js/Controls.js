@@ -31,7 +31,7 @@ function loadMenu() {
 												$('#dialogDatasets').dialog("close");
 												initProgressBar();
 												view = new View($(this).attr('data-url'));
-												view.start();
+												setTimeout(function(){view.start()},0);
 											});
 										});
 									})
