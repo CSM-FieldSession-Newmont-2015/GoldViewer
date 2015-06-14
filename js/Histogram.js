@@ -1,8 +1,18 @@
-﻿function loadSidebar(minerals) {
+﻿function loadSidebar(minerals, property) {
+
+	var latCenter = ((property.longLatMin.y + property.longLatMax.y) / 2).toFixed(8);;
+	var lngCenter = ((property.longLatMin.x + property.longLatMax.x) / 2).toFixed(8);;
+
+	$('.propertyOverview').append('<div class= "propertyTitle">'+property["name"]+"</div>");
+	$('.propertyOverview').append(property["description"]+"<br><br>");
+	$('.propertyOverview').append("Holes: "+property["numHoles"]+"<br>");
+	$('.propertyOverview').append("Meters Drilled: "+property["totalMetersDrilled"]+"<br>");
+	$('.propertyOverview').append("LatLong: "+latCenter+","+lngCenter+"<br>");
+
+
 	var chartIndex = 0;
 
 	$('.minerals').html('');
-
 	// Don't make functions in loops.
 	function callToggleVisibile() {
 		view.toggleVisible($(this).attr('data-mineral'),

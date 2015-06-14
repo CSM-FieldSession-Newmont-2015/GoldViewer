@@ -386,7 +386,7 @@ function View(projectURL) {
 			}
 		});
 		sortMinerals();
-		loadSidebar(minerals);
+		loadSidebar(minerals,property);
 		delegate(minerals);
 	}
 
@@ -554,6 +554,7 @@ function View(projectURL) {
 	 * @todo Return the holes object instead of modifying a global object.
 	 */
 	function addSurveyLines(surfaceMesh) {
+		var totalMetersDrilled = 0;
 		var surveyCaster = new THREE.Raycaster();
 		var geometries = {};
 		var up = vec3FromArray([0, 0, 1]);
@@ -565,6 +566,7 @@ function View(projectURL) {
 
 
 			var color = jsonHole["traceColor"];
+			totalMetersDrilled+= jsonHole["depth"];
 
 			if (geometries[color] === undefined) {
 				geometries[color] = [];
@@ -632,6 +634,8 @@ function View(projectURL) {
 				surveys[surveys.length - 1].location[1],
 				surveys[surveys.length - 1].location[2] + zOffset);
 		});
+		property["totalMetersDrilled"] = Math.round(totalMetersDrilled);
+
 
 		Object.keys(geometries).forEach(function (jsonColor) {
 			var color = colorFromString(jsonColor);
