@@ -1408,6 +1408,7 @@ function View(projectURL) {
 
 			sceneOrtho.remove(tooltipSprite);
 			scene.remove(intersected);
+			intersected = null;
 
 			window.clearTimeout(mouseTimeout);
 			if(event.buttons == 0 && raycaster){
@@ -1474,14 +1475,38 @@ function View(projectURL) {
 		tempVec1.multiplyScalar(-1 * reticle.geometry.boundingSphere.radius);
 		movementVector.add(tempVec1);
 
+		var acceleration = length / 50000 + 0.01;
+
+		var reticleMotion = getDeltasForMovement(movementVector, acceleration);
+		var cameraMotion = getDeltasForMovement(movementVector, acceleration * 0.7);
+
+		//get rid of the last interval, in case it exists
+		window.clearInterval(motionInterval);
+
+		//Start an interval to move the reticle around!
+		//Trigger 100 times a second
+		motionInterval = setInterval(function(){
+			if(reticleMotion.length != 0){
+				controls.target.add(reticleMotion.pop());
+			}
+			if(cameraMotion.length != 0){
+				camera.position.add(cameraMotion.pop());
+			}
+
+			if(reticleMotion.length === 0 && cameraMotion.length === 0){
+				window.clearInterval(motionInterval);
+				motionInterval = null;
+			}
+		}, 10);
+	}
+
+	function getDeltasForMovement(movementVector, acceleration){
 
 		//get the total length of the movement
 		var length = movementVector.length();
 
 		//now construct a motion array of Vector3's that will constantly
 		//accelerate and then decelerate towards the object.
-
-		var acceleration = length / 50000 + 0.01;
 		var normalMovement = movementVector.clone();
 		normalMovement.normalize();
 		var totalMovement = 0;
@@ -1513,18 +1538,7 @@ function View(projectURL) {
 		normalMovement.multiplyScalar(length - totalMovement);
 		motion.push(normalMovement);
 
-		//get rid of the last interval, in case it exists
-		window.clearInterval(motionInterval);
-
-		//Start an interval to move the reticle around!
-		//Trigger 100 times a second
-		motionInterval = setInterval(function(){
-			controls.target.add(motion.pop());
-			if(motion.length === 0){
-				window.clearInterval(motionInterval);
-				motionInterval = null;
-			}
-		}, 10);
+		return motion;
 	}
 
 	function addBoundingBox() {
@@ -1591,7 +1605,6 @@ function View(projectURL) {
 	function setupRenderer() {
 		renderer = new THREE.WebGLRenderer({
 			antialias: true,
-			preserveDrawingBuffer: true // This might have performance impacts.
 		});
 		renderer.setSize(window.innerWidth, window.innerHeight);
 		renderer.setClearColor(colors.background, 1);
