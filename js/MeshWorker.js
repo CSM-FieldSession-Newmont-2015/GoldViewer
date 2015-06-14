@@ -1,32 +1,37 @@
-/* global THREE */
-
 importScripts('libs/three.js');
 
 var started = false;
 var busy = false;
-setInterval(function() { closeIfIdle(); }, 3000);
+setInterval(function () {
+	closeIfIdle();
+}, 3000);
 
-self.addEventListener('message', function(e) {
+self.addEventListener('message', function (e) {
 	busy = true;
 	started = true;
 	calcGeometry(e.data);
 });
 
 var cylinderEdges = 7;
-var matrix4 = new THREE.Matrix4().set
-		(1, 0, 0, 0,
-		0, 0, 1, 0,
-		0, -1, 0, 0,
-		0, 0, 0, 1);
+var matrix4 = new THREE.Matrix4()
+	.set(
+		1,  0,  0,  0,
+		0,  0,  1,  0,
+		0, -1,  0,  0,
+		0,  0,  0,  1);
 
 function determineWidth(value) {
-	var width =  Math.log(value + 1.0) * 2.0 / Math.log(10);
-	if (width < 0.1) {
-		width = 0.1;
+	var min = 0.3;
+	var max = 15.0;
+	var width = Math.log(value + 1.0) * 2.0 / Math.log(10);
+
+	// Clamp the widths into a (hard coded) range.
+	if (width < min) {
+		width = min;
+	} else if (width > max) {
+		width = max;
 	}
-	if (width > 8.0){
-		width = 8.0;
-	}
+
 	return width;
 }
 
@@ -37,8 +42,8 @@ function vec3FromArray(array) {
 	return new THREE.Vector3(array[0], array[1], array[2]);
 }
 
-function closeIfIdle(){
-	if(started && !busy){
+function closeIfIdle() {
+	if (started && !busy) {
 		console.log("Closing idle worker.");
 		close();
 	}
@@ -47,7 +52,7 @@ function closeIfIdle(){
 
 // `intervalData` should be in the form [[Float]*6, Float, Int],
 // giving the starting point, ending point, the ore concentration, and interval ID.
-function calcGeometry(intervalData){
+function calcGeometry(intervalData) {
 
 	var floats = new Float32Array(intervalData[0]);
 	var vec1 = vec3FromArray(floats);
@@ -59,8 +64,7 @@ function calcGeometry(intervalData){
 		[
 			geometry.attributes.position.array.buffer,
 			holeID
-		],
-		[
+		], [
 			geometry.attributes.position.array.buffer
 		]);
 }
