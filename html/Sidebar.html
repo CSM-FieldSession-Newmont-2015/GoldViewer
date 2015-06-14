@@ -5,6 +5,7 @@
     }
 
     .bar text {
+        font-size: x-small;
       fill: #fff;
     }
 
@@ -13,5 +14,53 @@
       stroke: #000;
       shape-rendering: crispEdges;
     }
+
+    .axis text {
+        font-size: x-small;
+
+    }
+
+    .mineral-container {
+        position: relative;
+ }
+
 </style>
-<svg class="chart"></svg>
+<div class="minerals"></div>
+
+<style>
+
+svg {
+  font: 10px sans-serif;
+}
+
+circle {
+  -webkit-transition: fill-opacity 250ms linear;
+}
+
+.selecting circle {
+  fill-opacity: .2;
+}
+
+.selecting circle.selected {
+  stroke: #f00;
+}
+
+.resize path {
+  fill: #666;
+  fill-opacity: .8;
+  stroke: #000;
+  stroke-width: 1.5px;
+}
+
+.axis path, .axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.brush .extent {
+  fill-opacity: .125;
+  shape-rendering: crispEdges;
+}
+
+</style>
