@@ -2,34 +2,38 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<title>Newmont WebGL Demo</title>
+		<title>Gold Viewer Demo</title>
 
-		<!-- External libraries are hosted under /js. -->
 		<link rel="stylesheet" href="style/dot luv/jquery-ui.css" />
-        <link rel="stylesheet" href="style/main.css" />
-        <script type="text/javascript" src="https://www.google.com/jsapi"></script>
-        <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?v=3.exp"></script>
-        <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
-        <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
-        <script type="text/javascript" src="js/libs/three.js"></script>
-        <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
-        <script type="text/javascript" src="js/Histogram.js"></script>
-        <script type="text/javascript" src="js/libs/json2html.js"></script>
-        <script type="text/javascript" src="js/libs/jquery.json2html.js"></script>
-        <script type="text/javascript" src="js/libs/OrbitControls.js"></script>
-        <script type="text/javascript" src="js/libs/stats.min.js"></script>
-        <script type="text/javascript" src="js/Controls.js"></script>
-        <script type="text/javascript" src="js/Elevation.js"></script>
-        <script type="text/javascript" src="js/View.js"></script>
+		<link rel="stylesheet" href="style/main.css" />
 
-        <script type="text/javascript">
-            $(document).ready(function() {
-                loadMenu();
-                loadControls();
-                initSidebar();
-                setWindowResizeEvent();
-            });
-        </script>
+		<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+		<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
+		<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.js"></script>
+		<!--		<script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>-->
+		<script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?v=3.exp"></script>
+		<script type="text/javascript" src="https://www.google.com/jsapi"></script>
+
+		<!-- External libraries which we can't easily find online are hosted under /js/libs.
+		     The order of these is important. (I think) -->
+		<script type="text/javascript" src="js/libs/json2html.js"></script>
+		<script type="text/javascript" src="js/libs/jquery.json2html.js"></script>
+		<script type="text/javascript" src="js/libs/three.js"></script>
+		<script type="text/javascript" src="js/libs/OrbitControls.js"></script>
+		<script type="text/javascript" src="js/libs/Stats.js"></script>
+
+		<script type="text/javascript" src="js/Histogram.js"></script>
+		<script type="text/javascript" src="js/Controls.js"></script>
+		<script type="text/javascript" src="js/View.js"></script>
+
+		<script type="text/javascript">
+			$(document).ready(function() {
+				loadMenu();
+				loadControls();
+				initSidebar();
+				setWindowResizeEvent();
+			});
+		</script>
 	</head>
 	<body>
 		<div id="divTopMenu"></div>
@@ -37,12 +41,12 @@
 				allowfullscreen webkitallowfullscreen mozallowfullscreen
 				style="height: 100%; width: 100%; border: none" scrolling="no">
 		</iframe>
-        <div class="sidebar-container"><div id="sidebar"></div></div>
-        <div id="ControlBar" class="ui-widget-header ui-corner-all"></div>
-        <div id="progressbar"><div class="progress-label"></div></div>
-        <div id="dialogDatasets" title="Gold Viewer Datasets" hidden="hidden">
-            <div id="templateContainer"></div>
-        </div>
+		<div class="sidebar-container"><div id="sidebar"></div></div>
+		<div id="ControlBar" class="ui-widget-header ui-corner-all"></div>
+		<div id="progressbar"><div class="progress-label"></div></div>
+		<div id="dialogDatasets" title="Gold Viewer Datasets" hidden="hidden">
+			<div id="templateContainer"></div>
+		</div>
 	</body>
 </html>
 

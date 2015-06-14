@@ -6,7 +6,7 @@
 		div.append('<input type="checkbox"><label>' + mineral + '</label>');
 		$('<svg id="svg' + chartIndex + '" class="chart">').appendTo(div);
 
-		addChart(minerals[mineral], chartIndex);
+		addChart(minerals[mineral], chartIndex, mineral);
 		chartIndex++;
 	}
 
@@ -81,10 +81,10 @@
 	    .on("brush", brushmove)
 	    .on("brushend", brushend);
 
-	    var gBrush = svg.append("g")
+		var gBrush = svg.append("g")
 	    .attr("class", "brush")
-	    .call(brush)
-        .call(brush.event);
+	    .call(brush);
+//        .call(brush.event);
 
 		gBrush.selectAll(".resize")
 			.append("path")
@@ -93,7 +93,7 @@
 		gBrush.selectAll("rect")
 		    .attr("height", height);
 
-		brushstart();
+//		brushstart();
 //		brushmove();
 
 		function resizePath(d) {
@@ -128,7 +128,7 @@
 		function brushend() {
 		    svg.classed("selecting", !d3.event.target.empty());
 
-		    view.updateVisiblity(mineral, brush.extent()[0], brush.extent()[1]);
+		    view.updateVisibility(mineral, Math.exp(brush.extent()[0]), Math.exp(brush.extent()[1]));
 		}
 	}
 }
