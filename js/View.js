@@ -379,6 +379,9 @@ function View(projectURL) {
 		Object.keys(minerals).forEach(function (mineral) {
 			minerals[mineral].minVisibleIndex = 0;
 			minerals[mineral].maxVisibleIndex = minerals[mineral].intervals.length - 1;
+			if(minerals[mineral].intervals.length == 0){
+				delete minerals[mineral];
+			}
 		});
 		sortMinerals();
 		loadSidebar(minerals);
@@ -1501,7 +1504,7 @@ function View(projectURL) {
 		tempVec1.multiplyScalar(-1 * reticle.geometry.boundingSphere.radius);
 		movementVector.add(tempVec1);
 
-		var acceleration = movementVector.length() / 10000 + 0.01;
+		var acceleration = movementVector.length() / 20000 + 0.01;
 		console.log('acceleration: ' + acceleration);
 
 		var reticleMotion = getDeltasForMovement(movementVector, acceleration);
