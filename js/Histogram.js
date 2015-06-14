@@ -5,12 +5,15 @@
 
 	// Don't make functions in loops.
 	function callToggleVisibile() {
-		view.toggleVisible($(this).attr('data-mineral'), $(this).is(':checked'));
+		view.toggleVisible($(this).attr('data-mineral'),
+			$(this).is(':checked'));
 	}
 
 	for (var mineral in minerals) {
 		var div = $('<div class="mineral-container">').appendTo('.minerals');
-		div.append('<input id="cb' + mineral + '" type="checkbox" data-mineral="' + mineral + '"><label>' + mineral + '</label>');
+		div.append('<input id="cb' + mineral +
+			'" type="checkbox" data-mineral="' + mineral + '"><label>' +
+			mineral + '</label>');
 		$('<svg id="svg' + chartIndex + '" class="chart">').appendTo(div);
 		$('#cb' + mineral).click(callToggleVisibile);
 		addChart(minerals[mineral], chartIndex, mineral);
@@ -20,7 +23,19 @@
 	function addChart(mineralIntervals, chartIndex, mineral) {
 		var values = [];
 		for (var interval in mineralIntervals.intervals) {
-			values.push(Math.log(mineralIntervals.intervals[interval].value));
+			// We want to see the log of the data, because reasons.
+			var concentration = mineralIntervals.intervals[interval].value;
+			if (concentration < 0.0) {
+				console.warn(
+					"Found negative concentration when loading minerals:" +
+					JSON.stringify(mineralIntervals.intervals[interval]));
+			}
+			values.push(Math.log(concentration));
+		}
+
+		if (values.length === 0) {
+			console.log("No data found when parsing " + mineral + ".");
+			return;
 		}
 
 		// Formatters for counts and times (converting numbers to Dates).
