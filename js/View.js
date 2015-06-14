@@ -931,6 +931,8 @@ function View(projectURL) {
 	this.updateVisibility = updateVisibility;
 
 	function updateVisibility(mineralName, lowerValue, higherValue) {
+
+		console.log("changing " + mineralName + " to be " + lowerValue + "-" + higherValue);
 		var mineral = minerals[mineralName];
 		if (mineral === undefined) {
 			console.log("can't update the visibility of " + mineralName + " as it is not in the data set");
@@ -972,7 +974,11 @@ function View(projectURL) {
 		newGeometry.addAttribute('position', new THREE.BufferAttribute(newGeometryVertices, 3));
 		newGeometry.computeFaceNormals();
 		newGeometry.computeVertexNormals();
-		mineral.mesh.geometry = newGeometry;
+
+		var newMesh = new THREE.Mesh(newGeometry, mineral.mesh.material);
+		scene.remove(mineral.mesh);
+		scene.add(newMesh);
+		mineral.mesh = newMesh;
 	}
 
 	/**
