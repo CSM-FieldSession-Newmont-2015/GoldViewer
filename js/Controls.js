@@ -132,7 +132,7 @@ function initProgressBar() {
     $('#progressbar').progressbar({
         value: false,
         change: function () {
-            //$('.progress-label').text($('#progressbar').progressbar('value') + "%");
+            $('.progress-label').text("Loading Geometries...");
         },
         complete: function () {
             $('.progress-label').text("Complete!");
@@ -142,7 +142,7 @@ function initProgressBar() {
             });
         },
         create: function () {
-            $('.progress-label').text("Loading Geometries...");
+            $('.progress-label').text("Loading Terrain...");
             $(this).show();
             $(this).css('top', $("#viewFrame").position().top + 20 + 'px');
             $('.progress-label').css('left', $(this).width() / 2 - $('.progress-label').width() / 2 + 'px');
