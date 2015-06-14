@@ -393,7 +393,7 @@ function View(projectURL) {
 			}
 		});
 		sortMinerals();
-		loadSidebar(minerals);
+		loadSidebar(minerals,property);
 		delegate(minerals);
 	}
 
@@ -561,6 +561,7 @@ function View(projectURL) {
 	 * @todo Return the holes object instead of modifying a global object.
 	 */
 	function addSurveyLines() {
+		var totalMetersDrilled = 0;
 		var surveyCaster = new THREE.Raycaster();
 		var geometries = {};
 		var up = vec3FromArray([0, 0, 1]);
@@ -572,6 +573,7 @@ function View(projectURL) {
 
 
 			var color = jsonHole["traceColor"];
+			totalMetersDrilled+= jsonHole["depth"];
 
 			if (geometries[color] === undefined) {
 				geometries[color] = [];
@@ -581,8 +583,7 @@ function View(projectURL) {
 			var initialLocation = surveys[0].location;
 			var lineGeometry = geometries[color];
 
-			//console.log("Initial location: "+(initialLocation[2] - property.box.center.z));
-			//Now we use the Raycaster to find the initial z value
+			// Now we use the Raycaster to find the initial z value
 			surveyCaster.set(vec3FromArray([
 					initialLocation[0] - property.box.center.x,
 					initialLocation[1] - property.box.center.y,
@@ -598,7 +599,9 @@ function View(projectURL) {
 				zOffset = intersect[0].distance - initialLocation[2];
 			} else {
 				console.log(
-					"Survey hole #" + jsonHole["id"] + "'s raycast did not intersect the terrain mesh." + " Maybe it's out of bounds, or the raycaster is broken?");
+					"Survey hole #" + jsonHole["id"] +
+					"'s raycast did not intersect the terrain mesh." +
+					" Maybe it's out of bounds, or the raycaster is broken?");
 			}
 
 			var hole = {
@@ -615,7 +618,9 @@ function View(projectURL) {
 			// We treat survey hole ids as integers, so it's important to check
 			// that every id we load is within this bound.
 			if (holeId >= (1 << 53)) {
-				console.warn("Survey hole # " + holeId + " is too large to store as an integer. " + "Some hole ids may be rounded and behave strangely.");
+				console.warn("Survey hole # " + holeId +
+					" is too large to store as an integer. " +
+					"Some hole ids may be rounded and behave strangely.");
 			}
 			holes.ids[holeId] = hole;
 
@@ -639,6 +644,8 @@ function View(projectURL) {
 				surveys[surveys.length - 1].location[1],
 				surveys[surveys.length - 1].location[2] + zOffset);
 		});
+		property["totalMetersDrilled"] = Math.round(totalMetersDrilled);
+
 
 		Object.keys(geometries).forEach(function (jsonColor) {
 			var color = colorFromString(jsonColor);
@@ -695,7 +702,8 @@ function View(projectURL) {
 
 		var maxTerrainDim = Math.max(sizeX, sizeY);
 		var minTerrainDim = Math.min(sizeX, sizeY);
-		var longSegments = Math.min(Math.ceil(maxTerrainDim / 2.0), maxPossibleSegments);
+		var longSegments = Math.min(Math.ceil(maxTerrainDim / 2.0),
+			maxPossibleSegments);
 		var segmentLength = maxTerrainDim / longSegments;
 		var shortSegments = Math.ceil(minTerrainDim / segmentLength);
 		minTerrainDim = shortSegments * segmentLength;
@@ -942,13 +950,25 @@ function View(projectURL) {
 	this.updateVisibility = updateVisibility;
 
 	function updateVisibility(mineralName, lowerValue, higherValue) {
+		var mineral = null;
 
-		console.log("changing " + mineralName + " to be " + lowerValue + "-" + higherValue);
-		var mineral = minerals[mineralName];
-		if (mineral === undefined) {
-			console.log("can't update the visibility of " + mineralName + " as it is not in the data set");
+		try {
+			mineral = minerals[mineralName];
+		} catch (e) {
+			mineral = null;
+		}
+		if (!mineral) {
+			console.log("There's no data for " + mineralName +
+				", so I can't update the visibility of it.\n" +
+				"Did you mean any of these?\n    " +
+				Object.keys(minerals).join("\n    "));
 			return;
 		}
+
+		// TODO: Round these values to make them prettier.
+		console.log("Changing visible range of " +
+			mineralName + ": " + (lowerValue) + ", " + (higherValue));
+
 		var intervals = mineral.intervals;
 		var emptyMesh = new THREE.Mesh(new THREE.BoxGeometry(0, 0, 0));
 		mineral.minVisibleIndex = -1;
@@ -965,7 +985,8 @@ function View(projectURL) {
 				}
 			} else {
 				visibleMeshes[intervals[i].id] = emptyMesh;
-				if (mineral.minVisibleIndex >= 0 && mineral.maxVisibleIndex < 0) {
+				if (mineral.minVisibleIndex >= 0 &&
+					mineral.maxVisibleIndex < 0) {
 					mineral.maxVisibleIndex = i - 1;
 				}
 			}
@@ -974,15 +995,19 @@ function View(projectURL) {
 			mineral.maxVisibleIndex = intervals.length - 1;
 		}
 
-		//Now we make a new BufferGeometry from the old one, and add it to our mesh!
-		var verticesPerInterval = meshes[0].geometry.attributes.position.array.length;
+		// Now we make a new BufferGeometry from the old one,
+		// and add it to our mesh!
+		var verticesPerInterval =
+			meshes[0].geometry.attributes.position.array.length;
 
-		var newGeometryVertices = mineral.geometry.attributes.position.array.subarray(
-			mineral.minVisibleIndex * verticesPerInterval,
-			mineral.maxVisibleIndex * verticesPerInterval);
+		var newGeometryVertices =
+			mineral.geometry.attributes.position.array.subarray(
+				mineral.minVisibleIndex * verticesPerInterval,
+				mineral.maxVisibleIndex * verticesPerInterval);
 
 		var newGeometry = new THREE.BufferGeometry();
-		newGeometry.addAttribute('position', new THREE.BufferAttribute(newGeometryVertices, 3));
+		newGeometry.addAttribute('position',
+			new THREE.BufferAttribute(newGeometryVertices, 3));
 		newGeometry.computeFaceNormals();
 		newGeometry.computeVertexNormals();
 
@@ -1020,14 +1045,16 @@ function View(projectURL) {
 		var intervals = mineral.intervals;
 		mineral.mesh.visible = visible;
 
-		var i;
+		var i = null;
+		var start = mineral.minVisibleIndex;
+		var end = mineral.maxVisibleIndex;
 		if (visible) {
-			for (i = mineral.minVisibleIndex; i <= mineral.maxVisibleIndex; i += 1) {
+			for (i = start; i <= end; i += 1) {
 				visibleMeshes[intervals[i].id] = meshes[intervals[i].id];
 			}
 		} else {
 			var emptyMesh = new THREE.Mesh(new THREE.BoxGeometry(0, 0, 0));
-			for (i = mineral.minVisibleIndex; i < mineral.maxVisibleIndex; i += 1) {
+			for (i = start; i < end; i += 1) {
 				visibleMeshes[intervals[i].id] = emptyMesh;
 			}
 		}
@@ -1172,7 +1199,10 @@ function View(projectURL) {
 		cameraLight = new THREE.PointLight(colors.cameraLight, 3, maxDimension);
 		scene.add(cameraLight);
 
-		reticleLight = new THREE.PointLight(colors.reticleLight, 5, maxDimension / 15);
+		reticleLight = new THREE.PointLight(
+			colors.reticleLight,
+			5,
+			maxDimension / 15);
 		scene.add(reticleLight);
 	}
 
@@ -1209,21 +1239,26 @@ function View(projectURL) {
 	 */
 	function makeTextSprite(message, parameters) {
 		if (parameters === undefined) parameters = {};
-		var fontface = parameters.hasOwnProperty("fontface") ? parameters["fontface"] : "Arial";
-		var fontsize = parameters.hasOwnProperty("fontsize") ? parameters["fontsize"] : 30;
-		var size = parameters.hasOwnProperty("size") ? parameters["size"] : 512;
-		var textColor = parameters.hasOwnProperty("textColor") ? parameters["textColor"] : {
-			r: 0,
-			g: 0,
-			b: 0,
-			a: 1.0
-		};
-		var backgroundColor = parameters.hasOwnProperty("backgroundColor") ? parameters["backgroundColor"] : {
-			r: 255,
-			g: 250,
-			b: 200,
-			a: 0.8
-		};
+		var fontface = parameters.hasOwnProperty("fontface") ?
+			parameters["fontface"] : "Arial";
+		var fontsize = parameters.hasOwnProperty("fontsize") ?
+			parameters["fontsize"] : 30;
+		var size = parameters.hasOwnProperty("size") ?
+			parameters["size"] : 512;
+		var textColor = parameters.hasOwnProperty("textColor") ?
+			parameters["textColor"] : {
+				r: 0,
+				g: 0,
+				b: 0,
+				a: 1.0
+			};
+		var backgroundColor = parameters.hasOwnProperty("backgroundColor") ?
+			parameters["backgroundColor"] : {
+				r: 255,
+				g: 250,
+				b: 200,
+				a: 0.8
+			};
 
 		var canvas = document.createElement('canvas');
 		canvas.width = size;
@@ -1243,7 +1278,11 @@ function View(projectURL) {
 			}
 		});
 		//set the color to the input
-		context.fillStyle = "rgba(" + backgroundColor.r + "," + backgroundColor.g + "," + backgroundColor.b + "," + backgroundColor.a + ")";
+		context.fillStyle = "rgba(" +
+			backgroundColor.r + "," +
+			backgroundColor.g + "," +
+			backgroundColor.b + "," +
+			backgroundColor.a + ")";
 
 		context.fillRect(0.5 * size - 15,
 			0.5 * size - fontsize - 15,
@@ -1251,7 +1290,10 @@ function View(projectURL) {
 			lines.length * lineHeight + 30);
 
 		context.textAlign = 'left';
-		context.fillStyle = "rgba(" + textColor.r + ", " + textColor.g + ", " + textColor.b + ", 1.0)";
+		context.fillStyle = "rgba(" +
+			textColor.r + ", " +
+			textColor.g + ", " +
+			textColor.b + ", 1.0)";
 
 		context.wrapText(message, size / 2, size / 2, 10000, fontsize);
 
@@ -1369,7 +1411,10 @@ function View(projectURL) {
 		//   is visible.
 		var data = intersected.mineralData;
 		tooltipSprite = makeTextSprite(
-			"Mineral:\t" + data.mineral + "\nValue:  \t" + data.value + "\nDepth:  \t" + data.depth.start + '-' + data.depth.end + "\nHole:\t" + holes.ids[data.hole].name, {
+			"Mineral:\t" + data.mineral +
+			"\nValue:  \t" + data.value +
+			"\nDepth:  \t" + data.depth.start + '-' + data.depth.end +
+			"\nHole:\t" + holes.ids[data.hole].name, {
 				backgroundColor: {
 					r: 11,
 					g: 62,
@@ -1442,7 +1487,8 @@ function View(projectURL) {
 				//   tooltipSprite follow the mouse.
 				var newX = event.clientX - (window.innerWidth / 2) + 20;
 				var newY = -event.clientY + (window.innerHeight / 2) - 40;
-				if (tooltipSpriteLocation.x == newX && tooltipSpriteLocation.y == newY) {
+				if (tooltipSpriteLocation.x == newX &&
+					tooltipSpriteLocation.y == newY) {
 					//If the mouse wasn't moved, ignore the following logic
 					return;
 				}
@@ -1488,8 +1534,8 @@ function View(projectURL) {
 			function mousedownEventListener(event) {
 				event.preventDefault();
 				mouseMoved = false;
-				//autoRotate set to true when both left and right buttons are clicked simultaneously
-				//and false otherwise
+				// autoRotate is true when both left and right buttons are
+				// clicked simultaneously and false otherwise
 				if (event.buttons == 3) {
 					controls.autoRotate = true;
 				} else {
@@ -1503,15 +1549,16 @@ function View(projectURL) {
 			toHere.computeBoundingSphere();
 		}
 
-		//use the bounding sphere to get the center of the mesh
-		//and to determine a reasonable distance to approach to
+		// Use the bounding sphere to get the center of the mesh
+		// and to determine a reasonable distance to approach to
 		var toSphere = toHere.geometry.boundingSphere;
 		var movementVector = new THREE.Vector3();
 
-		//get the movement vector
+		// get the movement vector
 		movementVector.subVectors(toSphere.center, controls.target);
 
-		//and subtract the radius of both of the bounding spheres from the vector
+		// and subtract the radius of both of the bounding spheres from
+		//the vector
 
 		var tempVec1 = movementVector.clone();
 		tempVec1.normalize();
@@ -1526,7 +1573,8 @@ function View(projectURL) {
 		var acceleration = movementVector.length() / 25000 + 0.01;
 
 		var reticleMotion = getDeltasForMovement(movementVector, acceleration);
-		var cameraMotion = getDeltasForMovement(movementVector, acceleration * 0.9);
+		var cameraMotion = getDeltasForMovement(movementVector,
+			acceleration * 0.9);
 
 		//get rid of the last interval, in case it exists
 		window.clearInterval(motionInterval);

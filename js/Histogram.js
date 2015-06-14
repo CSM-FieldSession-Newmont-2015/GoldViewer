@@ -1,4 +1,13 @@
-﻿function loadSidebar(minerals) {
+function loadSidebar(minerals, property) {
+	var latCenter = ((property.longLatMin.y + property.longLatMax.y) / 2).toFixed(8);;
+	var lngCenter = ((property.longLatMin.x + property.longLatMax.x) / 2).toFixed(8);;
+
+	$('.propertyOverview').append('<div class= "propertyTitle">'+property["name"]+"</div>");
+	$('.propertyOverview').append(property["description"]+"<br><br>");
+	$('.propertyOverview').append("Holes: "+property["numHoles"]+"<br>");
+	$('.propertyOverview').append("Meters Drilled: "+property["totalMetersDrilled"]+"<br>");
+	$('.propertyOverview').append("LatLong: "+latCenter+","+lngCenter+"<br>");
+
 	var chartIndex = 0;
 
 	$('.minerals').html('');
@@ -11,9 +20,8 @@
 
 	for (var mineral in minerals) {
 		var div = $('<div class="mineral-container">').appendTo('.minerals');
-		div.append('<input id="cb' + mineral +
-			'" type="checkbox" data-mineral="' + mineral + '"><label>' +
-			mineral + '</label>');
+		div = $('<span>').appendTo(div);
+		div.append('<input id="cb' + mineral + '" type="checkbox" data-mineral="' + mineral + '"><h2><label for="cb' + mineral + '">' + mineral + '</label></h2>');
 		$('<svg id="svg' + chartIndex + '" class="chart">').appendTo(div);
 		$('#cb' + mineral).prop('checked', true);
 		$('#cb' + mineral).click(callToggleVisibile);
@@ -46,7 +54,7 @@
 		var margin = {
 				top: 30,
 				right: 30,
-				bottom: 50,
+				bottom: 75,
 				left: 30
 			},
 			width = 400 - margin.left - margin.right,
@@ -54,7 +62,8 @@
 
 		var x = d3.scale.linear()
 			.domain([d3.min(values), d3.max(values)])
-			.range([0, width]);
+			.range([0, width])
+			.nice(intervals);
 
 		// Generate a histogram using uniformly-spaced bins.
 		var intervals = 20;
@@ -81,7 +90,15 @@
 			.append("g")
 			.attr("transform", "translate(" +
 				margin.left + "," + margin.top + ")");
-
+/*
+		svg.append("text")
+        .attr("x", (width / 2))
+        .attr("y", 0 - (margin.top / 2))
+        .attr("text-anchor", "middle")
+        .style("font-size", "16px")
+        .style("text-decoration", "underline")
+        .text("Value vs Date Graph");
+*/
 		var bar = svg.selectAll(".bar")
 			.data(data)
 			.enter().append("g")
