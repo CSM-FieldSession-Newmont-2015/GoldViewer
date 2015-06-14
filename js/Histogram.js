@@ -13,7 +13,6 @@
 	function addChart(mineralIntervals, chartIndex, mineral) {
 		var values = [];
 		for (var interval in mineralIntervals.intervals) {
-		    console.log(mineralIntervals.intervals[interval].value);
 			values.push(Math.log(mineralIntervals.intervals[interval].value));
 		}
 

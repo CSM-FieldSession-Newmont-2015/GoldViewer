@@ -820,8 +820,13 @@ function View(projectURL) {
 				opacity: 0.2
 			});
 			var surfaceMesh = new THREE.Mesh(geometry, material);
-			surfaceMesh.position.x += property.box.size.x / 2;
-			surfaceMesh.position.y += property.box.size.y / 2;
+			surfaceMesh.geometry.computeBoundingBox();
+			surfaceMesh.geometry.computeBoundingSphere();
+			console.log(surfaceMesh);
+			//surfaceMesh.position.z += property.box.size.z - surfaceMesh.geometry.boundingBox.max.z;
+			surfaceMesh.geometry.computeBoundingBox();
+			surfaceMesh.position.x += property.box.size.x / 2 - surfaceMesh.geometry.boundingSphere.center.x;
+			surfaceMesh.position.y += property.box.size.y / 2 - surfaceMesh.geometry.boundingSphere.center.y;
 
 			var lineMaterial = new THREE.LineBasicMaterial({
 				color: colors.terrain_frame,
@@ -1427,6 +1432,9 @@ function View(projectURL) {
 					motionInterval = null;
 					if(intersected){
 						startMotion(intersected);
+						sceneOrtho.remove(tooltipSprite);
+						scene.remove(intersected);
+						intersected = null;
 					}
 					else{
 						motion = [];
@@ -1474,10 +1482,11 @@ function View(projectURL) {
 		tempVec1.multiplyScalar(-1 * reticle.geometry.boundingSphere.radius);
 		movementVector.add(tempVec1);
 
-		var acceleration = length / 50000 + 0.01;
+		var acceleration = movementVector.length() / 10000 + 0.01;
+		console.log('acceleration: ' + acceleration);
 
 		var reticleMotion = getDeltasForMovement(movementVector, acceleration);
-		var cameraMotion = getDeltasForMovement(movementVector, acceleration * 0.7);
+		var cameraMotion = getDeltasForMovement(movementVector, acceleration * 0.8);
 
 		//get rid of the last interval, in case it exists
 		window.clearInterval(motionInterval);
