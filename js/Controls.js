@@ -91,7 +91,7 @@ function loadControls() {
 
 }
 
-function loadSidebar() {
+function initSidebar() {
     $.get("html/Sidebar.html", function (data) {
 		$("#sidebar").append(data);
 

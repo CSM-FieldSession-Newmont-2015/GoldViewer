@@ -381,7 +381,7 @@ function View(projectURL) {
 			minerals[mineral].maxVisibleIndex = minerals[mineral].intervals.length - 1;
 		})
 		sortMinerals();
-		//pass the histogram data
+		loadSidebar(minerals);
 		delegate(minerals);
 	}
 
@@ -921,6 +921,7 @@ function View(projectURL) {
 	 *
 	 * @todo I think Mason changed this to concentration values, not indices.
 	 */
+	this.updateVisibility = updateVisibility;
 	function updateVisibility(mineralName, lowerValue, higherValue){
 		var mineral = minerals[mineralName];
 		if(mineral === undefined){
@@ -1406,6 +1407,7 @@ function View(projectURL) {
 
 			sceneOrtho.remove(tooltipSprite);
 			scene.remove(intersected);
+			intersected = null;
 
 			window.clearTimeout(mouseTimeout);
 			if(event.buttons == 0 && raycaster){
@@ -1472,14 +1474,38 @@ function View(projectURL) {
 		tempVec1.multiplyScalar(-1 * reticle.geometry.boundingSphere.radius);
 		movementVector.add(tempVec1);
 
+		var acceleration = length / 50000 + 0.01;
+
+		var reticleMotion = getDeltasForMovement(movementVector, acceleration);
+		var cameraMotion = getDeltasForMovement(movementVector, acceleration * 0.7);
+
+		//get rid of the last interval, in case it exists
+		window.clearInterval(motionInterval);
+
+		//Start an interval to move the reticle around!
+		//Trigger 100 times a second
+		motionInterval = setInterval(function(){
+			if(reticleMotion.length != 0){
+				controls.target.add(reticleMotion.pop());
+			}
+			if(cameraMotion.length != 0){
+				camera.position.add(cameraMotion.pop());
+			}
+
+			if(reticleMotion.length === 0 && cameraMotion.length === 0){
+				window.clearInterval(motionInterval);
+				motionInterval = null;
+			}
+		}, 10);
+	}
+
+	function getDeltasForMovement(movementVector, acceleration){
 
 		//get the total length of the movement
 		var length = movementVector.length();
 
 		//now construct a motion array of Vector3's that will constantly
 		//accelerate and then decelerate towards the object.
-
-		var acceleration = length / 50000 + 0.01;
 		var normalMovement = movementVector.clone();
 		normalMovement.normalize();
 		var totalMovement = 0;
@@ -1511,18 +1537,7 @@ function View(projectURL) {
 		normalMovement.multiplyScalar(length - totalMovement);
 		motion.push(normalMovement);
 
-		//get rid of the last interval, in case it exists
-		window.clearInterval(motionInterval);
-
-		//Start an interval to move the reticle around!
-		//Trigger 100 times a second
-		motionInterval = setInterval(function(){
-			controls.target.add(motion.pop());
-			if(motion.length === 0){
-				window.clearInterval(motionInterval);
-				motionInterval = null;
-			}
-		}, 10);
+		return motion;
 	}
 
 	function addBoundingBox() {
@@ -1638,5 +1653,50 @@ function View(projectURL) {
 
 	function setupRaycaster() {
 		raycaster = new THREE.Raycaster();
+	}
+
+	function getHistogramCSV(JSONData, ShowLabel) {
+	    //If JSONData is not an object then JSON.parse will parse the JSON string in an Object
+	    var arrData = typeof JSONData != 'object' ? JSON.parse(JSONData) : JSONData;
+
+	    var CSV = '';
+
+	    //This condition will generate the Label/Header
+	    if (ShowLabel) {
+	        var row = "";
+
+	        //This loop will extract the label from 1st index of on array
+	        for (var index in arrData[0]) {
+
+	            //Now convert each value to string and comma-seprated
+	            row += index + ',';
+	        }
+
+	        row = row.slice(0, -1);
+
+	        //append Label row with line break
+	        CSV += row + '\r\n';
+	    }
+
+	    //1st loop is to extract each row
+	    for (var i = 0; i < arrData.length; i++) {
+	        var row = "";
+
+	        //2nd loop will extract each column and convert it in string comma-seprated
+	        for (var index in arrData[i]) {
+	            row += '"' + arrData[i][index] + '",';
+	        }
+
+	        row.slice(0, row.length - 1);
+
+	        //add a line break after each row
+	        CSV += row + '\r\n';
+	    }
+
+	    if (CSV == '') {
+	        console.log("Invalid CSV data from minerals");
+	    }
+
+	    return CSV;
 	}
 }
