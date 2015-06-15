@@ -306,7 +306,6 @@ function View(projectURL) {
 		addAxisLabels();
 		addReticle();
 		addLights();
-		toggleVisible("surveyHoles");
 		render();
 	}
 

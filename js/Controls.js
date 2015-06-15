@@ -93,6 +93,16 @@ function loadControls() {
 		$("#autoRotate").click(function () {
 			view.autoRotate();
 		});
+		
+		$("#toggleSurveyHoles").button({
+			text: false,
+			icons: {
+				primary: "ui-icon-signal"
+			}
+		});
+		$("#toggleSurveyHoles").click(function () {
+			view.toggleVisible("surveyHoles");
+		});
 
 		$(document).keydown(function (event) {
 			// Prevent arrow key scrolling
