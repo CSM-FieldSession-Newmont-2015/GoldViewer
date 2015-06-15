@@ -1,5 +1,7 @@
 # Gold Viewer
 
+For an overview of design decisions and technical details about the code, please view [the wiki](https://github.com/CSM-FieldSession-Newmont-2015/GoldViewer/wiki).
+
 ## Basic Setup
 
 To use GoldViewer, you can use the demo [here](http://csm-fieldsession-newmont-2015.github.io/GoldViewer/), or setup your own server.
