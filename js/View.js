@@ -113,7 +113,7 @@ function View(projectURL) {
 	 * sides on its wireframe.
 	 * @type {Number}
 	 */
-	var maxPossibleSegments = 60;
+	var maxPossibleSegments = 30;
 
 	/**
 	 * Array of all the meshes for ray casting, indexed with their mesh id.
@@ -1588,7 +1588,7 @@ function View(projectURL) {
 
 		var reticleMotion = getDeltasForMovement(movementVector, acceleration);
 		var cameraMotion = getDeltasForMovement(movementVector,
-			acceleration * 0.8);
+			acceleration * 0.15);
 
 		//get rid of the last interval, in case it exists
 		window.clearInterval(motionInterval);
