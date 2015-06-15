@@ -516,10 +516,11 @@ function View(projectURL) {
 		var verticesPerInterval = meshes[0].geometry.attributes
 			.position.array.length;
 
-		Object.keys(minerals).forEach(function (mineral) {
+		for(var mineral in minerals) {
 
 			var numVertices = verticesPerInterval * minerals[mineral].intervals.length;
 			var verts = new Float32Array(numVertices);
+			var indeces = new Uint32Array(numVertices / 3);
 
 			var counter = 0;
 			minerals[mineral].intervals.forEach(function (interval) {
@@ -528,12 +529,25 @@ function View(projectURL) {
 				verts.set(floatArray, counter * verticesPerInterval);
 				counter += 1;
 			});
+
+			for(var i = 0; i < numVertices / 3; i += 1){
+				indeces[i] = i;
+			}
+
 			var geometry = new THREE.BufferGeometry();
 			geometry.addAttribute('position',
 				new THREE.BufferAttribute(verts, 3));
+			geometry.addAttribute('index',
+				new THREE.BufferAttribute(indeces, 3));
 			geometry.computeFaceNormals();
 			geometry.computeVertexNormals();
+			
+			geometry.addDrawCall({});	//if I give it the arguments inside the object, it breaks :(
 
+			geometry.drawcalls[0].start = 0;
+			geometry.drawcalls[0].count = numVertices / 3;
+			geometry.drawcalls[0].index = 0;
+			
 			var color = colorFromString(property.analytes[mineral].color);
 			var material = new THREE.MeshPhongMaterial({
 				color: color,
@@ -545,7 +559,7 @@ function View(projectURL) {
 
 			scene.add(minerals[mineral]["mesh"]);
 
-		});
+		}
 		setProgressBar(100);
 	}
 
@@ -560,7 +574,6 @@ function View(projectURL) {
 	 * @todo Return the holes object instead of modifying a global object.
 	 */
 	function addSurveyLines() {
-		console.log(terrainMesh);
 		var totalMetersDrilled = 0;
 		var surveyCaster = new THREE.Raycaster();
 		var geometries = {};
@@ -1005,21 +1018,9 @@ function View(projectURL) {
 		var verticesPerInterval =
 			meshes[0].geometry.attributes.position.array.length;
 
-		var newGeometryVertices =
-			mineral.geometry.attributes.position.array.subarray(
-				mineral.minVisibleIndex * verticesPerInterval,
-				mineral.maxVisibleIndex * verticesPerInterval);
-
-		var newGeometry = new THREE.BufferGeometry();
-		newGeometry.addAttribute('position',
-			new THREE.BufferAttribute(newGeometryVertices, 3));
-		newGeometry.computeFaceNormals();
-		newGeometry.computeVertexNormals();
-
-		var newMesh = new THREE.Mesh(newGeometry, mineral.mesh.material);
-		scene.remove(mineral.mesh);
-		scene.add(newMesh);
-		mineral.mesh = newMesh;
+		var drawcall = mineral.mesh.geometry.drawcalls[0];
+		drawcall.index = mineral.minVisibleIndex * verticesPerInterval / 3;
+		drawcall.count = (mineral.maxVisibleIndex - mineral.minVisibleIndex + 1) * verticesPerInterval / 3;
 	}
 
 	/**
