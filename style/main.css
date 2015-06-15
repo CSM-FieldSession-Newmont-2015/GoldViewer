@@ -79,7 +79,7 @@ text-shadow: 1px 1px 0 #fff;
     background-image: url("dot luv/images/ui-bg_diagonals-thick_15_0b3e6f_40x40.png");
 }
 
-.ui-icon-circle-plus, .ui-icon-circle-minus, .ui-icon-calculator, .ui-icon-arrowrefresh-1-s {
+.ui-icon-circle-plus, .ui-icon-circle-minus, .ui-icon-calculator, .ui-icon-arrowrefresh-1-s, .ui-icon-signal {
   -ms-transform: scale(2); /* IE 9 */
   -webkit-transform: scale(2); /* Chrome, Safari, Opera */
   transform: scale(2);
