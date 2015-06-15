@@ -306,8 +306,7 @@ function View(projectURL) {
 		addAxisLabels();
 		addReticle();
 		addLights();
-		toggleVisible("terrain", false);
-		toggleVisible("surveyHoles", false);
+		toggleVisible("surveyHoles");
 		render();
 	}
 
@@ -517,10 +516,11 @@ function View(projectURL) {
 		var verticesPerInterval = meshes[0].geometry.attributes
 			.position.array.length;
 
-		Object.keys(minerals).forEach(function (mineral) {
+		for(var mineral in minerals) {
 
 			var numVertices = verticesPerInterval * minerals[mineral].intervals.length;
 			var verts = new Float32Array(numVertices);
+			var indeces = new Uint32Array(numVertices / 3);
 
 			var counter = 0;
 			minerals[mineral].intervals.forEach(function (interval) {
@@ -529,12 +529,25 @@ function View(projectURL) {
 				verts.set(floatArray, counter * verticesPerInterval);
 				counter += 1;
 			});
+
+			for(var i = 0; i < numVertices / 3; i += 1){
+				indeces[i] = i;
+			}
+
 			var geometry = new THREE.BufferGeometry();
 			geometry.addAttribute('position',
 				new THREE.BufferAttribute(verts, 3));
+			geometry.addAttribute('index',
+				new THREE.BufferAttribute(indeces, 3));
 			geometry.computeFaceNormals();
 			geometry.computeVertexNormals();
+			
+			geometry.addDrawCall({});	//if I give it the arguments inside the object, it breaks :(
 
+			geometry.drawcalls[0].start = 0;
+			geometry.drawcalls[0].count = numVertices / 3;
+			geometry.drawcalls[0].index = 0;
+			
 			var color = colorFromString(property.analytes[mineral].color);
 			var material = new THREE.MeshPhongMaterial({
 				color: color,
@@ -546,7 +559,7 @@ function View(projectURL) {
 
 			scene.add(minerals[mineral]["mesh"]);
 
-		});
+		}
 		setProgressBar(100);
 	}
 
@@ -591,7 +604,6 @@ function View(projectURL) {
 				]),
 				up);
 			var intersect = surveyCaster.intersectObject(terrainMesh); //look up
-			//console.log(surveyCaster);
 			surveyCaster.set(surveyCaster.ray.origin, down);
 			Array.prototype.push.apply(intersect, surveyCaster.intersectObject(terrainMesh)); //and down
 			var zOffset = 0;
@@ -668,6 +680,10 @@ function View(projectURL) {
 			scene.add(holes.lines[jsonColor]);
 		});
 		addLastElements();
+	}
+
+	this.autoRotate = function(){
+		controls.autoRotate = !controls.autoRotate;
 	}
 
 	/**
@@ -824,9 +840,16 @@ function View(projectURL) {
 			var geometry = new THREE.PlaneGeometry(sizeX, sizeY, xSegments, ySegments - 1);
 			var counter = 0;
 			var vertices = geometry.vertices;
+			var maxElevation = 0;
+
+			for(var j = 0; j < ySegments; j += 1)
+				for(var i = 0; i < xSegments; i += 1)
+					maxElevation = Math.max(maxElevation, elevations[j][i]);
+
+			var offset = property.box.center.z + property.box.size.z / 2 - maxElevation;
 			for (var j = 0; j < ySegments; j += 1) {
 				for (var i = 0; i <= xSegments; i += 1) {
-					geometry.vertices[counter].z = elevations[j][i];
+					geometry.vertices[counter].z = elevations[j][i] + offset;
 					counter += 1;
 				}
 			}
@@ -841,11 +864,10 @@ function View(projectURL) {
 			terrainMesh = new THREE.Mesh(geometry, material);
 			terrainMesh.geometry.computeBoundingBox();
 			terrainMesh.geometry.computeBoundingSphere();
-			console.log(terrainMesh);
-			//terrainMesh.position.z += property.box.size.z - terrainMesh.geometry.boundingBox.max.z;
-			terrainMesh.geometry.computeBoundingBox();
-			terrainMesh.position.x += property.box.size.x / 2 - terrainMesh.geometry.boundingSphere.center.x;
-			terrainMesh.position.y += property.box.size.y / 2 - terrainMesh.geometry.boundingSphere.center.y;
+			terrainMesh.position.x += property.box.center.x;
+			terrainMesh.position.y += property.box.center.y;
+
+			terrainMesh.elementsNeedUpdate = true;
 
 			var lineMaterial = new THREE.LineBasicMaterial({
 				color: colors.terrain_frame,
@@ -858,7 +880,7 @@ function View(projectURL) {
 			noDiagonals.position.y -= (sizeY - property.box.size.y) / 2;
 
 			scene.add(terrainMesh);
-			addSurveyLines();
+			setTimeout(function(){addSurveyLines()}, 0);
 		}
 	}
 
@@ -965,10 +987,6 @@ function View(projectURL) {
 			return;
 		}
 
-		// TODO: Round these values to make them prettier.
-		console.log("Changing visible range of " +
-			mineralName + ": " + (lowerValue) + ", " + (higherValue));
-
 		var intervals = mineral.intervals;
 		var emptyMesh = new THREE.Mesh(new THREE.BoxGeometry(0, 0, 0));
 		mineral.minVisibleIndex = -1;
@@ -1000,21 +1018,9 @@ function View(projectURL) {
 		var verticesPerInterval =
 			meshes[0].geometry.attributes.position.array.length;
 
-		var newGeometryVertices =
-			mineral.geometry.attributes.position.array.subarray(
-				mineral.minVisibleIndex * verticesPerInterval,
-				mineral.maxVisibleIndex * verticesPerInterval);
-
-		var newGeometry = new THREE.BufferGeometry();
-		newGeometry.addAttribute('position',
-			new THREE.BufferAttribute(newGeometryVertices, 3));
-		newGeometry.computeFaceNormals();
-		newGeometry.computeVertexNormals();
-
-		var newMesh = new THREE.Mesh(newGeometry, mineral.mesh.material);
-		scene.remove(mineral.mesh);
-		scene.add(newMesh);
-		mineral.mesh = newMesh;
+		var drawcall = mineral.mesh.geometry.drawcalls[0];
+		drawcall.index = mineral.minVisibleIndex * verticesPerInterval / 3;
+		drawcall.count = (mineral.maxVisibleIndex - mineral.minVisibleIndex + 1) * verticesPerInterval / 3;
 	}
 
 	/**
@@ -1029,20 +1035,28 @@ function View(projectURL) {
 	 *                               rendered or not.
 	 */
 	function toggleVisible(mineralName, visible) {
-		console.log(mineralName);
 		if(mineralName == "surveyHoles"){
 			for(var line in holes.lines){
+				if(visible == null){
+					visible = !holes.lines[line].visible;
+				}
 				holes.lines[line].visible = visible;
 			}
 			return;
 		}
 		if(mineralName == "terrain"){
+			if(visible == null){
+				visible = !terrainMesh.visible;
+			}
 			terrainMesh.visible = visible;
 			return;
 		}
 
 		var mineral = minerals[mineralName];
 		var intervals = mineral.intervals;
+		if(visible == null){
+			visible = !mineral.mesh.visible;
+		}
 		mineral.mesh.visible = visible;
 
 		var i = null;
@@ -1574,7 +1588,7 @@ function View(projectURL) {
 
 		var reticleMotion = getDeltasForMovement(movementVector, acceleration);
 		var cameraMotion = getDeltasForMovement(movementVector,
-			acceleration * 0.9);
+			acceleration * 0.8);
 
 		//get rid of the last interval, in case it exists
 		window.clearInterval(motionInterval);
