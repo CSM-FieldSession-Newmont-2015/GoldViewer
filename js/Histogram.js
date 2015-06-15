@@ -1,4 +1,4 @@
-function loadSidebar(minerals, property) {
+﻿function loadSidebar(minerals, property) {
 	var latCenter = ((property.longLatMin.y + property.longLatMax.y) / 2).toFixed(8);;
 	var lngCenter = ((property.longLatMin.x + property.longLatMax.x) / 2).toFixed(8);;
 
@@ -21,8 +21,7 @@ function loadSidebar(minerals, property) {
 
 	for (var mineral in minerals) {
 		var div = $('<div class="mineral-container">').appendTo('.minerals');
-		div = $('<span>').appendTo(div);
-		div.append('<input id="cb' + mineral + '" type="checkbox" data-mineral="' + mineral + '"><h2><label for="cb' + mineral + '">' + mineral + '</label></h2>');
+		$('<input id="cb' + mineral + '" type="checkbox" data-mineral="' + mineral + '"><h2><label for="cb' + mineral + '">' + mineral + '</label></h2><div class="colorBar" style="background-color: ' + minerals[mineral].color + ';"></div>;').appendTo(div);
 		$('<svg id="svg' + chartIndex + '" class="chart">').appendTo(div);
 		$('#cb' + mineral).prop('checked', true);
 		$('#cb' + mineral).click(callToggleVisibile);
@@ -53,7 +52,7 @@ function loadSidebar(minerals, property) {
 		var formatDensity = d3.format(",.3f");
 
 		var margin = {
-				top: 50,
+				top: 35,
 				right: 30,
 				bottom: 75,
 				left: 30
