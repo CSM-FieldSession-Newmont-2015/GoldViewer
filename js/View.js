@@ -113,7 +113,7 @@ function View(projectURL) {
 	 * sides on its wireframe.
 	 * @type {Number}
 	 */
-	var maxPossibleSegments = 30;
+	var maxPossibleSegments = 60;
 
 	/**
 	 * Array of all the meshes for ray casting, indexed with their mesh id.
@@ -142,7 +142,7 @@ function View(projectURL) {
 	var mouse = new THREE.Vector2();
 
 	/**
-	 * We only activate ray casting when the mouse has stopped moving for a c
+	 * We only activate ray casting when the mouse has stopped moving for a
 	 * certain amount of time. We keep track of whether the mouse has moved to
 	 * aid in ray casting.
 	 * @see  mouseTimeout
@@ -354,9 +354,6 @@ function View(projectURL) {
 					if (minerals[mineral["name"]] === undefined) {
 						minerals[mineral["name"]] = {
 							intervals: [],
-							mesh: {
-								vertices: null
-							},
 							color: property.analytes[mineral["name"]].color
 						};
 					}
@@ -438,7 +435,7 @@ function View(projectURL) {
 			// We can measure how many of the geometries we've loaded,
 			//   but we can't easily predict how long the BigMesh will
 			//   take, so assume 2%.
-			setProgressBar(98 * returnedGeometry / totalGeometries);
+			setProgressBar(90 * returnedGeometry / totalGeometries);
 		}
 
 		if (returnedGeometry >= totalGeometries) {
@@ -558,6 +555,10 @@ function View(projectURL) {
 
 			scene.add(minerals[mineral]["mesh"]);
 
+		}
+		setProgressBar(95);
+		for(var mineral in minerals){
+			updateVisibility(mineral);
 		}
 		setProgressBar(100);
 	}
@@ -987,16 +988,26 @@ function View(projectURL) {
 		}
 
 		var intervals = mineral.intervals;
+
+		//if we weren't given values in the arguments, update visibility with the current values.
+		lowerValue = lowerValue || intervals[mineral.minVisibleIndex].value;
+		higherValue = higherValue || intervals[mineral.maxVisibleIndex].value;
+
 		var emptyMesh = new THREE.Mesh(new THREE.BoxGeometry(0, 0, 0));
 		mineral.minVisibleIndex = -1;
 		mineral.maxVisibleIndex = -1;
 
-		//Here we iterate through all of the meshes of the mineral, setting
-		//the interval to be visible if it is between the value bounds
+		// Don't add invisible things to the visibleMeshes array
+		var isVisible = (mineral.mesh && mineral.mesh.visible);
+
+		// Here we iterate through all of the meshes of the mineral, setting
+		// the interval to be visible if it is between the value bounds
 		for (var i = 0; i < intervals.length; i += 1) {
 			var value = intervals[i].value;
 			if (value >= lowerValue && value <= higherValue) {
-				visibleMeshes[intervals[i].id] = meshes[intervals[i].id];
+				if(isVisible){
+					visibleMeshes[intervals[i].id] = meshes[intervals[i].id];
+				}
 				if (mineral.minVisibleIndex < 0) {
 					mineral.minVisibleIndex = i;
 				}
@@ -1012,8 +1023,13 @@ function View(projectURL) {
 			mineral.maxVisibleIndex = intervals.length - 1;
 		}
 
-		// Now we make a new BufferGeometry from the old one,
-		// and add it to our mesh!
+		// Don't try to update the current mesh if it hasn't yet been instantiated.
+		if(!mineral.mesh){
+			return;
+		}
+
+		// Now calculate the drawcall to give to the mineral mesh so only the visible
+		// intervals are being displayed in the screen
 		var verticesPerInterval =
 			meshes[0].geometry.attributes.position.array.length;
 
@@ -1029,12 +1045,13 @@ function View(projectURL) {
 	 * minerals is disabled.
 	 * @public
 	 *
-	 * @param  {String}  mineralName Which type of minerals to filter.
+	 * @param  {String}  objectName  Which type of mineral or mesh to filter.
 	 * @param  {Boolean} visible     Whether minerals of this type should be
 	 *                               rendered or not.
 	 */
-	function toggleVisible(mineralName, visible) {
-		if(mineralName == "surveyHoles"){
+	function toggleVisible(objectName, visible) {
+
+		if(objectName == "surveyHoles"){
 			for(var line in holes.lines){
 				if(visible == null){
 					visible = !holes.lines[line].visible;
@@ -1043,7 +1060,8 @@ function View(projectURL) {
 			}
 			return;
 		}
-		if(mineralName == "terrain"){
+
+		if(objectName == "terrain"){
 			if(visible == null){
 				visible = !terrainMesh.visible;
 			}
@@ -1051,7 +1069,7 @@ function View(projectURL) {
 			return;
 		}
 
-		var mineral = minerals[mineralName];
+		var mineral = minerals[objectName];
 		var intervals = mineral.intervals;
 		if(visible == null){
 			visible = !mineral.mesh.visible;
@@ -1395,39 +1413,31 @@ function View(projectURL) {
 	}
 
 	/**
-	 * Checks if the mouse is "hovering over" any cylinders in `visibleMeshes`
-	 * on the screen. If it finds something, it adds tool tip.
+	 * This is the method to be called after a timeout of the mouse not moving 
+	 * It checks for a mouse intercept and then will highlight an interval and
+	 * show its tooltip if it is being hovered over
 	 */
-	function checkMouseIntercept() {
-
-		// Don't ray cast if we're rotating, moving the reticle or haven't yet
-		// set up the mineral intervals
-		if (!raycaster || controls.autoRotate || motionInterval) {
-			return;
-		}
-		raycaster.setFromCamera(mouse, camera);
-		var intersects = raycaster.intersectObjects(visibleMeshes);
-
-		if (intersects.length === 0) {
-			intersected = null;
+	function checkHover() {
+		checkMouseIntercept();
+		if(!intersected){
 			return;
 		}
 
-		intersected = intersects[0].object;
-
+		console.log(intersected);
 		intersected.material = new THREE.MeshLambertMaterial({
 			emissive: colors.tooltipsSelection
 		});
+		intersected.geometry.computeVertexNormals();
 		scene.add(intersected);
 
 		// Set sprite to be in front of the orthographic camera so it
 		//   is visible.
 		var data = intersected.mineralData;
 		tooltipSprite = makeTextSprite(
-			"Mineral:\t" + data.mineral +
-			"\nValue:  \t" + data.value +
-			"\nDepth:  \t" + data.depth.start + '-' + data.depth.end +
-			"\nHole:\t" + holes.ids[data.hole].name, {
+			"Mineral: " + data.mineral +
+			"\nValue: " + data.value +
+			"\nDepth: " + data.depth.start + '-' + data.depth.end +
+			"\nHole: " + holes.ids[data.hole].name, {
 				backgroundColor: {
 					r: 11,
 					g: 62,
@@ -1447,7 +1457,25 @@ function View(projectURL) {
 		tooltipSprite.position.x = tooltipSpriteLocation.x;
 		tooltipSprite.position.y = tooltipSpriteLocation.y;
 		sceneOrtho.add(tooltipSprite);
+	}
 
+	/**
+	 * Checks if the mouse is "hovering over" any cylinders in `visibleMeshes`
+	 * on the screen. If it finds something, it adds tool tip.
+	 */
+	function checkMouseIntercept() {
+		// Don't ray cast if we haven't yet set up the mineral intervals
+		if (!raycaster) {
+			return;
+		}
+		raycaster.setFromCamera(mouse, camera);
+		var intersects = raycaster.intersectObjects(visibleMeshes);
+
+		if (intersects.length === 0) {
+			intersected = null;
+			return;
+		}
+		intersected = intersects[0].object;
 	}
 
 	/**
@@ -1517,8 +1545,8 @@ function View(projectURL) {
 				intersected = null;
 
 				window.clearTimeout(mouseTimeout);
-				if (event.buttons === 0 && raycaster) {
-					mouseTimeout = window.setTimeout(checkMouseIntercept, 150);
+				if (event.buttons === 0 && raycaster && !controls.autoRotate && !motionInterval) {
+					mouseTimeout = window.setTimeout(checkHover, 150);
 				}
 
 				if (event.buttons % 4 - event.buttons % 2 == 2) { //panning!
@@ -1530,15 +1558,18 @@ function View(projectURL) {
 		container.addEventListener("click",
 			function mouseClickEventListener(event) {
 				if (!mouseMoved) {
-					clearTimeout(motionInterval);
+					clearInterval(motionInterval);
 					motionInterval = null;
+					clearTimeout(mouseTimeout);
 					if (intersected) {
-						startMotion(intersected);
 						sceneOrtho.remove(tooltipSprite);
 						scene.remove(intersected);
-						intersected = null;
+						startMotion(intersected);
 					} else {
-						motion = [];
+						checkMouseIntercept();
+						if (intersected) {
+							startMotion(intersected);
+						}
 					}
 				}
 			});
@@ -1558,6 +1589,8 @@ function View(projectURL) {
 	}
 
 	function startMotion(toHere) {
+		intersected = null;
+
 		if (toHere.geometry.boundingSphere === undefined) {
 			toHere.computeBoundingSphere();
 		}
@@ -1605,6 +1638,7 @@ function View(projectURL) {
 			if (reticleMotion.length === 0 && cameraMotion.length === 0) {
 				window.clearInterval(motionInterval);
 				motionInterval = null;
+				mouseTimeout = setTimeout(checkHover, 150);
 			}
 		}, 10);
 	}
