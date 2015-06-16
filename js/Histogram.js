@@ -4,11 +4,11 @@
 
 	$('.propertyOverview').html('');
 	
-	$('.propertyOverview').append('<div class= "propertyTitle">'+property["name"]+"</div>");
-	$('.propertyOverview').append(property["description"]+"<br><br>");
-	$('.propertyOverview').append("Holes: "+property["numHoles"]+"<br>");
-	$('.propertyOverview').append("Meters Drilled: "+property["totalMetersDrilled"]+"<br>");
-	$('.propertyOverview').append("LatLong: "+latCenter+","+lngCenter+"<br>");	var chartIndex = 0;
+	$('.propertyOverview').append('<div class="propertyTitle">' + property["name"] + '</div>')
+		.append(property["description"]+"<br><br>")
+		.append("Holes: " + property["numHoles"] + "<br>")
+		.append("Meters Drilled: " + property["totalMetersDrilled"] + "<br>")
+		.append("LatLong: " + latCenter + "," + lngCenter + "<br>"); var chartIndex = 0;
 
 	var chartIndex = 0;
 	$('.minerals').html('');
@@ -21,7 +21,9 @@
 
 	for (var mineral in minerals) {
 		var div = $('<div class="mineral-container">').appendTo('.minerals');
-		$('<input id="cb' + mineral + '" type="checkbox" data-mineral="' + mineral + '"><h2><label for="cb' + mineral + '">' + mineral + '</label></h2><div class="colorBar" style="background-color: ' + minerals[mineral].color + ';"></div>;').appendTo(div);
+		$('<input id="cb' + mineral + '" type="checkbox" data-mineral="' + mineral + '">').appendTo(div);
+		$('<h2><label for="cb' + mineral + '">' + mineral + '</label></h2>').appendTo(div);
+		$('<div class="colorBar" style="background-color: ' + minerals[mineral].color + ';"></div>;').appendTo(div);
 		$('<svg id="svg' + chartIndex + '" class="chart">').appendTo(div);
 		$('#cb' + mineral).prop('checked', true);
 		$('#cb' + mineral).click(callToggleVisibile);
@@ -47,7 +49,6 @@
 			return;
 		}
 
-		// Formatters for counts and times (converting numbers to Dates).
 		var formatCount = d3.format(",.0f");
 		var formatDensity = d3.format(",.3f");
 

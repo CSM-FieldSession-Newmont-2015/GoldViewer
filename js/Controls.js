@@ -53,8 +53,15 @@ function loadMenu() {
 	});
 }
 
+/**
+* jQuery Button Control
+* Load the button controls for
+* zooming, rotating,
+* toggling terrain, and toggling drill holes,
+* and the sidebar handle.
+* Attach click events to each button
+*/
 function loadControls() {
-
 	$.get("html/ControlBar.html", function (data) {
 		$("div#ControlBar").append(data);
 		$("#zoomIn").button({
@@ -104,19 +111,19 @@ function loadControls() {
 			view.toggleVisible("surveyHoles");
 		});
 
-		$(document).keydown(function (event) {
-			// Prevent arrow key scrolling
-			if (event.keyCode >= 38 && event.keyCode <= 40)
-				event.preventDefault();
-			var controls = document.getElementById('viewFrame').contentWindow.controls;
-			if (controls) {
-				controls.onKeyDown(event);
+		$("#sidebarHandle").button({
+			text: false,
+			icons: {
+				primary: "ui-icon-play"
 			}
 		});
 	});
-
 }
 
+/**
+* Create an empty sliding tab area on the side.
+* Attach click events to slide it open and close.
+*/
 function initSidebar() {
 	$.get("html/Sidebar.html", function (data) {
 		$("#sidebar").append(data);
@@ -125,24 +132,38 @@ function initSidebar() {
 			if ($(this).width() - e.pageX > 20)
 				return;
 
+			$('#sidebarHandle').hide();
+
+			// Hide the sidebar-container before sliding the sidebar closed.
 			if ($('#sidebar').css('display') != 'none') {
 				$(this).width(20);
 			}
 
 			$('#sidebar').toggle('slide', {
 				direction: 'left'
-			}, function () {
-				if ($(this).css('display') == 'none') {
-					$('.sidebar-container').width(20);
-				} else {
-					$('.sidebar-container').width($(this).width() + 20);
-				}
+				}, function () {
+					if ($(this).css('display') == 'none') {
+						$('.sidebar-container').width(20);
+						$('#sidebarHandle').css('right', '');
+						$('#sidebarHandle').css('left', '0');
+						$('#sidebarHandle').css('transform', '');
+						$('#sidebarHandle').show();
+					} else {
+						$('.sidebar-container').width($(this).width() + 20);
+						$('#sidebarHandle').css('left', '');
+						$('#sidebarHandle').css('right', '0');
+						$('#sidebarHandle').css('transform', 'rotate(180deg)');
+						$('#sidebarHandle').show();
+					}
 			});
+		});
 	});
-
-});
 }
 
+/**
+* When we resize the window,
+* We want to resize the frames to prevent the inclusion of scrollbars.
+*/
 function setWindowResizeEvent() {
 	$(window).resize(function () {
 		resizeFrames();
@@ -156,10 +177,15 @@ function resizeFrames() {
 	$('#viewFrame').height(height);
 	$('.sidebar-container').css('top', ($('#viewFrame').position().top));
 	$('.sidebar-container').height(height);
+	$('#sidebarHandle').css('top', $('.sidebar-container').height() / 2 - $('#sidebarHandle').height() / 2);
 	var windowWidth = $(window).width();
 	var windowHeight = $(window).height();
 }
 
+/**
+* We are doing work that will take some time.
+* Give the user an indicator that the application is active.
+*/
 function initProgressBar() {
 	$('#progressbar').progressbar({
 		value: false,
@@ -184,6 +210,9 @@ function initProgressBar() {
 	});
 }
 
+/**
+* Setter function for the progress bar.
+*/
 function setProgressBar(percent) {
 	var progressbar = $('#progressbar');
 	percent = percent < 0 ? 0 : percent;
