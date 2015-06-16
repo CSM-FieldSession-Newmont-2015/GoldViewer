@@ -3,7 +3,7 @@
 	var lngCenter = ((property.longLatMin.x + property.longLatMax.x) / 2).toFixed(8);;
 
 	$('.propertyOverview').html('');
-	
+
 	$('.propertyOverview').append('<div class="propertyTitle">' + property["name"] + '</div>')
 		.append(property["description"]+"<br><br>")
 		.append("Holes: " + property["numHoles"] + "<br>")
