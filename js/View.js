@@ -148,7 +148,7 @@ function View(projectURL) {
 	 * @see  mouseTimeout
 	 * @type {Boolean}
 	 */
-	var mouseMoved = false;
+	var mouseMoved = 0;
 
 	/**
 	 * If the mouse moves, we want to kill the setTimeout function we use.
@@ -439,8 +439,10 @@ function View(projectURL) {
 		}
 
 		if (returnedGeometry >= totalGeometries) {
+			setProgressBar(95);
 			makeBigMeshes();
 			setupRaycaster();
+			setProgressBar(100);
 		}
 	}
 
@@ -556,11 +558,9 @@ function View(projectURL) {
 			scene.add(minerals[mineral]["mesh"]);
 
 		}
-		setProgressBar(95);
 		for(var mineral in minerals){
 			updateVisibility(mineral);
 		}
-		setProgressBar(100);
 	}
 
 	/**
@@ -614,6 +614,8 @@ function View(projectURL) {
 					"Survey hole #" + jsonHole["id"] +
 					"'s raycast did not intersect the terrain mesh." +
 					" Maybe it's out of bounds, or the raycaster is broken?");
+				console.log(surveyCaster);
+				console.log(terrainMesh);
 			}
 
 			var hole = {
@@ -880,6 +882,8 @@ function View(projectURL) {
 			noDiagonals.position.y -= (sizeY - property.box.size.y) / 2;
 
 			scene.add(terrainMesh);
+			terrainMesh.geometry.lineDistancesNeedUpdate = true;
+			terrainMesh.geometry.tangentsNeedUpdate = true;
 			setTimeout(function(){addSurveyLines()}, 0);
 		}
 	}
@@ -1418,12 +1422,16 @@ function View(projectURL) {
 	 * show its tooltip if it is being hovered over
 	 */
 	function checkHover() {
+
+		sceneOrtho.remove(tooltipSprite);
+		scene.remove(intersected);
+
 		checkMouseIntercept();
 		if(!intersected){
 			return;
 		}
+		mouseMoved = 0;
 
-		console.log(intersected);
 		intersected.material = new THREE.MeshLambertMaterial({
 			emissive: colors.tooltipsSelection
 		});
@@ -1530,19 +1538,25 @@ function View(projectURL) {
 				var newY = -event.clientY + (window.innerHeight / 2) - 40;
 				if (tooltipSpriteLocation.x == newX &&
 					tooltipSpriteLocation.y == newY) {
-					//If the mouse wasn't moved, ignore the following logic
+					// The mousemove event is called when a simple click is triggered, so
+					// If the mouse wasn't moved, ignore the following logic
 					return;
 				}
 				tooltipSpriteLocation.x = newX;
 				tooltipSpriteLocation.y = newY;
 
-				mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-				mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-				mouseMoved = true;
 
-				sceneOrtho.remove(tooltipSprite);
-				scene.remove(intersected);
-				intersected = null;
+				var newX = (event.clientX / window.innerWidth) * 2 - 1;
+				var newY = -(event.clientY / window.innerHeight) * 2 + 1;
+				mouseMoved += Math.sqrt(Math.pow(mouse.x - newX, 2) + Math.pow(mouse.y - newY, 2));
+				mouse.x = newX;
+				mouse.y = newY;
+
+				if(mouseMoved >= .01){
+					sceneOrtho.remove(tooltipSprite);
+					scene.remove(intersected);
+					intersected = null;
+				}
 
 				window.clearTimeout(mouseTimeout);
 				if (event.buttons === 0 && raycaster && !controls.autoRotate && !motionInterval) {
@@ -1557,9 +1571,15 @@ function View(projectURL) {
 
 		container.addEventListener("click",
 			function mouseClickEventListener(event) {
-				if (!mouseMoved) {
-					clearInterval(motionInterval);
-					motionInterval = null;
+				if (mouseMoved < .005) {
+					//clicking while motion is in progress causes problems, so
+					//don't try to initiate new movement if it's in progress
+					if(motionInterval){
+						clearInterval(motionInterval);
+						motionInterval = null;
+						mouseTimeout = setTimeout(checkHover, 150);
+						return;
+					}
 					clearTimeout(mouseTimeout);
 					if (intersected) {
 						sceneOrtho.remove(tooltipSprite);
@@ -1577,7 +1597,7 @@ function View(projectURL) {
 		container.addEventListener("mousedown",
 			function mousedownEventListener(event) {
 				event.preventDefault();
-				mouseMoved = false;
+				mouseMoved = 0;
 				// autoRotate is true when both left and right buttons are
 				// clicked simultaneously and false otherwise
 				if (event.buttons == 3) {
@@ -1620,7 +1640,7 @@ function View(projectURL) {
 
 		var reticleMotion = getDeltasForMovement(movementVector, acceleration);
 		var cameraMotion = getDeltasForMovement(movementVector,
-			acceleration * 0.15);
+			acceleration * 0.2);
 
 		//get rid of the last interval, in case it exists
 		window.clearInterval(motionInterval);
