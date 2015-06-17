@@ -105,7 +105,7 @@ function View(projectURL) {
 	 * @type {Boolean}
 	 */
 
-	var loadFromCache = false;
+	var loadFromCache = true;
 
 	/**
 	 * The largest dimension of the property box. It cannot be calculated until
@@ -760,7 +760,7 @@ function View(projectURL) {
 
 		var saveName = property.name + "v2.terrain";
 		if (localStorage.hasOwnProperty(saveName) && loadFromCache) {
-			console.log('loaded ' + saveName + ' from cache.');
+			console.log('Loading ' + saveName + ' from cache.');
 			var elevationObject = JSON.parse(localStorage[saveName]);
 			xSamples = elevationObject.xSamples;
 			ySamples = elevationObject.ySamples;
