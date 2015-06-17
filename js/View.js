@@ -908,68 +908,11 @@ function View(projectURL) {
 				transparent: true,
 				opacity: 0.2
 			});
-			var squareMesh = lineGeometryFromElevation(elevations, sizeX, sizeY);
-			var noDiagonals = new THREE.Line(squareMesh, lineMaterial, THREE.LinePieces);
-			//noDiagonals.position.x += property.box.center.x;
-			//noDiagonals.position.y += property.box.center.y;
 
 			terrainMesh.matrixAutoUpdate = false;
 			scene.add(terrainMesh);
-			//scene.add(noDiagonals);
 			setTimeout(function(){addSurveyLines()}, 0);
 		}
-	}
-
-	function lineGeometryFromElevation(elevation, width, height) {
-		var geometry = new THREE.BufferGeometry();
-		var dx = width / (elevation[0].length - 1);
-		var dy = height / (elevation.length - 1);
-
-		var length1 = elevation.length;
-		var length2 = elevation[0].length;
-
-		//this should be the right size!
-		var points = new Float32Array(((length1 - 1) * 2 * length2 + (length2 - 1) * 2 * length1) * 3);
-
-		var i, j;
-		var x;
-		var y = 0;
-		var offset = 0;
-
-		for (i = 0; i < elevation.length; i += 1) {
-			x = 0;
-			points.set([x, y, elevation[i][0]], offset);
-			offset += 3;
-			for (j = 1; j < elevation[0].length - 1; j += 1) {
-				points.set([x, y, elevation[i][j]], offset);
-				points.set([x, y, elevation[i][j]], offset + 3);
-				offset += 6;
-				x += dx;
-			}
-			points.set([x, y, elevation[i][elevation[0].length - 1]], offset);
-			offset += 3;
-			y += dy;
-		}
-
-		x = 0;
-		for (j = 0; j < elevation[0].length; j += 1) {
-			y = 0;
-			points.set([x, y, elevation[0][j]], offset);
-			offset += 3;
-			for (i = 1; i < elevation.length - 1; i += 1) {
-				points.set([x, y, elevation[i][j]], offset);
-				points.set([x, y, elevation[i][j]], offset + 3);
-				offset += 6;
-				y += dy;
-			}
-			points.set([x, y, elevation[elevation.length - 1][j]], offset);
-			offset += 3;
-			x += dx;
-		}
-
-		geometry.addAttribute("position", new THREE.BufferAttribute(points, 3));
-
-		return geometry;
 	}
 
 	function saveToCache(name, object) {
@@ -1124,7 +1067,7 @@ function View(projectURL) {
 			}
 		} else {
 			var emptyMesh = new THREE.Mesh(new THREE.BoxGeometry(0, 0, 0));
-			for (i = start; i < end; i += 1) {
+			for (i = start; i <= end; i += 1) {
 				visibleMeshes[intervals[i].id] = emptyMesh;
 			}
 		}
