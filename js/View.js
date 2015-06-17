@@ -122,7 +122,7 @@ function View(projectURL) {
 	 * sides on its wireframe.
 	 * @type {Number}
 	 */
-	var maxPossibleSegments = 70;
+	var maxPossibleSegments = 50;
 
 	/**
 	 * Array of all the meshes for ray casting, indexed with their mesh id.
