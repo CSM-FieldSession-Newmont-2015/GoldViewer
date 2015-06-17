@@ -99,6 +99,15 @@ function View(projectURL) {
 	var intersected = null;
 
 	/**
+	 * This boolean determines whether the application will try to load the
+	 * terrain mesh from the HTML5 cache. Set to false if you'd like to update
+	 * your mesh with a different number of segments.
+	 * @type {Boolean}
+	 */
+
+	var loadFromCache = false;
+
+	/**
 	 * The largest dimension of the property box. It cannot be calculated until
 	 * the property is fully loaded.
 	 * @type {Number}
@@ -113,7 +122,7 @@ function View(projectURL) {
 	 * sides on its wireframe.
 	 * @type {Number}
 	 */
-	var maxPossibleSegments = 40;
+	var maxPossibleSegments = 70;
 
 	/**
 	 * Array of all the meshes for ray casting, indexed with their mesh id.
@@ -582,7 +591,6 @@ function View(projectURL) {
 		var down = vec3FromArray([0, 0, -1]);
 		holes.lines = {};
 		holes.ids = {};
-		var deleteMe = 0;
 
 		projectJSON["holes"].forEach(function (jsonHole) {
 
@@ -605,10 +613,6 @@ function View(projectURL) {
 					0
 				]),
 				up);
-			deleteMe += 1;
-			if(deleteMe % 10 === 0){
-	   			//scene.add( new THREE.ArrowHelper(surveyCaster.ray.direction.clone(), surveyCaster.ray.origin.clone(), 50, 0x000000));
-			}
 			var intersect = surveyCaster.intersectObject(terrainMesh); //look up
 			surveyCaster.set(surveyCaster.ray.origin, down);
 			Array.prototype.push.apply(intersect, surveyCaster.intersectObject(terrainMesh)); //and down
@@ -618,10 +622,7 @@ function View(projectURL) {
 			} else {
 				console.log(
 					"Survey hole #" + jsonHole["id"] +
-					"'s raycast did not intersect the terrain mesh." +
-					" Maybe it's out of bounds, or the raycaster is broken?");
-				//console.log(surveyCaster);
-				//console.log(terrainMesh);
+					"'s raycast did not intersect the terrain mesh.");
 			}
 
 			var hole = {
@@ -731,18 +732,17 @@ function View(projectURL) {
 
 	function addTerrain() {
 
-		var sizeX = property.box.size.x * 1.04;
-		var sizeY = property.box.size.y * 1.04;
+		var sizeX = property.box.size.x * 1.02;
+		var sizeY = property.box.size.y * 1.02;
 
 
 		var maxTerrainDim = Math.max(sizeX, sizeY);
-		var minTerrainDim = Math.min(sizeX, sizeY);
+		var minTerrainDim = Math.min(property.box.size.x, property.box.size.y);
 
 		// Setting this variable makes it so that small property boxes 
 		// don't wind up with a large numbers of segments
 		var longSegments = Math.min(Math.ceil(maxTerrainDim / 2.0),
 			maxPossibleSegments);
-		console.log(longSegments);
 		var segmentLength = maxTerrainDim / longSegments;
 		var shortSegments = Math.ceil(minTerrainDim / segmentLength);
 		minTerrainDim = shortSegments * segmentLength;
@@ -753,18 +753,19 @@ function View(projectURL) {
 		if (sizeX > sizeY) {
 			xSamples = longSegments + 1;
 			ySamples = shortSegments + 1;
-			sizeY = minTerrainDim;
 		} else {
 			ySamples = longSegments + 1;
 			xSamples = shortSegments + 1;
-			sizeX = minTerrainDim;
 		}
 
-		var saveName = property.name + ".terrain";
-		if (localStorage.hasOwnProperty(saveName)) {
-			//elevations = JSON.parse(localStorage[saveName]);
-			//makeTerrainMesh();
-			//return;
+		var saveName = property.name + "v2.terrain";
+		if (localStorage.hasOwnProperty(saveName) && loadFromCache) {
+			var elevationObject = JSON.parse(localStorage[saveName]);
+			xSamples = elevationObject.xSamples;
+			ySamples = elevationObject.ySamples;
+			elevations = elevationObject.elevations;
+			makeTerrainMesh();
+			return;
 		}
 
 		var elevator = new google.maps.ElevationService();
@@ -780,31 +781,37 @@ function View(projectURL) {
 
 		var intervals = 0;
 		var timeout = 0;
+		var x = latLngMin.lng();
+		var startLocation = 0;
 
 		// Here we construct a snake-like path to go along the terrain plane
-		for (var i = latLngMin.lng(); i <= latLngMax.lng(); i += 2 * dx) {
-			path.push(new google.maps.LatLng(latLngMin.lat(), i));
-			path.push(new google.maps.LatLng(latLngMax.lat(), i));
+		for (var counter = 0; counter < xSamples; counter += 1) {
+			path.push(new google.maps.LatLng(latLngMin.lat(), x));
+			path.push(new google.maps.LatLng(latLngMax.lat(), x));
 			intervals += ySamples;
-			if (i + dx <= latLngMax.lng()) {
-				path.push(new google.maps.LatLng(latLngMax.lat(), i + dx));
-				path.push(new google.maps.LatLng(latLngMin.lat(), i + dx));
+			if (counter + 1 < xSamples) {
+				path.push(new google.maps.LatLng(latLngMax.lat(), x + dx));
+				path.push(new google.maps.LatLng(latLngMin.lat(), x + dx));
 				intervals += ySamples;
+				counter += 1;
 			}
+			x += 2 * dx;
 
 			// Make sure we aren't requesting more than 512 intervals at a time.
 			// (Google's limit)
 			if (intervals > 512 - ySamples * 2) {
 				// It's important to pass in a unique object for each iteration
 				// of the loop. Otherwise, they all have the same object!
-				sendElevationRequest({
+				(function(){
+					sendElevationRequest({
 					'path': path.slice(),
 					'samples': intervals
-				}, timeout);
+				}, timeout, startLocation);})()
 				path = [];
 				intervals = 0;
 				timeout += 200;
 				openRequests += 1;
+				startLocation = counter + 1;
 			}
 		}
 		
@@ -813,60 +820,62 @@ function View(projectURL) {
 				'path': path,
 				'samples': intervals
 			};
-			sendElevationRequest(pathRequest, timeout);
+			sendElevationRequest(pathRequest, timeout, startLocation);
 			openRequests += 1;
 		}
-		var counter = 0;
 
-		function addToTerrain(results, status) {
-			openRequests -= 1;
-			if (status != google.maps.ElevationStatus.OK) {
-				console.error(status);
-				return;
-			}
-			results.forEach(function (thing) {
-				var indeces = LatLongtoIndeces(thing);
-				if (elevations[indeces[0]] === undefined) {
-					elevations[indeces[0]] = [];
-				}
-				console.log(indeces);
-				elevations[indeces[0]][indeces[1]] = thing.elevation;
-			});
-			if (openRequests === 0) {
-				makeTerrainMesh();
-				saveToCache(saveName, elevations);
-			}
-
-		}
-
-		function sendElevationRequest(pathRequest, timeout) {
+		function sendElevationRequest(pathRequest, timeout, startLocation) {
 			setTimeout(function () {
 				elevator.getElevationAlongPath(pathRequest, handleResults);
 			}, timeout);
 
 			function handleResults(results, status) {
 				if (status == google.maps.ElevationStatus.OVER_QUERY_LIMIT) {
-					setTimeout(sendElevationRequest(pathRequest, 2000));
+					setTimeout(sendElevationRequest(pathRequest, 2000, startLocation));
 				} else {
-					addToTerrain(results, status);
+					addToTerrain(results, status, startLocation);
 				}
 			}
 		}
 
-		function LatLongtoIndeces(latLong) {
-			//location.A: Latitude!
-			//location.F: Longitude!
-			var width = Math.round((latLong.location.A - latLngMin.A) /
-				(latLngMax.A - latLngMin.A) * (ySamples-1));
-			var height = Math.round((latLong.location.F - latLngMin.F) /
-				(latLngMax.F - latLngMin.F) * (xSamples-1));
-			return [width, height];
+		function addToTerrain(results, status, startLocation) {
+			openRequests -= 1;
+			if (status != google.maps.ElevationStatus.OK) {
+				console.error(status);
+				return;
+			}
+			var xIndex = startLocation;
+			var yIndex = 0;
+			var dy = 1;
+			results.forEach(function (thing) {
+				if(elevations[yIndex] === undefined){
+					elevations[yIndex] = [];
+				}
+				elevations[yIndex][xIndex] = thing.elevation;
+				yIndex += dy;
+				if(yIndex == -1 || yIndex == ySamples){
+					xIndex += 1;
+					dy = -1 * dy;
+					yIndex += dy;
+				}
+			});
+			if (openRequests === 0) {
+				makeTerrainMesh();
+				var elevationObject = {
+					elevations: elevations,
+					xSamples: xSamples,
+					ySamples: ySamples
+				}
+				saveToCache(saveName, elevationObject);
+			}
+
 		}
 
 		function makeTerrainMesh() {
 			var geometry = new THREE.PlaneGeometry(sizeX, sizeY, xSamples - 1, ySamples - 1);
 			var counter = 0;
 			var maxElevation = 0;
+			console.log()
 
 			for(var j = 0; j < ySamples; j += 1)
 				for(var i = 0; i < xSamples; i += 1)
@@ -893,9 +902,6 @@ function View(projectURL) {
 				opacity: 0.2
 			});
 			terrainMesh = new THREE.Mesh(geometry, material);
-			terrainMesh.geometry.computeBoundingBox();
-			terrainMesh.geometry.computeBoundingSphere();
-
 
 			var lineMaterial = new THREE.LineBasicMaterial({
 				color: colors.terrain_frame,
@@ -904,13 +910,12 @@ function View(projectURL) {
 			});
 			var squareMesh = lineGeometryFromElevation(elevations, sizeX, sizeY);
 			var noDiagonals = new THREE.Line(squareMesh, lineMaterial, THREE.LinePieces);
-			noDiagonals.position.x -= (sizeX - property.box.size.x) / 2;
-			noDiagonals.position.y -= (sizeY - property.box.size.y) / 2;
+			//noDiagonals.position.x += property.box.center.x;
+			//noDiagonals.position.y += property.box.center.y;
 
-			//terrainMesh.matrixAutoUpdate = false;
+			terrainMesh.matrixAutoUpdate = false;
 			scene.add(terrainMesh);
-			scene.updateMatrixWorld(true);
-			//terrainMesh.updateMatrix();
+			//scene.add(noDiagonals);
 			setTimeout(function(){addSurveyLines()}, 0);
 		}
 	}
@@ -927,7 +932,7 @@ function View(projectURL) {
 		var points = new Float32Array(((length1 - 1) * 2 * length2 + (length2 - 1) * 2 * length1) * 3);
 
 		var i, j;
-		var x = 0;
+		var x;
 		var y = 0;
 		var offset = 0;
 
@@ -1507,7 +1512,6 @@ function View(projectURL) {
 			return;
 		}
 		raycaster.setFromCamera(mouse, camera);
-		console.log(raycaster.intersectObject(terrainMesh));
 		var intersects = raycaster.intersectObjects(visibleMeshes);
 
 		if (intersects.length === 0) {
