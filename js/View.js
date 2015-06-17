@@ -673,7 +673,7 @@ function View(projectURL) {
 
 			var material = new THREE.LineBasicMaterial({
 				transparent: true,
-				opacity: 0.8,
+				opacity: 0.6,
 				color: color
 			});
 
@@ -760,6 +760,7 @@ function View(projectURL) {
 
 		var saveName = property.name + "v2.terrain";
 		if (localStorage.hasOwnProperty(saveName) && loadFromCache) {
+			console.log('loaded ' + saveName + ' from cache.');
 			var elevationObject = JSON.parse(localStorage[saveName]);
 			xSamples = elevationObject.xSamples;
 			ySamples = elevationObject.ySamples;
@@ -899,7 +900,7 @@ function View(projectURL) {
 				side: THREE.DoubleSide,
 				transparent: true,
 				wireframe: true,
-				opacity: 0.2
+				opacity: 0.14
 			});
 			terrainMesh = new THREE.Mesh(geometry, material);
 
@@ -969,12 +970,14 @@ function View(projectURL) {
 		var intervals = mineral.intervals;
 
 		//if we weren't given values in the arguments, update visibility with the current values.
-		lowerValue = lowerValue || intervals[mineral.minVisibleIndex].value;
+		if(intervals[mineral.minVisibleIndex]){
+			lowerValue = lowerValue || intervals[mineral.minVisibleIndex].value;
+		}
 		higherValue = higherValue || intervals[mineral.maxVisibleIndex].value;
 
 		var emptyMesh = new THREE.Mesh(new THREE.BoxGeometry(0, 0, 0));
-		mineral.minVisibleIndex = -1;
-		mineral.maxVisibleIndex = -1;
+		mineral.minVisibleIndex = null;
+		mineral.maxVisibleIndex = null;
 
 		// Don't add invisible things to the visibleMeshes array
 		var isVisible = (mineral.mesh && mineral.mesh.visible);
@@ -983,26 +986,23 @@ function View(projectURL) {
 		// the interval to be visible if it is between the value bounds
 		for (var i = 0; i < intervals.length; i += 1) {
 			var value = intervals[i].value;
-			if (value >= lowerValue && value <= higherValue) {
+			if (lowerValue && (value >= lowerValue && value <= higherValue)) {
 				if(isVisible){
 					visibleMeshes[intervals[i].id] = meshes[intervals[i].id];
 				}
-				if (mineral.minVisibleIndex < 0) {
+				if (!mineral.minVisibleIndex) {
 					mineral.minVisibleIndex = i;
 				}
 			} else {
 				visibleMeshes[intervals[i].id] = emptyMesh;
-				if (mineral.minVisibleIndex >= 0 &&
-					mineral.maxVisibleIndex < 0) {
+				if (mineral.minVisibleIndex &&
+					!mineral.maxVisibleIndex) {
 					mineral.maxVisibleIndex = i - 1;
 				}
 			}
 		}
-		if (mineral.maxVisibleIndex < 0) {
+		if (!mineral.maxVisibleIndex) {
 			mineral.maxVisibleIndex = intervals.length - 1;
-		}
-		if (mineral.minVisibleIndex < 0) {
-			mineral.minVisibleIndex = 0;
 		}
 
 		// Don't try to update the current mesh if it hasn't yet been instantiated.
@@ -1016,8 +1016,13 @@ function View(projectURL) {
 			meshes[0].geometry.attributes.position.array.length;
 
 		var drawcall = mineral.mesh.geometry.drawcalls[0];
-		drawcall.index = mineral.minVisibleIndex * verticesPerInterval / 3;
-		drawcall.count = (mineral.maxVisibleIndex - mineral.minVisibleIndex + 1) * verticesPerInterval / 3;
+		if(mineral.minVisibleIndex){
+			drawcall.index = mineral.minVisibleIndex * verticesPerInterval / 3;
+			drawcall.count = (mineral.maxVisibleIndex - mineral.minVisibleIndex + 1) * verticesPerInterval / 3;
+		}
+		else{
+			drawcall.count = 0;
+		}
 	}
 
 	/**
@@ -1061,6 +1066,9 @@ function View(projectURL) {
 		var i = null;
 		var start = mineral.minVisibleIndex;
 		var end = mineral.maxVisibleIndex;
+		if(start < 0){ // no visible meshes in the interval
+			return;
+		}
 		if (visible) {
 			for (i = start; i <= end; i += 1) {
 				visibleMeshes[intervals[i].id] = meshes[intervals[i].id];
@@ -1704,14 +1712,11 @@ function View(projectURL) {
 
 	function addReticle() {
 		reticle = new THREE.Mesh(
-			new THREE.IcosahedronGeometry(maxDimension / 2000, 3),
+			new THREE.IcosahedronGeometry(Math.log(maxDimension) / 20, 3),
 			new THREE.MeshBasicMaterial({
 				color: colors.reticleLight,
 				wireframe: true
 			}));
-		reticle.position.x = controls.target.x;
-		reticle.position.y = controls.target.y;
-		reticle.position.z = controls.target.z;
 		scene.add(reticle);
 	}
 
