@@ -75,9 +75,9 @@ function makeCylinderGeometry(pointA, pointB, width) {
 	// By adding a random variance to each coordinate, this shouldn't happen.
 	// These values are chosen to be much too small for anyone to ever notice,
 	// but if this does cause problems it'll be fun to debug.
-	var dx = 3e-2 * (Math.random() - 0.5);
-	var dy = 3e-2 * (Math.random() - 0.5);
-	var dz = 3e-2 * (Math.random() - 0.5);
+	var dx = 1.5e-2 * (Math.random() - 0.5);
+	var dy = 1.5e-2 * (Math.random() - 0.5);
+	var dz = 1.5e-2 * (Math.random() - 0.5);
 
 	var transform = new THREE.Matrix4();
 	transform.makeTranslation((pointB.x + pointA.x) / 2 + dx, (pointB.y + pointA.y) / 2 + dy, (pointB.z + pointA.z) / 2 + dz);
