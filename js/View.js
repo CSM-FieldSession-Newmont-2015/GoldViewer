@@ -99,6 +99,15 @@ function View(projectURL) {
 	var intersected = null;
 
 	/**
+	 * This boolean determines whether the application will try to load the
+	 * terrain mesh from the HTML5 cache. Set to false if you'd like to update
+	 * your mesh with a different number of segments.
+	 * @type {Boolean}
+	 */
+
+	var loadFromCache = false;
+
+	/**
 	 * The largest dimension of the property box. It cannot be calculated until
 	 * the property is fully loaded.
 	 * @type {Number}
@@ -113,7 +122,7 @@ function View(projectURL) {
 	 * sides on its wireframe.
 	 * @type {Number}
 	 */
-	var maxPossibleSegments = 60;
+	var maxPossibleSegments = 70;
 
 	/**
 	 * Array of all the meshes for ray casting, indexed with their mesh id.
@@ -143,7 +152,7 @@ function View(projectURL) {
 
 	/**
 	 * We only activate ray casting when the mouse has stopped moving for a
-	 * certain amount of time. We keep track of whether the mouse has moved to
+	 * certain amount of time. We keep track of how far the mouse has moved to
 	 * aid in ray casting.
 	 * @see  mouseTimeout
 	 * @type {Boolean}
@@ -553,9 +562,10 @@ function View(projectURL) {
 				shininess: 4.0
 			});
 			minerals[mineral]["geometry"] = geometry;
-			minerals[mineral]["mesh"] = new THREE.Mesh(geometry, material);
+			minerals[mineral].mesh = new THREE.Mesh(geometry, material);
 
-			scene.add(minerals[mineral]["mesh"]);
+			minerals[mineral].mesh.matrix.AutoUpdate = false;
+			scene.add(minerals[mineral].mesh);
 
 		}
 		for(var mineral in minerals){
@@ -598,8 +608,8 @@ function View(projectURL) {
 
 			// Now we use the Raycaster to find the initial z value
 			surveyCaster.set(vec3FromArray([
-					initialLocation[0] - property.box.center.x,
-					initialLocation[1] - property.box.center.y,
+					initialLocation[0],
+					initialLocation[1],
 					0
 				]),
 				up);
@@ -612,10 +622,7 @@ function View(projectURL) {
 			} else {
 				console.log(
 					"Survey hole #" + jsonHole["id"] +
-					"'s raycast did not intersect the terrain mesh." +
-					" Maybe it's out of bounds, or the raycaster is broken?");
-				console.log(surveyCaster);
-				console.log(terrainMesh);
+					"'s raycast did not intersect the terrain mesh.");
 			}
 
 			var hole = {
@@ -679,9 +686,20 @@ function View(projectURL) {
 			holes.lines[jsonColor] = new THREE.Line(buffGeometry,
 				material,
 				THREE.LinePieces);
+			holes.lines[jsonColor].matrixAutoUpdate = false;
 			scene.add(holes.lines[jsonColor]);
 		});
 		addLastElements();
+	}
+
+	/**
+	 * Because the raycaster is broken most of the time and can't be relied
+	 * upon to position the survey holes onto the terrain mesh, this function
+	 * takes a local coordinate and returns an elevation to put it flush with
+	 * the terrain.
+	 */
+	function projectOntoTerrain(xPos, yPos){
+
 	}
 
 	this.autoRotate = function(){
@@ -714,34 +732,38 @@ function View(projectURL) {
 
 	function addTerrain() {
 
-		var sizeX = property.box.size.x * 1.01;
-		var sizeY = property.box.size.y * 1.01;
+		var sizeX = property.box.size.x * 1.02;
+		var sizeY = property.box.size.y * 1.02;
 
 
 		var maxTerrainDim = Math.max(sizeX, sizeY);
-		var minTerrainDim = Math.min(sizeX, sizeY);
+		var minTerrainDim = Math.min(property.box.size.x, property.box.size.y);
+
+		// Setting this variable makes it so that small property boxes 
+		// don't wind up with a large numbers of segments
 		var longSegments = Math.min(Math.ceil(maxTerrainDim / 2.0),
 			maxPossibleSegments);
 		var segmentLength = maxTerrainDim / longSegments;
 		var shortSegments = Math.ceil(minTerrainDim / segmentLength);
 		minTerrainDim = shortSegments * segmentLength;
 
-		var xSegments, ySegments;
+		var xSamples, ySamples;
 		var elevations = [];
 
 		if (sizeX > sizeY) {
-			xSegments = longSegments;
-			ySegments = shortSegments;
-			sizeY = minTerrainDim;
+			xSamples = longSegments + 1;
+			ySamples = shortSegments + 1;
 		} else {
-			ySegments = longSegments;
-			xSegments = shortSegments;
-			sizeX = minTerrainDim;
+			ySamples = longSegments + 1;
+			xSamples = shortSegments + 1;
 		}
 
-		var saveName = property.name + ".terrain";
-		if (localStorage.hasOwnProperty(saveName)) {
-			elevations = JSON.parse(localStorage[saveName]);
+		var saveName = property.name + "v2.terrain";
+		if (localStorage.hasOwnProperty(saveName) && loadFromCache) {
+			var elevationObject = JSON.parse(localStorage[saveName]);
+			xSamples = elevationObject.xSamples;
+			ySamples = elevationObject.ySamples;
+			elevations = elevationObject.elevations;
 			makeTerrainMesh();
 			return;
 		}
@@ -752,109 +774,125 @@ function View(projectURL) {
 		var latLngMin = new google.maps.LatLng(property.longLatMin.y, property.longLatMin.x);
 		var latLngMax = new google.maps.LatLng(property.longLatMax.y, property.longLatMax.x);
 
-		var dx = (latLngMax.lng() - latLngMin.lng()) / xSegments;
-		var dy = (latLngMax.lat() - latLngMin.lat()) / ySegments;
+		var dx = (latLngMax.lat() - latLngMin.lat()) / xSamples;
+		var dy = (latLngMax.lng() - latLngMin.lng()) / ySamples;
 
 		var path = [];
 
 		var intervals = 0;
 		var timeout = 0;
+		var x = latLngMin.lng();
+		var startLocation = 0;
 
-		for (var i = latLngMin.lng(); i <= latLngMax.lng(); i += 2 * dx) {
-			path.push(new google.maps.LatLng(latLngMin.lat(), i));
-			path.push(new google.maps.LatLng(latLngMax.lat(), i));
-			if (i + dx <= latLngMax.lng()) {
-				path.push(new google.maps.LatLng(latLngMax.lat(), i + dx));
-				path.push(new google.maps.LatLng(latLngMin.lat(), i + dx));
+		// Here we construct a snake-like path to go along the terrain plane
+		for (var counter = 0; counter < xSamples; counter += 1) {
+			path.push(new google.maps.LatLng(latLngMin.lat(), x));
+			path.push(new google.maps.LatLng(latLngMax.lat(), x));
+			intervals += ySamples;
+			if (counter + 1 < xSamples) {
+				path.push(new google.maps.LatLng(latLngMax.lat(), x + dx));
+				path.push(new google.maps.LatLng(latLngMin.lat(), x + dx));
+				intervals += ySamples;
+				counter += 1;
 			}
-			intervals += ySegments * 2;
+			x += 2 * dx;
 
 			// Make sure we aren't requesting more than 512 intervals at a time.
 			// (Google's limit)
-			if (intervals > 512 - ySegments * 2) {
+			if (intervals > 512 - ySamples * 2) {
 				// It's important to pass in a unique object for each iteration
 				// of the loop. Otherwise, they all have the same object!
-				sendElevationRequest({
+				(function(){
+					sendElevationRequest({
 					'path': path.slice(),
 					'samples': intervals
-				}, timeout);
+				}, timeout, startLocation);})()
 				path = [];
 				intervals = 0;
 				timeout += 200;
 				openRequests += 1;
+				startLocation = counter + 1;
 			}
 		}
+		
 		if (path.length !== 0) {
 			var pathRequest = {
 				'path': path,
 				'samples': intervals
 			};
-			sendElevationRequest(pathRequest, timeout);
+			sendElevationRequest(pathRequest, timeout, startLocation);
 			openRequests += 1;
 		}
-		var counter = 0;
 
-		function addToTerrain(results, status) {
-			openRequests -= 1;
-			if (status != google.maps.ElevationStatus.OK) {
-				console.error(status);
-				return;
-			}
-			results.forEach(function (thing) {
-				var indeces = LatLongtoIndeces(thing);
-				if (elevations[indeces[0]] === undefined) {
-					elevations[indeces[0]] = [];
-				}
-				elevations[indeces[0]][indeces[1]] = thing.elevation;
-			});
-			if (openRequests === 0) {
-				makeTerrainMesh();
-				saveToCache(saveName, elevations);
-			}
-
-		}
-
-		function sendElevationRequest(pathRequest, timeout) {
+		function sendElevationRequest(pathRequest, timeout, startLocation) {
 			setTimeout(function () {
 				elevator.getElevationAlongPath(pathRequest, handleResults);
 			}, timeout);
 
 			function handleResults(results, status) {
 				if (status == google.maps.ElevationStatus.OVER_QUERY_LIMIT) {
-					setTimeout(sendElevationRequest(pathRequest, 2000));
+					setTimeout(sendElevationRequest(pathRequest, 2000, startLocation));
 				} else {
-					addToTerrain(results, status);
+					addToTerrain(results, status, startLocation);
 				}
 			}
 		}
 
-		function LatLongtoIndeces(latLong) {
-			//location.A: Latitude!
-			//location.F: Longitude!
-			var width = Math.round((latLong.location.A - latLngMin.A) /
-				(latLngMax.A - latLngMin.A) * (ySegments - 1));
-			var height = Math.round((latLong.location.F - latLngMin.F) /
-				(latLngMax.F - latLngMin.F) * xSegments);
-			return [width, height];
+		function addToTerrain(results, status, startLocation) {
+			openRequests -= 1;
+			if (status != google.maps.ElevationStatus.OK) {
+				console.error(status);
+				return;
+			}
+			var xIndex = startLocation;
+			var yIndex = 0;
+			var dy = 1;
+			results.forEach(function (thing) {
+				if(elevations[yIndex] === undefined){
+					elevations[yIndex] = [];
+				}
+				elevations[yIndex][xIndex] = thing.elevation;
+				yIndex += dy;
+				if(yIndex == -1 || yIndex == ySamples){
+					xIndex += 1;
+					dy = -1 * dy;
+					yIndex += dy;
+				}
+			});
+			if (openRequests === 0) {
+				makeTerrainMesh();
+				var elevationObject = {
+					elevations: elevations,
+					xSamples: xSamples,
+					ySamples: ySamples
+				}
+				saveToCache(saveName, elevationObject);
+			}
+
 		}
 
 		function makeTerrainMesh() {
-			var geometry = new THREE.PlaneGeometry(sizeX, sizeY, xSegments, ySegments - 1);
+			var geometry = new THREE.PlaneGeometry(sizeX, sizeY, xSamples - 1, ySamples - 1);
 			var counter = 0;
-			var vertices = geometry.vertices;
 			var maxElevation = 0;
+			console.log()
 
-			for(var j = 0; j < ySegments; j += 1)
-				for(var i = 0; i < xSegments; i += 1)
+			for(var j = 0; j < ySamples; j += 1)
+				for(var i = 0; i < xSamples; i += 1)
 					maxElevation = Math.max(maxElevation, elevations[j][i]);
 
 			var offset = property.box.center.z + property.box.size.z / 2 - maxElevation;
-			for (var j = 0; j < ySegments; j += 1) {
-				for (var i = 0; i <= xSegments; i += 1) {
-					geometry.vertices[counter].z = elevations[j][i] + offset;
+			for (var j = 0; j < ySamples; j += 1) {
+				for (var i = 0; i < xSamples; i += 1) {
+					geometry.vertices[counter].x += property.box.center.x;
+					geometry.vertices[counter].y += property.box.center.y;
+					if(elevations[j][i])
+						geometry.vertices[counter].z = elevations[j][i] + offset;
 					counter += 1;
 				}
 			}
+
+			geometry.verticesNeedUpdate = true;
 
 			var material = new THREE.MeshBasicMaterial({
 				color: colors.terrain_frame,
@@ -864,12 +902,6 @@ function View(projectURL) {
 				opacity: 0.2
 			});
 			terrainMesh = new THREE.Mesh(geometry, material);
-			terrainMesh.geometry.computeBoundingBox();
-			terrainMesh.geometry.computeBoundingSphere();
-			terrainMesh.position.x += property.box.center.x;
-			terrainMesh.position.y += property.box.center.y;
-
-			terrainMesh.elementsNeedUpdate = true;
 
 			var lineMaterial = new THREE.LineBasicMaterial({
 				color: colors.terrain_frame,
@@ -878,12 +910,12 @@ function View(projectURL) {
 			});
 			var squareMesh = lineGeometryFromElevation(elevations, sizeX, sizeY);
 			var noDiagonals = new THREE.Line(squareMesh, lineMaterial, THREE.LinePieces);
-			noDiagonals.position.x -= (sizeX - property.box.size.x) / 2;
-			noDiagonals.position.y -= (sizeY - property.box.size.y) / 2;
+			//noDiagonals.position.x += property.box.center.x;
+			//noDiagonals.position.y += property.box.center.y;
 
+			terrainMesh.matrixAutoUpdate = false;
 			scene.add(terrainMesh);
-			terrainMesh.geometry.lineDistancesNeedUpdate = true;
-			terrainMesh.geometry.tangentsNeedUpdate = true;
+			//scene.add(noDiagonals);
 			setTimeout(function(){addSurveyLines()}, 0);
 		}
 	}
@@ -900,7 +932,7 @@ function View(projectURL) {
 		var points = new Float32Array(((length1 - 1) * 2 * length2 + (length2 - 1) * 2 * length1) * 3);
 
 		var i, j;
-		var x = 0;
+		var x;
 		var y = 0;
 		var offset = 0;
 
@@ -1025,6 +1057,9 @@ function View(projectURL) {
 		}
 		if (mineral.maxVisibleIndex < 0) {
 			mineral.maxVisibleIndex = intervals.length - 1;
+		}
+		if (mineral.minVisibleIndex < 0) {
+			mineral.minVisibleIndex = 0;
 		}
 
 		// Don't try to update the current mesh if it hasn't yet been instantiated.
@@ -1580,10 +1615,7 @@ function View(projectURL) {
 						mouseTimeout = setTimeout(checkHover, 150);
 						return;
 					}
-					clearTimeout(mouseTimeout);
 					if (intersected) {
-						sceneOrtho.remove(tooltipSprite);
-						scene.remove(intersected);
 						startMotion(intersected);
 					} else {
 						checkMouseIntercept();
@@ -1609,7 +1641,11 @@ function View(projectURL) {
 	}
 
 	function startMotion(toHere) {
+
+		sceneOrtho.remove(tooltipSprite);
+		scene.remove(intersected);
 		intersected = null;
+		clearTimeout(mouseTimeout);
 
 		if (toHere.geometry.boundingSphere === undefined) {
 			toHere.computeBoundingSphere();
@@ -1719,6 +1755,7 @@ function View(projectURL) {
 				property.box.center.y,
 				property.box.center.z));
 
+		box.matrixAutoUpdate = false;
 		scene.add(box);
 	}
 

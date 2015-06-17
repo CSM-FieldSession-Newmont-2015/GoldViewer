@@ -44,7 +44,6 @@ function vec3FromArray(array) {
 
 function closeIfIdle() {
 	if (started && !busy) {
-		console.log("Closing idle worker.");
 		close();
 	}
 	busy = false;
@@ -54,6 +53,7 @@ function closeIfIdle() {
 // giving the starting point, ending point, the ore concentration, and interval ID.
 function calcGeometry(intervalData) {
 
+	busy = true;
 	var floats = new Float32Array(intervalData[0]);
 	var vec1 = vec3FromArray(floats);
 	var vec2 = vec3FromArray([floats[3], floats[4], floats[5]]);
