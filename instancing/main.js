@@ -7,11 +7,12 @@ var scene    = null;
 var stats    = null;
 var time     = null;
 
-var cube       = null;
-
+var cube      = null;
 var cylinders = null;
 
+// Entry point.
 function start() {
+	// Setup the FPS counter.
 	stats = new Stats();
 	stats.setMode(0);
 	stats.domElement.style.position = "absolute";
@@ -19,13 +20,18 @@ function start() {
 	stats.domElement.style.top = "0px";
 	document.body.appendChild(stats.domElement);
 
+	// Scene.
 	scene = new THREE.Scene();
 
+	// Camera. TODO: Calculator fov because it looks weird on unexpected ratios.
 	var fov = 55;
 	var ratio = window.innerWidth / window.innerHeight;
 	camera = new THREE.PerspectiveCamera(fov, ratio, 0.1, 1.0e6);
 	camera.up.set(0, 0, 1);
+	camera.position.set(350.0, 350.0, 350.0);
+	camera.lookAt(new THREE.Vector3(0, 0, 0));
 
+	// Setup the WebGL Rendering context.
 	canvas = document.getElementById("canvas");
 	renderer = new THREE.WebGLRenderer({
 		canvas: canvas,
@@ -33,26 +39,26 @@ function start() {
 	});
 	renderer.setSize(window.innerWidth, window.innerHeight);
 	renderer.setClearColor(0xdedede);
+	document.body.appendChild(renderer.domElement);
+
+	// We're going to load a *lot* of vertices. Make sure we can index them.
 	var ext = renderer.getContext().getExtension("OES_element_index_uint");
 	if (!ext) {
 		throw new Error("extension not supported!");
 	}
 
+	// Setup basic orbiting controls.
 	controls = new THREE.OrbitControls(camera);
 
-	document.body.appendChild(renderer.domElement);
-
-	camera.position.set(350.0, 350.0, 350.0);
-	camera.lookAt(new THREE.Vector3(0, 0, 0));
-
-	scene.add(new THREE.AmbientLight(0x404040));
-
-	var light = new THREE.PointLight(0xa0a0a0, 1.0, 100.0);
-	light.position.x = 4.0;
-	light.position.y = 3.0;
-	light.position.z = 5.0;
+	// Simple lighting.
+	scene.add(new THREE.AmbientLight(0xffffff));
+	var light = new THREE.PointLight(0xa0a0a0, 5.0, 10.0);
+	light.position.x = -4.0;
+	light.position.y = -3.0;
+	light.position.z = -5.0;
 	scene.add(light);
 
+	// Standard resize handler.
 	window.addEventListener("resize", function () {
 		camera.aspect = window.innerWidth / window.innerHeight;
 		camera.updateProjectionMatrix();
@@ -63,25 +69,30 @@ function start() {
 	cube = makeCubeMesh(1.0, 1.0, 1.0);
 	scene.add(cube);
 
-	cylinders = makeInstancedCylinders(150 * 1000);
+	cylinders = makeInstancedCylinders(15 * 1000);
 	scene.add(cylinders);
 
 	render();
 }
 
-function render() {
-	requestAnimationFrame(render);
-
+// Update things every frame.
+function update(time) {
 	controls.update();
 	stats.update();
 
-	time = Date.now() / 1e3;
+	cube.rotation.x = Math.sin(1.0 * time);
+	cube.rotation.y = Math.cos(1.01 * time);
+	cube.rotation.z = Math.cos(1.02 * time);
 
-	cube.position.x = 3.0 * Math.sin(time);
-	cube.position.y = 3.0 * Math.cos(time);
+	// TODO: This does not work.
+//	cylinders.material.uniforms.color.value[0] = Math.sin(time) * Math.sin(time);
+//	cylinders.material.needsUpdate = true;
+}
 
-	cylinders.material.uniforms.color.value[0] = Math.sin(time) * Math.sin(time);
-	cylinders.material.needsUpdate = true;
+function render() {
+	requestAnimationFrame(render);
+
+	update(Date.now() / 1e3);
 
 	renderer.render(scene, camera);
 }
@@ -95,9 +106,10 @@ function makeCubeMesh(x, y, z) {
 	return new THREE.Mesh(geometry, material);
 }
 
-function makeCylinderGeometry() {
-	// Make a unit cylinder, and scale it in the shaders.
-	var regularGeometry = new THREE.CylinderGeometry(1.0, 1.0, 1.0, 7);
+// Makes a basic, "root" geometry for all of the cylinders to copy.
+function makeCylinderGeometry(height, width, sides) {
+	var radius = width / 2.0;
+	var regularGeometry = new THREE.CylinderGeometry(radius, radius, height, sides);
 	var bufferGeometry  = new THREE.BufferGeometry().fromGeometry(regularGeometry);
 	return bufferGeometry;
 }
@@ -106,7 +118,7 @@ function makeInstancedCylinders(instances) {
 	var i = null;
 	var vector = new THREE.Vector4();
 
-	var baseGeometry = makeCylinderGeometry();
+	var baseGeometry = makeCylinderGeometry(1.0, 1.0, 7);
 	var geometry = new THREE.InstancedBufferGeometry();
 	geometry.maxInstancedCount = instances;
 
