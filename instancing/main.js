@@ -7,8 +7,9 @@ var scene    = null;
 var stats    = null;
 var time     = null;
 
-var cube      = null;
-var cylinders = null;
+var cube             = null;
+var cylinders        = null;
+var cylindersColored = null;
 
 // Entry point.
 function start() {
@@ -28,7 +29,7 @@ function start() {
 	var ratio = window.innerWidth / window.innerHeight;
 	camera = new THREE.PerspectiveCamera(fov, ratio, 0.1, 1.0e6);
 	camera.up.set(0, 0, 1);
-	camera.position.set(350.0, 350.0, 350.0);
+	camera.position.set(50.0, 50.0, 50.0);
 	camera.lookAt(new THREE.Vector3(0, 0, 0));
 
 	// Setup the WebGL Rendering context.
@@ -50,6 +51,7 @@ function start() {
 	// Setup basic orbiting controls.
 	controls = new THREE.OrbitControls(camera);
 
+
 	// Simple lighting.
 	scene.add(new THREE.AmbientLight(0xffffff));
 	var light = new THREE.PointLight(0xa0a0a0, 5.0, 10.0);
@@ -69,7 +71,8 @@ function start() {
 	cube = makeCubeMesh(1.0, 1.0, 1.0);
 	scene.add(cube);
 
-	cylinders = makeInstancedCylinders(15 * 1000);
+	cylinders = makeInstancedCylindersMesh(12 * 1000);
+	cylindersColored = makeInstancedCylindersMeshUniqueColors(110 * 1000);
 	scene.add(cylinders);
 
 	render();
@@ -114,9 +117,8 @@ function makeCylinderGeometry(height, width, sides) {
 	return bufferGeometry;
 }
 
-function makeInstancedCylinders(instances) {
+function makeInstancedCylindersMesh(instances) {
 	var i = null;
-	var vector = new THREE.Vector4();
 
 	var baseGeometry = makeCylinderGeometry(1.0, 1.0, 7);
 	var geometry = new THREE.InstancedBufferGeometry();
@@ -162,6 +164,85 @@ function makeInstancedCylinders(instances) {
 		},
 		vertexShader: document.getElementById( 'vertexShader' ).textContent.replace("@@name@@", "Mineral!"),
 		fragmentShader: document.getElementById( 'fragmentShader' ).textContent,
+		side: THREE.DoubleSide,
+		transparent: true,
+		attributes: [
+			"position",
+			"offset",
+			"scale",
+		],
+		side: THREE.DoubleSide,
+	});
+
+	material.uniforms.time.value = Date.now();
+
+	return new THREE.Mesh(geometry, material);
+}
+
+function makeInstancedCylindersMeshUniqueColors(instances) {
+	var i = null;
+
+	var baseGeometry = makeCylinderGeometry(1.0, 1.0, 7);
+	var geometry = new THREE.InstancedBufferGeometry();
+	geometry.maxInstancedCount = instances;
+
+	// Set positions
+	var positions = new THREE.BufferAttribute(
+		new Float32Array(baseGeometry.attributes["position"].array),
+		3);
+	geometry.addAttribute("position", positions);
+
+	// Set offsets
+	var offsets = new THREE.InstancedBufferAttribute(
+		new Float32Array(instances * 3),
+		3, // elements of --^ per item. We're passing vec3s, so it's 3.
+		1); // meshPerAttribute
+	for (i = 0; i < offsets.count; i += 1) {
+		// Random offsets.
+		offsets.setXYZ(i, 100.0*Math.random(), 100.0*Math.random(), 100.0*Math.random());
+	}
+	geometry.addAttribute("offset", offsets);
+
+	// Set the scale (along each axis)
+	var scales = new THREE.InstancedBufferAttribute(
+		new Float32Array(instances * 3),
+		3, // Scale the x, the y, and/or the z axes.
+		1);
+
+	for (i = 0; i < scales.count; i += 1) {
+		var height = Math.random() + 0.5;
+		// Keep them square.
+		var width = 0.3 * height * Math.random() + 0.1;
+		scales.setXYZ(i, width, Math.random(), width);
+	}
+
+	geometry.addAttribute("scale", scales);
+
+	// Give each cylinder a unique color which maps to its index.
+	var colors = new THREE.InstancedBufferAttribute(
+		new Float32Array(instances * 3),
+		3,
+		1);
+
+	var r, g, b;
+	for (i = 1; i <= colors.count; i += 1) {
+		r = ((i >> 16) & 0xff ) / 0x100;
+		g = ((i >> 8)  & 0xff ) / 0x100;
+		b = (i         & 0xff ) / 0x100;
+		colors.setXYZ(i-1, r, g, b);
+	}
+
+	geometry.addAttribute("color", scales);
+
+	// Setup material with its shader.
+	var material = new THREE.RawShaderMaterial({
+		uniforms: {
+			time: { type: "f", value: 0},
+		},
+		// Replace "@@name@@" with an identifier to generate unique shaders. This useful when
+		// using Firefox's shader editor on a live page.
+		vertexShader: document.getElementById('unqiueColorsVertexShader').textContent.replace("@@name@@", "Mineral!"),
+		fragmentShader: document.getElementById('unqiueColorsFragmentShader').textContent,
 		side: THREE.DoubleSide,
 		transparent: true,
 		attributes: [
