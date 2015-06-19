@@ -240,6 +240,9 @@ function loadCylinderData(instances, type, color) {
 		attributes: attributeNames.slice(),
 	});
 
+	// We meed to do this to make sure the mesh doesn't get culled at weird angles.
+	geometry.computeBoundingBox();
+
 	// We only use the onHoverMaterial in special cases, so default to using the renderMaterial.
 	data.mesh = new THREE.Mesh(geometry, data.renderMaterial);
 	data.mesh = new THREE.Mesh(geometry, data.onHoverMaterial);
