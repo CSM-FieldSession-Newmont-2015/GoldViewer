@@ -1,17 +1,18 @@
+// threejs stuff.
+var camera         = null;
+var canvas         = null;
+var controls       = null;
+var renderer       = null;
+var scene          = null;
+var stats          = null;
 
-var camera   = null;
-var canvas   = null;
-var controls = null;
-var renderer = null;
-var scene    = null;
-var stats    = null;
-var time     = null;
+// State we use when updating.
+var time           = null;
+var lastMeshSwitch = Date.now() / 1e3;
 
-var cube             = null;
-var cylinders        = null;
-var cylindersColored = null;
-
-var cylinderData = null;
+// Meshes we draw.
+var cube           = null;
+var cylinderData   = null;
 
 // Entry point.
 function start() {
@@ -73,13 +74,13 @@ function start() {
 	cube = makeCubeMesh(1.0, 1.0, 1.0);
 	scene.add(cube);
 
-	cylinderData = loadCylinderData(120 * 1000);
+	cylinderData = loadCylinderData(120 * 1000, "Purple Stuff", new THREE.Color(0.5, 0.0, 0.5));
 	scene.add(cylinderData.mesh);
 
 	render();
 }
 
-var lastMeshSwitch = Date.now() / 1e3;
+
 
 // Update things every frame.
 function update(time) {
@@ -133,7 +134,8 @@ function makeCylinderGeometry(height, width, sides) {
 	return bufferGeometry;
 }
 
-function loadCylinderData(instances, type) {
+function loadCylinderData(instances, type, color) {
+	console.log("Making " + instances + " of " + JSON.stringify(color) + " " + type + ".");
 	var baseGeometry = makeCylinderGeometry(1.0, 1.0, 7);
 
 	var data = {
@@ -197,7 +199,7 @@ function loadCylinderData(instances, type) {
 	data.renderMaterial = new THREE.RawShaderMaterial({
 		uniforms: {
 			time:  { type: "f",  value: time},
-			color: { type: "4f", value: [1.0, 1.0, 1.0, 1.0] }
+			color: { type: "4f", value: [color.r, color.g, color.b, 1.0] }
 		},
 		vertexShader:   vsRenderSource.replace("@@name@@", type),
 		fragmentShader: fsRenderSource.replace("@@name@@", type),

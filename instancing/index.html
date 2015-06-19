@@ -44,7 +44,7 @@ varying float vTime;
 
 // Shader for @@name@@.
 void main() {
-	gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+	gl_FragColor = vColor;
 	if (vPosition.z < 100.0 * sin(vTime) + 100.0) {
 		//gl_FragColor.a -= 0.5;
 	}
