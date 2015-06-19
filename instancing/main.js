@@ -11,6 +11,8 @@ var cube             = null;
 var cylinders        = null;
 var cylindersColored = null;
 
+var cylinderData = null;
+
 // Entry point.
 function start() {
 	// Setup the FPS counter.
@@ -71,12 +73,13 @@ function start() {
 	cube = makeCubeMesh(1.0, 1.0, 1.0);
 	scene.add(cube);
 
-	cylinders = makeInstancedCylindersMesh(12 * 1000);
-	cylindersColored = makeInstancedCylindersMeshUniqueColors(110 * 1000);
-	scene.add(cylinders);
+	cylinderData = loadCylinderData(120 * 1000);
+	scene.add(cylinderData.mesh);
 
 	render();
 }
+
+var lastMeshSwitch = Date.now() / 1e3;
 
 // Update things every frame.
 function update(time) {
@@ -87,9 +90,22 @@ function update(time) {
 	cube.rotation.y = Math.cos(1.01 * time);
 	cube.rotation.z = Math.cos(1.02 * time);
 
-	// TODO: This does not work.
-//	cylinders.material.uniforms.color.value[0] = Math.sin(time) * Math.sin(time);
-//	cylinders.material.needsUpdate = true;
+	// Change once a second, give or take.
+	if (Math.abs(time - lastMeshSwitch) > 1.0) {
+		console.log("Switching meshes.");
+
+		lastMeshSwitch = time;
+
+		// We need to re-add the mesh for it take effect.
+		scene.remove(cylinderData.mesh);
+		// Switch between each mesh.
+		if (cylinderData.mesh.material === cylinderData.onHoverMaterial) {
+			cylinderData.mesh.material = cylinderData.renderMaterial;
+		} else {
+			cylinderData.mesh.material = cylinderData.onHoverMaterial;
+		}
+		scene.add(cylinderData.mesh);
+	}
 }
 
 function render() {
@@ -117,108 +133,81 @@ function makeCylinderGeometry(height, width, sides) {
 	return bufferGeometry;
 }
 
-function makeInstancedCylindersMesh(instances) {
+function loadCylinderData(instances, type) {
+	var baseGeometry = makeCylinderGeometry(1.0, 1.0, 7);
+
+	var data = {
+		type: type ? type : "A Mineral!",
+
+		positions: new THREE.BufferAttribute(
+			new Float32Array(baseGeometry.attributes["position"].array),
+			3),
+		offsets: new THREE.InstancedBufferAttribute(
+			new Float32Array(instances * 3),
+			3,
+			1),
+		scales: new THREE.InstancedBufferAttribute(
+			new Float32Array(instances * 3),
+			3,
+			1),
+	};
+
+	// Remember, JavaScript only has scope in functions.
 	var i = null;
 
-	var baseGeometry = makeCylinderGeometry(1.0, 1.0, 7);
+	// This is where you'd call the functions to load offsets, scales, and concentrations.
+	// For this proof-of-concept, we just make the data up.
+
+	// Random offsets.
+	for (i = 0; i < data.offsets.count; i += 1) {
+		// Put them in a 100.0 cube.
+		data.offsets.setXYZ(i, 100.0*Math.random(), 100.0*Math.random(), 100.0*Math.random());
+	}
+
+	// Random scaling.
+	for (i = 0; i < data.scales.count; i += 1) {
+		var height = Math.random() + 0.5;
+		var width = 0.3 * height * Math.random() + 0.1;
+		// Keep them square on top.
+		data.scales.setXYZ(i, width, Math.random(), width);
+	}
+
+	// Make the final geometry.
 	var geometry = new THREE.InstancedBufferGeometry();
 	geometry.maxInstancedCount = instances;
 
-	// Set positions
-	var positions = new THREE.BufferAttribute(
-		new Float32Array(baseGeometry.attributes["position"].array),
-		3);
-	geometry.addAttribute("position", positions);
+	// The GLSL identifiers corresponding to each attribute.
+	var attributeNames = [
+		"position",
+		"offset",
+		"scale"];
 
-	// Set offsets
-	var offsets = new THREE.InstancedBufferAttribute(
-		new Float32Array(instances * 3),
-		3, // elements of --^ per item. We're passing vec3s, so it's 3.
-		1); // meshPerAttribute
-	for (i = 0; i < offsets.count; i += 1) {
-		// Random offsets.
-		offsets.setXYZ(i, 200.0*Math.random(), 200.0*Math.random(), 200.0*Math.random());
-	}
-	geometry.addAttribute("offset", offsets);
+	geometry.addAttribute(attributeNames[0], data.positions);
+	geometry.addAttribute(attributeNames[1], data.offsets);
+	geometry.addAttribute(attributeNames[2], data.scales);
 
-	// Set the scale (along each axis)
-	var scales = new THREE.InstancedBufferAttribute(
-		new Float32Array(instances * 3),
-		3, // Scale the x, the y, and/or the z axes.
-		1);
+	// Load the shaders.
 
-	for (i = 0; i < scales.count; i += 1) {
-		var height = Math.random() + 0.5;
-		// Keep them square.
-		var width = 0.3 * height * Math.random() + 0.1;
-		scales.setXYZ(i, width, Math.random(), width);
-	}
+	// The shader used for generic rendering.
+	var vsRenderSource = document.getElementById('renderVertexShader').textContent;
+	var fsRenderSource = document.getElementById('renderFragmentShader').textContent;
 
-	geometry.addAttribute("scale", scales);
+	var time = Date.now();
 
-	// Setup material with its shader.
-	var material = new THREE.RawShaderMaterial({
+	data.renderMaterial = new THREE.RawShaderMaterial({
 		uniforms: {
-			time: { type: "f", value: 0},
+			time:  { type: "f",  value: time},
 			color: { type: "4f", value: [1.0, 1.0, 1.0, 1.0] }
 		},
-		vertexShader: document.getElementById( 'vertexShader' ).textContent.replace("@@name@@", "Mineral!"),
-		fragmentShader: document.getElementById( 'fragmentShader' ).textContent,
-		side: THREE.DoubleSide,
+		vertexShader:   vsRenderSource.replace("@@name@@", type),
+		fragmentShader: fsRenderSource.replace("@@name@@", type),
+
 		transparent: true,
-		attributes: [
-			"position",
-			"offset",
-			"scale",
-		],
-		side: THREE.DoubleSide,
+		attributes: attributeNames.slice(),
 	});
 
-	material.uniforms.time.value = Date.now();
-
-	return new THREE.Mesh(geometry, material);
-}
-
-function makeInstancedCylindersMeshUniqueColors(instances) {
-	var i = null;
-
-	var baseGeometry = makeCylinderGeometry(1.0, 1.0, 7);
-	var geometry = new THREE.InstancedBufferGeometry();
-	geometry.maxInstancedCount = instances;
-
-	// Set positions
-	var positions = new THREE.BufferAttribute(
-		new Float32Array(baseGeometry.attributes["position"].array),
-		3);
-	geometry.addAttribute("position", positions);
-
-	// Set offsets
-	var offsets = new THREE.InstancedBufferAttribute(
-		new Float32Array(instances * 3),
-		3, // elements of --^ per item. We're passing vec3s, so it's 3.
-		1); // meshPerAttribute
-	for (i = 0; i < offsets.count; i += 1) {
-		// Random offsets.
-		offsets.setXYZ(i, 100.0*Math.random(), 100.0*Math.random(), 100.0*Math.random());
-	}
-	geometry.addAttribute("offset", offsets);
-
-	// Set the scale (along each axis)
-	var scales = new THREE.InstancedBufferAttribute(
-		new Float32Array(instances * 3),
-		3, // Scale the x, the y, and/or the z axes.
-		1);
-
-	for (i = 0; i < scales.count; i += 1) {
-		var height = Math.random() + 0.5;
-		// Keep them square.
-		var width = 0.3 * height * Math.random() + 0.1;
-		scales.setXYZ(i, width, Math.random(), width);
-	}
-
-	geometry.addAttribute("scale", scales);
-
-	// Give each cylinder a unique color which maps to its index.
+	// Give each cylinder a unique color which maps to its index. We'll use this on the texture
+	// to id which cylinder we're hovering over.
 	var colors = new THREE.InstancedBufferAttribute(
 		new Float32Array(instances * 3),
 		3,
@@ -226,34 +215,31 @@ function makeInstancedCylindersMeshUniqueColors(instances) {
 
 	var r, g, b;
 	for (i = 1; i <= colors.count; i += 1) {
-		r = ((i >> 16) & 0xff ) / 0x100;
-		g = ((i >> 8)  & 0xff ) / 0x100;
-		b = (i         & 0xff ) / 0x100;
+		r = ((i >> 16) & 0xff) / 0x100;
+		g = ((i >> 8)  & 0xff) / 0x100;
+		b = (i         & 0xff) / 0x100;
 		colors.setXYZ(i-1, r, g, b);
 	}
+	attributeNames.push("color");
+	geometry.addAttribute("color", colors);
 
-	geometry.addAttribute("color", scales);
+	// The material to use when writing to a texture for hover-over detection.
+	var vsHoverSource = document.getElementById('hoverVertexShader' ).textContent;
+	var fsHoverSource = document.getElementById('hoverFragmentShader' ).textContent;
 
-	// Setup material with its shader.
-	var material = new THREE.RawShaderMaterial({
+	data.onHoverMaterial = new THREE.RawShaderMaterial({
 		uniforms: {
-			time: { type: "f", value: 0},
+			time: { type: "f", value: time},
 		},
-		// Replace "@@name@@" with an identifier to generate unique shaders. This useful when
-		// using Firefox's shader editor on a live page.
-		vertexShader: document.getElementById('unqiueColorsVertexShader').textContent.replace("@@name@@", "Mineral!"),
-		fragmentShader: document.getElementById('unqiueColorsFragmentShader').textContent,
-		side: THREE.DoubleSide,
+		vertexShader:   vsHoverSource.replace("@@name@@", type),
+		fragmentShader: fsHoverSource.replace("@@name@@", type),
+
 		transparent: true,
-		attributes: [
-			"position",
-			"offset",
-			"scale",
-		],
-		side: THREE.DoubleSide,
+		attributes: attributeNames.slice(),
 	});
 
-	material.uniforms.time.value = Date.now();
-
-	return new THREE.Mesh(geometry, material);
+	// We only use the onHoverMaterial in special cases, so default to using the renderMaterial.
+	data.mesh = new THREE.Mesh(geometry, data.renderMaterial);
+	data.mesh = new THREE.Mesh(geometry, data.onHoverMaterial);
+	return data;
 }

@@ -6,7 +6,7 @@
 		<script type="text/javascript" src="stats.min.js"></script>
 		<script type="text/javascript" src="main.js"></script>
 
-		<script id="vertexShader" type="x-shader/x-vertex">
+		<script id="renderVertexShader" type="x-shader/x-vertex">
 precision highp float;
 
 uniform mat4 modelViewMatrix;
@@ -35,7 +35,7 @@ void main() {
 }
 		</script>
 
-		<script id="fragmentShader" type="x-shader/x-fragment">
+		<script id="renderFragmentShader" type="x-shader/x-fragment">
 precision highp float;
 
 varying vec4 vColor;
@@ -46,12 +46,12 @@ varying float vTime;
 void main() {
 	gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
 	if (vPosition.z < 100.0 * sin(vTime) + 100.0) {
-		gl_FragColor.a -= 0.5;
+		//gl_FragColor.a -= 0.5;
 	}
 }
 		</script>
 
-		<script id="unqiueColorsVertexShader" type="x-shader/x-vertex">
+		<script id="hoverVertexShader" type="x-shader/x-vertex">
 precision highp float;
 
 uniform mat4 modelViewMatrix;
@@ -76,7 +76,7 @@ void main() {
 }
 		</script>
 
-		<script id="unqiueColorsFragmentShader" type="x-shader/x-fragment">
+		<script id="hoverFragmentShader" type="x-shader/x-fragment">
 precision highp float;
 
 varying vec4 vColor;
