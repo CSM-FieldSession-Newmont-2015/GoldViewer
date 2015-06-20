@@ -284,7 +284,10 @@ function View(projectURL) {
 		setupCamera();
 		setupRenderer();
 		setupControls();
-		setupStats();
+		// Uncomment next line and stats.update in render() to give a fps counter in
+		// the bottom right of the screen. It's currently disabled because testing
+		// found it to sometimes be the cause of lag. Also it can become distracting
+		//setupStats();
 		setupWindowListeners();
 
 		addTerrain();
@@ -1234,7 +1237,7 @@ function View(projectURL) {
 		requestAnimationFrame(render);
 		controls.update();
 
-		stats.update();
+		//stats.update();
 
 		camera.updateMatrixWorld();
 
@@ -1561,8 +1564,9 @@ function View(projectURL) {
 					//clicking while motion is in progress causes problems, so
 					//don't try to initiate new movement if it's in progress
 					if(motionInterval){
-						clearInterval(motionInterval);
+						window.clearInterval(motionInterval);
 						motionInterval = null;
+						clearTimeout(mouseTimeout);
 						mouseTimeout = setTimeout(checkHover, 150);
 						return;
 					}
@@ -1596,7 +1600,7 @@ function View(projectURL) {
 		sceneOrtho.remove(tooltipSprite);
 		scene.remove(intersected);
 		intersected = null;
-		clearTimeout(mouseTimeout);
+		window.clearTimeout(mouseTimeout);
 
 		if (toHere.geometry.boundingSphere === undefined) {
 			toHere.computeBoundingSphere();
@@ -1634,7 +1638,7 @@ function View(projectURL) {
 
 		//Start an interval to move the reticle around!
 		//Trigger 100 times a second
-		motionInterval = setInterval(function () {
+		motionInterval = window.setInterval(function () {
 			if (reticleMotion.length !== 0) {
 				controls.target.add(reticleMotion.pop());
 			}
@@ -1645,7 +1649,7 @@ function View(projectURL) {
 			if (reticleMotion.length === 0 && cameraMotion.length === 0) {
 				window.clearInterval(motionInterval);
 				motionInterval = null;
-				mouseTimeout = setTimeout(checkHover, 150);
+				mouseTimeout = window.setTimeout(checkHover, 150);
 			}
 		}, 10);
 	}
