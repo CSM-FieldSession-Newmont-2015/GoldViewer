@@ -68,7 +68,6 @@ function View(projectURL) {
 
 	/**
 	 * The DOM element containing our canvas.
-	 * @type {???}
 	 *
 	 * @todo  What type is this?
 	 */
@@ -188,7 +187,7 @@ function View(projectURL) {
 	var renderer = null;
 
 	/**
-	 * Our orbital controls rotate, or orbit, around a centeral point. It's
+	 * Our orbital controls rotate, or orbit, around a central point. It's
 	 * hard to tell where that is, so we keep a sphere positioned there.
 	 * @see  reticleLight
 	 * @type {THREE.Mesh}
@@ -202,7 +201,6 @@ function View(projectURL) {
 	var reticleLight = null;
 
 	/**
-	 * ???
 	 * @type {Number}
 	 */
 	var returnedGeometry = 0;
@@ -223,7 +221,7 @@ function View(projectURL) {
 
 	/**
 	 * FPS counter. https://github.com/mrdoob/stats.js/
-	 * @type {[type]}
+	 * @type {THREE.Stats}
 	 */
 	var stats = null;
 
@@ -414,7 +412,7 @@ function View(projectURL) {
 	 * The array`[new THREE.Vector3(1, 2, 3), new THREE.Vector3(4, 5, 6)]`
 	 * should be passed in as `[1, 2, 3, 4, 5, 6]`.
 	 *
-	 * @param  {[number]} data An flat array of floats.
+	 * @param  {Array} data A flat array of floats.
 	 *
 	 * @todo  Return the data, instead of writing out to globals.
 	 * @todo  Unspaghettify this.
@@ -551,13 +549,13 @@ function View(projectURL) {
 				new THREE.BufferAttribute(indeces, 3));
 			geometry.computeFaceNormals();
 			geometry.computeVertexNormals();
-			
+
 			geometry.addDrawCall({});	//if I give it the arguments inside the object, it breaks :(
 
 			geometry.drawcalls[0].start = 0;
 			geometry.drawcalls[0].count = numVertices / 3;
 			geometry.drawcalls[0].index = 0;
-			
+
 			var color = colorFromString(property.analytes[mineral].color);
 			var material = new THREE.MeshPhongMaterial({
 				color: color,
@@ -742,7 +740,7 @@ function View(projectURL) {
 		var maxTerrainDim = Math.max(sizeX, sizeY);
 		var minTerrainDim = Math.min(property.box.size.x, property.box.size.y);
 
-		// Setting this variable makes it so that small property boxes 
+		// Setting this variable makes it so that small property boxes
 		// don't wind up with a large numbers of segments
 		var longSegments = Math.min(Math.ceil(maxTerrainDim / 2.0),
 			maxPossibleSegments);
@@ -818,7 +816,7 @@ function View(projectURL) {
 				startLocation = counter + 1;
 			}
 		}
-		
+
 		if (path.length !== 0) {
 			var pathRequest = {
 				'path': path,
@@ -1129,7 +1127,7 @@ function View(projectURL) {
 		 *
 		 * @param  {Number} num The distance in meters.
 		 *
-		 * @return {[type]}     The rounded number.
+		 * @return {Number}     The rounded number.
 		 */
 		function formatKm(num) {
 			num = parseFloat(Math.floor(num).toPrecision(2));
@@ -1406,7 +1404,7 @@ function View(projectURL) {
 	}
 
 	/**
-	 * This is the method to be called after a timeout of the mouse not moving 
+	 * This is the method to be called after a timeout of the mouse not moving
 	 * It checks for a mouse intercept and then will highlight an interval and
 	 * show its tooltip if it is being hovered over
 	 */
@@ -1491,7 +1489,7 @@ function View(projectURL) {
 	 * after the third element. Anything missing is given a default by
 	 * THREE.Vector3. This is, as of r71, 0.0.
 
-	 * @param  {[Number]}      An array of coordinate values.
+	 * @param  {Array}      An array of coordinate values.
 	 *
 	 * @return {THREE.Vector3} The Vector3 made from the array.
 	 */
