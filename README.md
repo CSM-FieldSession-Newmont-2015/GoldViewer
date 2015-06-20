@@ -49,9 +49,9 @@ As mentioned earlier, there are some buttons on the bottom left of the screen. F
 
 - Zoom in
 - Zoom out
+- Toggle rotating the model
 - Toggle the terrain mesh
 - Toggle the survey holes
-- Toggle rotating the model
  
 #### Sidebar
 
