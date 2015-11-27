@@ -1,1 +1,1 @@
-python -m http.server 8888
+python -m SimpleHTTPServer 8000

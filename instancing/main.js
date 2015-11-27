@@ -8,11 +8,13 @@ var stats          = null;
 
 // State we use when updating.
 var time           = null;
+var lastTime       = null;
 var lastMeshSwitch = Date.now() / 1e3;
 
 // Meshes we draw.
 var cube           = null;
 var cylinderData   = null;
+var CylinderGeom   = null;
 
 // Entry point.
 function start() {
@@ -77,6 +79,8 @@ function start() {
 	cylinderData = loadCylinderData(120 * 1000, "Purple Stuff", new THREE.Color(0.5, 0.0, 0.5));
 	scene.add(cylinderData.mesh);
 
+	console.log(cylinderData);
+
 	render();
 }
 
@@ -91,9 +95,13 @@ function update(time) {
 	cube.rotation.y = Math.cos(1.01 * time);
 	cube.rotation.z = Math.cos(1.02 * time);
 
+	rotateCylinder(time);
+	cylinderData.mesh.geometry.addAttribute("position", cylinderGeom.attributes["position"])
+
+	/*
 	// Change once a second, give or take.
-	if (Math.abs(time - lastMeshSwitch) > 1.0) {
-		console.log("Switching meshes.");
+	if (Math.abs(time - lastMeshSwitch) > 10.0) {
+		//console.log("Switching meshes.");
 
 		lastMeshSwitch = time;
 
@@ -106,7 +114,7 @@ function update(time) {
 			cylinderData.mesh.material = cylinderData.onHoverMaterial;
 		}
 		scene.add(cylinderData.mesh);
-	}
+	}*/
 }
 
 function render() {
@@ -115,6 +123,17 @@ function render() {
 	update(Date.now() / 1e3);
 
 	renderer.render(scene, camera);
+}
+
+function rotateCylinder(time){
+	var radians = (time - lastTime) / 8;
+	lastTime = time;
+	var euler = new THREE.Euler(0, radians, 0, 'XYZ');
+	var matrix = new THREE.Matrix4().makeRotationFromEuler(euler);
+	//console.log(rotationMatrix);
+	cylinderGeom.applyMatrix(matrix);
+	cylinderGeom.computeFaceNormals();
+	cylinderGeom.computeVertexNormals();
 }
 
 function makeCubeMesh(x, y, z) {
@@ -130,13 +149,34 @@ function makeCubeMesh(x, y, z) {
 function makeCylinderGeometry(height, width, sides) {
 	var radius = width / 2.0;
 	var regularGeometry = new THREE.CylinderGeometry(radius, radius, height, sides);
-	var bufferGeometry  = new THREE.BufferGeometry().fromGeometry(regularGeometry);
-	return bufferGeometry;
+	console.log(regularGeometry);
+
+	var vertices = [];
+	for(var i = 0; i < regularGeometry.vertices.length; i+=1){
+		vertices.push(regularGeometry.vertices[i].x);
+		vertices.push(regularGeometry.vertices[i].y);
+		vertices.push(regularGeometry.vertices[i].z);
+	}
+	vertices = new Float32Array(vertices);
+
+	var indices = [];
+	for(var i = 0; i < regularGeometry.faces.length; i+=1){
+		indices.push(regularGeometry.faces[i].a);
+		indices.push(regularGeometry.faces[i].b);
+		indices.push(regularGeometry.faces[i].c);
+	}
+	indices = new Uint16Array(indices);
+
+	cylinderGeom  = new THREE.BufferGeometry();
+	cylinderGeom.addAttribute('position', new THREE.BufferAttribute(vertices, 3));
+	cylinderGeom.addAttribute('index', new THREE.BufferAttribute(indices, 3));
+	console.log(cylinderGeom);
+	return cylinderGeom;
 }
 
 function loadCylinderData(instances, type, color) {
 	console.log("Making " + instances + " of " + JSON.stringify(color) + " " + type + ".");
-	var baseGeometry = makeCylinderGeometry(1.0, 1.0, 7);
+	var baseGeometry = makeCylinderGeometry(1.0, 1.0, 6);
 
 	var data = {
 		type: type ? type : "A Mineral!",
@@ -152,6 +192,13 @@ function loadCylinderData(instances, type, color) {
 			new Float32Array(instances * 3),
 			3,
 			1),
+		rotations: new THREE.InstancedBufferAttribute(
+			new Float32Array(instances * 4),
+			4,
+			1),
+		indices: new THREE.BufferAttribute(
+			new Uint16Array(baseGeometry.attributes["index"].array),
+			1)
 	};
 
 	// Remember, JavaScript only has scope in functions.
@@ -168,10 +215,21 @@ function loadCylinderData(instances, type, color) {
 
 	// Random scaling.
 	for (i = 0; i < data.scales.count; i += 1) {
-		var height = Math.random() + 0.5;
-		var width = 0.3 * height * Math.random() + 0.1;
+		var height = Math.random() * 10 + 0.5;
+		var width = Math.random() + 0.1;
 		// Keep them square on top.
 		data.scales.setXYZ(i, width, Math.random(), width);
+	}
+
+	// Random directions.
+	for (i = 0; i < data.rotations.count; i += 1) {
+		var x = Math.random() * 2*Math.PI;
+		var y = Math.random() * 2*Math.PI;
+		var z = Math.random() * 2*Math.PI;
+		var w = Math.random() * 2*Math.PI;
+		var quaternion = new THREE.Quaternion(x, y, z, w);
+		quaternion.normalize();
+		data.rotations.setXYZW(i, quaternion.x, quaternion.y, quaternion.z, quaternion.w);
 	}
 
 	// Make the final geometry.
@@ -182,11 +240,17 @@ function loadCylinderData(instances, type, color) {
 	var attributeNames = [
 		"position",
 		"offset",
-		"scale"];
+		"scale",
+		"quaternion",
+		"index"];
+
+		console.log(data.rotations);
 
 	geometry.addAttribute(attributeNames[0], data.positions);
 	geometry.addAttribute(attributeNames[1], data.offsets);
 	geometry.addAttribute(attributeNames[2], data.scales);
+	geometry.addAttribute(attributeNames[3], data.rotations);
+	geometry.addAttribute(attributeNames[4], data.indices);
 
 	// Load the shaders.
 
@@ -229,6 +293,7 @@ function loadCylinderData(instances, type, color) {
 	var vsHoverSource = document.getElementById('hoverVertexShader' ).textContent;
 	var fsHoverSource = document.getElementById('hoverFragmentShader' ).textContent;
 
+	console.log(vsHoverSource);
 	data.onHoverMaterial = new THREE.RawShaderMaterial({
 		uniforms: {
 			time: { type: "f", value: time},
@@ -241,7 +306,7 @@ function loadCylinderData(instances, type, color) {
 	});
 
 	// We meed to do this to make sure the mesh doesn't get culled at weird angles.
-	geometry.computeBoundingBox();
+	//geometry.computeBoundingBox();
 
 	// We only use the onHoverMaterial in special cases, so default to using the renderMaterial.
 	data.mesh = new THREE.Mesh(geometry, data.renderMaterial);
