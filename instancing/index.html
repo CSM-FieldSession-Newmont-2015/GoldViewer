@@ -48,14 +48,11 @@
 		<script id="hoverVertexShader" type="x-shader/x-vertex">
 			precision highp float;
 
-			uniform mat4 modelViewMatrix;
-			uniform mat4 projectionMatrix;
 			uniform float time;
 
-			attribute vec3 position;
+			attribute vec3 color;
 			attribute vec3 offset;
 			attribute vec3 scale;
-			attribute vec3 color;
 			attribute vec4 quaternion;
 
 			varying vec4 vColor;
