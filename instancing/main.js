@@ -1,6 +1,7 @@
 // threejs stuff.
 var camera         = null;
 var canvas         = null;
+var centerLight    = null;
 var controls       = null;
 var renderer       = null;
 var scene          = null;
@@ -9,10 +10,10 @@ var stats          = null;
 // State we use when updating.
 var time           = null;
 var lastTime       = null;
+var startTime	   = null;
 var lastMeshSwitch = Date.now() / 1e3;
 
 // Meshes we draw.
-var cube           = null;
 var cylinderData   = null;
 
 // Entry point.
@@ -58,11 +59,15 @@ function start() {
 
 	// Simple lighting.
 	scene.add(new THREE.AmbientLight(0xffffff));
-	var light = new THREE.PointLight(0xa0a0a0, 5.0, 1000.0);
+	var light = new THREE.PointLight(0xa0a0a0, 1.0, 1000.0);
 	light.position.x = -40.0;
 	light.position.y = -30.0;
 	light.position.z = -50.0;
 	scene.add(light);
+	centerLight = new THREE.PointLight(0xdd30aa, 25.0, 100.0);
+	scene.add(centerLight);
+	var hemisphereLight = new THREE.HemisphereLight( 0xffffbb, 0x080820, .1 );
+	scene.add(hemisphereLight);
 
 	// Standard resize handler.
 	window.addEventListener("resize", function () {
@@ -72,14 +77,23 @@ function start() {
 		renderer.setSize(window.innerWidth, window.innerHeight);
 	});
 
-	cube = makeCubeMesh(1.0, 1.0, 1.0);
-	//scene.add(cube);
+	// Allow zooming in and out with +/- keys
+	window.onkeypress = function(event) {
+		var code = event.charCode;
 
-	cyl = phongCylinder(3, 5, 7);
-	cyl.translateZ(10);
-	scene.add(cyl);
+		if(code == 61){
+			controls.dollyOut();
+		}
+		else if(code == 45){
+			controls.dollyIn();
+		}
+	   
+	  return false
+	}
 
-	cylinderData = loadCylinderData(120 * 1000, "Purple Stuff", new THREE.Color(0.5, 0.0, 0.5));
+
+	// Obtain the Mesh containing the InstancedBufferGeometry and ShaderMaterial
+	cylinderData = loadCylinderData(120 * 1000, "Blue Stuff");
 	scene.add(cylinderData.mesh);
 
 	render();
@@ -92,30 +106,9 @@ function update(time) {
 	controls.update();
 	stats.update();
 
-	cube.rotation.x = Math.sin(1.0 * time);
-	cube.rotation.y = Math.cos(1.01 * time);
-	cube.rotation.z = Math.cos(1.02 * time);
-
 	rotateCylinder(time);
-	//cylinderData.mesh.geometry.addAttribute("position", cylinderGeom.attributes["position"])
-
-	/*
-	// Change once a second, give or take.
-	if (Math.abs(time - lastMeshSwitch) > 10.0) {
-		//console.log("Switching meshes.");
-
-		lastMeshSwitch = time;
-
-		// We need to re-add the mesh for it take effect.
-		scene.remove(cylinderData.mesh);
-		// Switch between each mesh.
-		if (cylinderData.mesh.material === cylinderData.onHoverMaterial) {
-			cylinderData.mesh.material = cylinderData.renderMaterial;
-		} else {
-			cylinderData.mesh.material = cylinderData.onHoverMaterial;
-		}
-		scene.add(cylinderData.mesh);
-	}*/
+	centerLight.position.copy(controls.target);
+	//data.onHoverMaterial.uniforms.pointLightPosition.needsUpdate = true;
 }
 
 function render() {
@@ -126,29 +119,19 @@ function render() {
 	renderer.render(scene, camera);
 }
 
+// Slowly rotates the base cylinder geometry
 function rotateCylinder(time){
-	var radians = (time - lastTime) / 3;
+	var radians = (time - lastTime) / 14;
 	lastTime = time;
 	var euler = new THREE.Euler(0, radians, 0, 'XYZ');
 	var matrix = new THREE.Matrix4().makeRotationFromEuler(euler);
-	//console.log(rotationMatrix);
 	cylinderGeom.applyMatrix(matrix);
-	cyl.geometry.applyMatrix(matrix);
-}
-
-function makeCubeMesh(x, y, z) {
-	var geometry = new THREE.BoxGeometry(x, y, z);
-	var material = new THREE.MeshPhongMaterial({
-		color: (1 << 25) * Math.random(),
-		//colors: THREE.FaceColors
-	});
-	return new THREE.Mesh(geometry, material);
 }
 
 // Makes a basic, "root" geometry for all of the cylinders to copy.
 function makeCylinderGeometry(height, width, sides) {
 	var radius = width / 2.0;
-	var regularGeometry = new THREE.CylinderGeometry(radius, radius, height, sides);
+	regularGeometry = new THREE.CylinderGeometry(radius, radius, height, sides);
 	regularGeometry.computeVertexNormals();
 	regularGeometry.computeFaceNormals();
 
@@ -177,9 +160,13 @@ function makeCylinderGeometry(height, width, sides) {
 	return cylinderGeom;
 }
 
-function loadCylinderData(instances, type, color) {
-	console.log("Making " + instances + " of " + JSON.stringify(color) + " " + type + ".");
-	var baseGeometry = makeCylinderGeometry(10.0, 10.0, 7);
+
+// Returns a Mesh with random instanced geometry and a Shadermaterial.
+// Contains a number of cylinders given by the instances argument.
+
+function loadCylinderData(instances, type) {
+	console.log("Making " + instances + " of " + type + ".");
+	var baseGeometry = makeCylinderGeometry(10.0, 10.0, 8);
 
 	data = {
 		type: type ? type : "A Mineral!",
@@ -270,7 +257,6 @@ function loadCylinderData(instances, type, color) {
 	var fsRenderSource = document.getElementById('renderFragmentShader').textContent;
 
 	phongUniforms = THREE.ShaderLib.phong.uniforms;
-	//phongUniforms.color = { type: "4f", value: [color.r, color.g, color.b, 1.0] }
 
 	
 
@@ -288,31 +274,13 @@ function loadCylinderData(instances, type, color) {
 		b = (i         & 0xff) / 0x100;
 		colors.setXYZ(i-1, r, g, b);
 	}
-	var color2 = new THREE.BufferAttribute(
-		new Float32Array(3),
-		3);
-	color2.setXYZ(0, 0.2, 0.3, 0.4);
-	console.log(color2);
 	
 	geometry.addAttribute("color", colors);
-	cylinderGeom.addAttribute("color", color2);
 
 	
 	phongUniforms.diffuse.value = new THREE.Color(0.3, 0.4, 0.5);
 	phongUniforms.shininess.value = 4;
 	phongUniforms.refractionRatio.value = 1.0;
-
-	// The material to use when writing to a texture for hover-over detection.
-	var vertexShader = THREE.ShaderLib.phong.vertexShader;
-	var split = vertexShader.split("void main() {");
-	console.log(beforeMainVertexString);
-	var modifiedVertexShader = [
-			split[0],
-			beforeMainVertexString,
-			"void main() {",
-			afterMainVertexString,
-			split[1]
-			].join("\n");
 
 
 	data.onHoverMaterial = new THREE.ShaderMaterial({
@@ -326,27 +294,10 @@ function loadCylinderData(instances, type, color) {
 	});
 	data.onHoverMaterial.update();
 
-	// We meed to do this to make sure the mesh doesn't get culled at weird angles.
-	//geometry.computeBoundingBox();
-
 	// We only use the onHoverMaterial in special cases, so default to using the renderMaterial.
 	//data.mesh = new THREE.Mesh(geometry, data.renderMaterial);
 	data.mesh = new THREE.Mesh(geometry, data.onHoverMaterial);
 	return data;
-}
-
-function phongCylinder(radius, height, segments){
-	var geometry = new THREE.CylinderGeometry(radius, radius, height, segments);
-	geometry = new THREE.BufferGeometry().fromGeometry(geometry);
-	geometry.computeFaceNormals();
-	geometry.computeVertexNormals();
-	var material = new THREE.MeshPhongMaterial({
-		color: new THREE.Color(0.4, 0.5, 0.6),
-				refractionRatio: 1.0,
-				shininess: 4.0
-	})
-	var mesh = new THREE.Mesh(geometry, material);
-	return mesh;
 }
 
 var beforeMainVertexString = [
@@ -365,12 +316,13 @@ var afterMainVertexString = [
 			
 				"vec3 newPosition = scale * position;",
 				"newPosition = rotate_vector( quaternion, newPosition);",
-				"newPosition = newPosition + offset;"
+				"newPosition = newPosition + offset;\n"
+
 			].join("\n");
 
 var phongVertexShaderModified = [
 
-			"#define PHONGMODIFIED",
+			"#define PHONG",
 
 			"varying vec3 vViewPosition;",
 
@@ -437,7 +389,7 @@ var phongVertexShaderModified = [
 
 	var phongFragmentShaderModified = [
 
-			"#define PHONGMODIFIED",
+			"#define PHONG",
 
 			"uniform vec3 diffuse;",
 			"uniform vec3 emissive;",
