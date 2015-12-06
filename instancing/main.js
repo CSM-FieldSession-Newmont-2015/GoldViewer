@@ -20,10 +20,23 @@ var lastMeshSwitch = Date.now() / 1e3;
 
 // Meshes we draw.
 var cylinderData   = null;
+var hoverCylinder  = {};
 
-var mouse          = {};
-var lastClicked    = null;
-var hovered        = null;
+// Variables for UI stuff
+var uiVariables = {
+	mouse:         null,
+	lastClicked:   null,
+	hovering:       null,
+	downPosition:  null
+}
+
+// The GLSL identifiers corresponding to each attribute used in our shaders.
+var attributeNames = [
+	"position",
+	"offset",
+	"scale",
+	"quaternion",
+	"color"];
 
 // Entry point.
 function start() {
@@ -47,8 +60,7 @@ function start() {
 	var ratio = window.innerWidth / window.innerHeight;
 	camera = new THREE.PerspectiveCamera(fov, ratio, 0.1, 1.0e6);
 	camera.up.set(0, 0, 1);
-	camera.position.set(-30.0, -40.0, -50.0);
-	camera.lookAt(new THREE.Vector3(0, 0, 0));
+	camera.position.set(0.0, 0.0, 0.0);
 
 	// Setup the WebGL Rendering context.
 	canvas = document.getElementById("canvas");
@@ -70,6 +82,7 @@ function start() {
 
 	// Setup basic orbiting controls.
 	controls = new THREE.OrbitControls(camera);
+	controls.target = new THREE.Vector3(20, 20, 20);
 
 	// Simple lighting.
 	scene.add(new THREE.AmbientLight(0xffffff));
@@ -78,11 +91,10 @@ function start() {
 	light.position.y = -30.0;
 	light.position.z = -50.0;
 	scene.add(light);
-	centerLight = new THREE.PointLight(0xcccccc, 5.0, 50.0);
+	centerLight = new THREE.PointLight(0xcccccc, 5.0, 100.0);
 	scene.add(centerLight);
-	var hemisphereLight = new THREE.HemisphereLight( 0xffffbb, 0x080820, .4 );
+	var hemisphereLight = new THREE.HemisphereLight( 0xffffbb, 0x080820, .6 );
 	scene.add(hemisphereLight);
-	renderer.sortObjects = false;
 
 	// Standard resize handler.
 	window.addEventListener("resize", function () {
@@ -90,6 +102,7 @@ function start() {
 		camera.updateProjectionMatrix();
 
 		renderer.setSize(window.innerWidth, window.innerHeight);
+		pickingTexture.setSize(window.innerWidth, window.innerHeight);
 	});
 
 	// Add key events
@@ -98,6 +111,7 @@ function start() {
 	// Update mouse object when it moves
 	renderer.domElement.addEventListener( 'mousemove', onMouseMove );
 	renderer.domElement.addEventListener( 'click', onMouseClick );
+	renderer.domElement.addEventListener( 'mousedown', onMouseDown);
 
 
 	// Obtain the Mesh containing the InstancedBufferGeometry and ShaderMaterial
@@ -105,11 +119,70 @@ function start() {
 	scene.add(cylinderData.visibleMesh);
 	pickingScene.add(cylinderData.idMesh);
 
+	setupHoverCylinder();
+
 	render();
 }
 
+// This cylinder will be used to show which cylinder is being highlighted
+// By updating its attributes and uniforms at other parts of the program
+function setupHoverCylinder(){
+
+	var geometry  = new THREE.InstancedBufferGeometry().copy(cylinderGeom);
+	geometry.maxInstancedCount = 1;
+
+	//Set up some Attributes
+	// We'll change the content of these when we hover over a cylinder
+
+	var offsets = new THREE.InstancedBufferAttribute(
+			new Float32Array(4 * 3),
+			3,
+			1);
+	var scales = new THREE.InstancedBufferAttribute(
+			new Float32Array(4 * 3),
+			3,
+			1);
+	var rotations = new THREE.InstancedBufferAttribute(
+			new Float32Array(4 * 4),
+			4,
+			1);
+	var colors = new THREE.InstancedBufferAttribute(
+			new Float32Array(4 * 3),
+			3,
+			1);
+
+	geometry.addAttribute(attributeNames[0], cylinderGeom.attributes.position);
+	geometry.addAttribute(attributeNames[1], offsets);
+	geometry.addAttribute(attributeNames[2], scales);
+	geometry.addAttribute(attributeNames[3], rotations);
+	geometry.addAttribute(attributeNames[4], colors);
+	var uniforms = phongUniforms;
+
+	// To make it look like the other materials being used
+	uniforms.diffuse.value = new THREE.Color(0.3, 0.4, 0.5);
+	uniforms.shininess.value = 4;
+	uniforms.refractionRatio.value = 1.0;
+
+	var material = new THREE.ShaderMaterial({
+		vertexShader:    GV_ShaderLib['phongVertexShader'],
+		fragmentShader:  THREE.ShaderLib['phong'].fragmentShader,
+		vertexColors:    THREE.VertexColors,
+		lights:          true,
+		uniforms:        uniforms,
+		shading:         THREE.FlatShading
+	})
+
+	hoverCylinder.mesh = new THREE.Mesh(geometry, material);
+	hoverCylinder.mesh.frustumCulled = false;
+	hoverCylinder.mesh.visible = false
+	hoverCylinder.attributes = geometry.attributes;
+	hoverCylinder.uniforms = material.uniforms
+
+	scene.add(hoverCylinder.mesh);
+
+}
+
 // Allow zooming in and out with +/- keys.
-// Pick by pressing the spacebar
 function keypress(event) {
 	var code = event.charCode;
 
@@ -128,61 +201,133 @@ function keypress(event) {
 }
 
 function onMouseMove( e ) {
-
-	mouse.x = e.clientX;
-	mouse.y = e.clientY;
-	var id = pick();
-	updateHovered(id);
-
-
+	uiVariables.mouse = new THREE.Vector2( e.clientX, e.clientY );
+	var object = pick();
+	updateHoverCylinder(object.id);
 }
 
 function onMouseClick( e ) {
 
-	var id = pick();
-	console.log(id);
-	updateClicked(id);
+	if(uiVariables.downPosition.distanceTo(uiVariables.mouse) > 4 ){
+		return;
+	}
+	var intersected = pick();
+	console.log(intersected.id);
+	if(intersected.type == "interval"){
+		updateClicked(intersected.id);
+	}
 
 }
 
-function updateHovered(id) {
+function onMouseDown( e ) {
+	uiVariables.downPosition = new THREE.Vector2(e.clientX, e.clientY);
+}
 
+function updateHoverCylinder(id) {
+	if(id == uiVariables.hovering){
+		return;
+	}
+
+	// If we're hovering over a new object, load its attributes
+	// into the hoverCylinder
+	if(id){
+		var offset = data.offsets.array.slice(3*id, 3*id + 3);
+		var quaternion = data.rotations.array.slice(4*id, 4*id + 4);
+		var scale = data.scales.array.slice(3*id, 3*id + 3);
+		var color = data.colors.array.slice(3*id, 3*id + 3);
+
+		// Make it a little bit larger. However this won't work 
+		// if logWidths is set to 0. Some workaround is needed
+		scale[0] = scale[0] * 1.4;
+		scale[1] = scale[1] * 1.2;
+		scale[2] = scale[2] * 1.4;
+
+		hoverCylinder.attributes.offset.array.set(offset);
+		hoverCylinder.attributes.quaternion.array.set(quaternion);
+		hoverCylinder.attributes.scale.array.set(scale);
+		hoverCylinder.attributes.color.array.set(color);
+
+		hoverCylinder.attributes.offset.needsUpdate = true;
+		hoverCylinder.attributes.quaternion.needsUpdate = true;
+		hoverCylinder.attributes.scale.needsUpdate = true;
+		hoverCylinder.attributes.color.needsUpdate = true;
+
+		//hoverCylinder.uniforms.emissive.value = 
+				//new THREE.Color(color[0] / 3, color[1] / 3, color[2] / 3);
+		hoverCylinder.mesh.visible = true;
+	}
+	else{
+		// No mesh when hovering over the background
+		hoverCylinder.mesh.visible = false;
+	}
+
+
+	uiVariables.hovering = id;
 }
 
 function updateClicked(id) {
-	if(id < 0)
-		return;
 
-	var location = data.offsets.array.slice(3*id, 3*(id+1));
-	console.log(location);
-	controls.target.set(location[0], location[1], location[2]);
-	lastClicked = id;
-	//console.log()
+	// If we clicked on a cylinder, move the target controls on it
+	if(id != null){
+		var location = data.offsets.array.slice(3*id, 3*id + 3);
+		controls.target.set(location[0], location[1], location[2]);
+	}
+	uiVariables.lastClicked = id;
 }
 
+
+// This function renders to a texture offscreen and returns
+//  the ID of the cylinder that is underneath the pointer
 function pick() {
 
 	//Only render the pixel that we need.
-	renderer.setScissor(mouse.x, pickingTexture.height - mouse.y, 1, 1);
+	renderer.setScissor(uiVariables.mouse.x, pickingTexture.height - uiVariables.mouse.y, 1, 1);
 	renderer.enableScissorTest(true);
 
-	//render the picking scene off-screen
+	//Save these values to restore after the picking
+	var clearColor = renderer.getClearColor();
+	var alpha = renderer.getClearAlpha();
 
+	renderer.setClearColor(0xffffff, 0xfe/0xff);
+
+	//render the picking scene off-screen
 	renderer.render( pickingScene, camera, pickingTexture );
 
 	//create buffer for reading single pixel
 	var pixelBuffer = new Uint8Array( 4 );
 
 	//read the pixel under the mouse from the texture
-	renderer.readRenderTargetPixels(pickingTexture, mouse.x, pickingTexture.height - mouse.y, 1, 1, pixelBuffer);
+	renderer.readRenderTargetPixels(pickingTexture, uiVariables.mouse.x, pickingTexture.height - uiVariables.mouse.y, 1, 1, pixelBuffer);
 
-	//interpret the pixel as an ID
+	//interpret the pixel as an ID (Unsigned integer)
+	var id = ( ( pixelBuffer[3] << 24 ) | ( pixelBuffer[0] << 16 ) | ( pixelBuffer[1] << 8 ) | ( pixelBuffer[2] << 0 ) ) >>> 0;
 
-	var id = ( pixelBuffer[0] << 24 ) | ( pixelBuffer[1] << 16 ) | ( pixelBuffer[2] << 8 ) | ( pixelBuffer[3] << 0 );
+	var object = {};
 
+	if(id == 0xfefefefe){		// special value reserved for background color
+		object = {
+			type: "background"
+		}
+	}
+	else if( pixelBuffer [3] == 255){				// All user added objects should be
+		console.log("intersected unknown object");	// completely opaque on the picking scene.
+		object = {
+			type: "unknown",
+			id: null
+		}
+	}
+	else {						// Otherwise we have a cylinder and it's ID
+		object = {
+			type: "interval",
+			id: id
+		}
+	}
+
+	//return renderer to its previous state
 	renderer.enableScissorTest(false);
+	renderer.setClearColor(clearColor, alpha);
 
-	return id;
+	return object;
 }
 
 
@@ -194,7 +339,14 @@ function update(time) {
 	stats.update();
 
 	rotateCylinder(3.0);
+
+	// A point light to go at the controls target
 	centerLight.position.copy(controls.target);
+
+	// Have some uniforms slowly scale up and down to show off
+	// the new capabilities
+	phongUniforms.uniformScale.value = Math.sin((startTime - time)/3) + 2;
+	phongUniforms.logWidths.value = Math.sin((startTime - time)/1.5) * .5 + .5;
 }
 
 function render() {
@@ -203,9 +355,9 @@ function render() {
 	update(Date.now() / 1e3);
 
 	if(renderPickingScene){
-		renderer.setClearAlpha(0);
+		//renderer.setClearAlpha(0);
 		renderer.render(pickingScene, camera);
-		renderer.setClearAlpha(1);
+		//renderer.setClearAlpha(1);
 	}else{
 		renderer.render(scene, camera);
 	}
@@ -245,7 +397,7 @@ function makeCylinderGeometry(height, width, sides) {
 	}
 	indices = new Uint16Array(indices);
 
-	cylinderGeom  = new THREE.InstancedBufferGeometry().fromGeometry(regularGeometry);
+	cylinderGeom  = new THREE.BufferGeometry().fromGeometry(regularGeometry);
 
 	// Edit the position and index attributes so that we don't make reduntant
 	// calls on the vertex shader
@@ -260,7 +412,7 @@ function makeCylinderGeometry(height, width, sides) {
 
 function loadCylinderData(instances, type) {
 	console.log("Making " + instances + " of " + type + ".");
-	var baseGeometry = makeCylinderGeometry(10.0, 10.0, 8);
+	var baseGeometry = makeCylinderGeometry(1.0, 1.0, 8);
 
 	data = {
 		type: type ? type : "A Mineral!",
@@ -285,23 +437,22 @@ function loadCylinderData(instances, type) {
 	// Remember, JavaScript only has scope in functions.
 	var i = null;
 
-	data.positions.array.set(baseGeometry.attributes.position.array);
-	data.positions.array.set(new Float32Array([1000, 1000, 1000, 0, 1000, 1000, 1000, 0, 1000]), baseGeometry.attributes.position.array.length);
-	cylinderGeom.attributes.position.array = data.positions.array;
-
 	// This is where you'd call the functions to load offsets, scales, and concentrations.
 	// For this proof-of-concept, we just make the data up.
 
 	// Random offsets.
 	for (i = 0; i < data.offsets.count; i += 1) {
-		// Put them in a 100.0 cube.
-		data.offsets.setXYZ(i, 100.0*Math.random(), 100.0*Math.random(), 100.0*Math.random());
+		// Put them in a 100 size square.
+		var x = 200.0*Math.random();
+		var y = 200.0*Math.random();
+		var z = 200.0*Math.random();
+		data.offsets.setXYZ(i, x, y, z);
 	}
 
 	// Random scaling.
 	for (i = 0; i < data.scales.count; i += 1) {
-		var height = Math.random() * 0.1 + 0.05;
-		var width = Math.random() * 0.1 + 0.05;
+		var height = Math.random() + 0.1;
+		var width = Math.random() + 0.1;
 		// Keep them square on top.
 		data.scales.setXYZ(i, width, height, width);
 	}
@@ -318,39 +469,18 @@ function loadCylinderData(instances, type) {
 	}
 
 	// Make the final geometry.
-	ggg = new THREE.CylinderGeometry(4.0, 4.0, 5.0, 7);
-	ggg.computeFaceNormals();
-	ggg.computeVertexNormals();
-	data.geometry = new THREE.InstancedBufferGeometry().fromGeometry(ggg);
-	//geometry.computeVertexNormals();
-	//geometry.computeFaceNormals();
+	data.geometry = new THREE.InstancedBufferGeometry().copy(cylinderGeom);
 	data.geometry.maxInstancedCount = instances;
 
-	// The GLSL identifiers corresponding to each attribute.
-	var attributeNames = [
-		"position",
-		"offset",
-		"scale",
-		"quaternion",
-		"color"];
 
-		console.log(data);
+	// Add all of the attributes
 	data.geometry.addAttribute(attributeNames[0], cylinderGeom.attributes.position);
-	//geometry.addAttribute(attributeNames[1], cylinderGeom.attributes.)
 	data.geometry.addAttribute(attributeNames[1], data.offsets);
 	data.geometry.addAttribute(attributeNames[2], data.scales);
 	data.geometry.addAttribute(attributeNames[3], data.rotations);
-	data.geometry.setIndex(cylinderGeom.index);
 
-	// Load the shaders.
+	phongUniforms = THREE.UniformsUtils.clone(THREE.ShaderLib['phong'].uniforms);
 
-	// The shader used for generic rendering.
-	var vsRenderSource = document.getElementById('renderVertexShader').textContent;
-	var fsRenderSource = document.getElementById('renderFragmentShader').textContent;
-
-	phongUniforms = THREE.ShaderLib.phong.uniforms;
-
-	
 
 	// Give each cylinder a unique color which maps to its index. We'll use this on the texture
 	// to id which cylinder we're hovering over.
@@ -368,20 +498,23 @@ function loadCylinderData(instances, type) {
 	var r, g, b;
 	var idR, idG, idB, idA;
 	for (i = 0; i < colors.count; i += 1) {
-		r = Math.random();//((i >> 16) & 0xff) / 0x100;
-		g = Math.random();//((i >> 8)  & 0xff) / 0x100;
-		b = Math.random();//(i         & 0xff) / 0x100;
+
+		// Rainbow colors for the visible mesh
+		r = Math.random();
+		g = Math.random();
+		b = Math.random();
 		colors.setXYZ(i, r, g, b);
 
-		// Will set a unique color for up to 2^24 objects (~16 million)
-		idR = ((i >>> 24) & 0xff) / 0xff;
-		idG = ((i >>> 16) & 0xff) / 0xff;
-		idB = ((i >>>  8) & 0xff) / 0xff;
-		idA = ((i >>>  0) & 0xff) / 0xff;
+		// Will set a unique color for over 2^31 objects (~4 billion)
+		// to go onto the idMesh
+		idA = ((i >>> 24) & 0xff) / 0xff;
+		idR = ((i >>> 16) & 0xff) / 0xff;
+		idG = ((i >>>  8) & 0xff) / 0xff;
+		idB = ((i >>>  0) & 0xff) / 0xff;
 		idColors.setXYZW(i, idR, idG, idB, idA);
 	}
 
-	
+	data.colors = colors;
 	data.geometry.addAttribute("color", colors);
 	data.geometry.addAttribute("id", idColors);
 
@@ -390,11 +523,26 @@ function loadCylinderData(instances, type) {
 	phongUniforms.shininess.value = 4;
 	phongUniforms.refractionRatio.value = 1.0;
 
+	// This uniform, when set to 1 will make all cylinders
+	// to render at custom widths.
+	// At 0, it will render the cylinders at a constant width
+	phongUniforms.logWidths = {
+		type: "f",
+		value: 1
+	}
 
+	// This uniform will scale all the uniforms larger or smaller
+	// than their initial size
+	phongUniforms.uniformScale = {
+		type: "f",
+		value: 1
+	}
+
+	// Set up a phong material with our custom vertex shader
 	data.visibleMaterial = new THREE.ShaderMaterial({
 		uniforms: 			phongUniforms,
-		vertexShader:   	phongVertexShaderModified,
-		fragmentShader: 	phongFragmentShaderModified,
+		vertexShader:   	GV_ShaderLib['phongVertexShader'],
+		fragmentShader: 	THREE.ShaderLib['phong'].fragmentShader,
 		lights: 			true,
 		transparent: 		false,
 		vertexColors: 		THREE.VertexColors,
@@ -402,10 +550,11 @@ function loadCylinderData(instances, type) {
 	});
 	data.visibleMaterial.update();
 
+	// Use our custom fragment shader to render the IDs
 	data.idMaterial = new THREE.ShaderMaterial({
 		uniforms: 			phongUniforms,
-		vertexShader:   	phongVertexShaderModified,
-		fragmentShader: 	idFragmentShader,
+		vertexShader:   	GV_ShaderLib['phongVertexShader'],
+		fragmentShader: 	GV_ShaderLib['idFragmentShader'],
 		vertexColors: 		THREE.NoColors,
 		transparent:        false
 	})
@@ -414,185 +563,8 @@ function loadCylinderData(instances, type) {
 	//data.mesh = new THREE.Mesh(geometry, data.renderMaterial);
 	data.visibleMesh = new THREE.Mesh(data.geometry, data.visibleMaterial);
 	data.idMesh = new THREE.Mesh(data.geometry, data.idMaterial);
+	data.visibleMesh.frustumCulled = false;
+	data.idMesh.frustumCulled = false;
+
 	return data;
 }
-
-var beforeMainVertexString = [
-
-			"attribute vec3 offset;",
-			"attribute vec3 scale;",
-			"attribute vec4 quaternion;\n",
-			"varying vec4 vID;",
-			"attribute vec4 id;",
-
-			"vec3 rotate_vector( vec4 quat, vec3 vec ) {",
-			"	return vec + 2.0 * cross( cross( vec, quat.xyz ) + quat.w * vec, quat.xyz );\n",
-			"}\n"
-
-		].join("\n");
-
-var afterMainVertexString = [
-			
-				"vec3 newPosition = scale * position;",
-				"newPosition = rotate_vector( quaternion, newPosition);",
-				"newPosition = newPosition + offset;\n",
-				"vID = id;"
-
-			].join("\n");
-
-var phongVertexShaderModified = [
-
-			"#define PHONG",
-
-			"varying vec3 vViewPosition;",
-
-			"#ifndef FLAT_SHADED",
-
-			"	varying vec3 vNormal;",
-
-			"#endif",
-
-			THREE.ShaderChunk[ "common" ],
-			THREE.ShaderChunk[ "uv_pars_vertex" ],
-			THREE.ShaderChunk[ "uv2_pars_vertex" ],
-			THREE.ShaderChunk[ "displacementmap_pars_vertex" ],
-			THREE.ShaderChunk[ "envmap_pars_vertex" ],
-			THREE.ShaderChunk[ "lights_phong_pars_vertex" ],
-			THREE.ShaderChunk[ "color_pars_vertex" ],
-			THREE.ShaderChunk[ "morphtarget_pars_vertex" ],
-			THREE.ShaderChunk[ "skinning_pars_vertex" ],
-			THREE.ShaderChunk[ "shadowmap_pars_vertex" ],
-			THREE.ShaderChunk[ "logdepthbuf_pars_vertex" ],
-
-			beforeMainVertexString,
-
-			"void main() {",
-
-			afterMainVertexString,
-
-			[
-
-				THREE.ShaderChunk[ "uv_vertex" ],
-				THREE.ShaderChunk[ "uv2_vertex" ],
-				THREE.ShaderChunk[ "color_vertex" ],
-
-				THREE.ShaderChunk[ "beginnormal_vertex" ],
-				THREE.ShaderChunk[ "morphnormal_vertex" ],
-				THREE.ShaderChunk[ "skinbase_vertex" ],
-				THREE.ShaderChunk[ "skinnormal_vertex" ],
-				THREE.ShaderChunk[ "defaultnormal_vertex" ],
-
-			"#ifndef FLAT_SHADED", // Normal computed with derivatives when FLAT_SHADED
-
-			"	vNormal = normalize( transformedNormal );",
-
-			"#endif",
-
-				THREE.ShaderChunk[ "begin_vertex" ],
-				THREE.ShaderChunk[ "displacementmap_vertex" ],
-				THREE.ShaderChunk[ "morphtarget_vertex" ],
-				THREE.ShaderChunk[ "skinning_vertex" ],
-				THREE.ShaderChunk[ "project_vertex" ],
-				THREE.ShaderChunk[ "logdepthbuf_vertex" ],
-
-			"	vViewPosition = - mvPosition.xyz;",
-
-				THREE.ShaderChunk[ "worldpos_vertex" ],
-				THREE.ShaderChunk[ "envmap_vertex" ],
-				THREE.ShaderChunk[ "lights_phong_vertex" ],
-				THREE.ShaderChunk[ "shadowmap_vertex" ],
-
-			"}"
-			].join("\n").replace(/position/g, "newPosition")//.replace(/normal[^a-zA-Z]/g, "newNormal")
-
-		].join( "\n" );
-
-var phongFragmentShaderModified = [
-
-		"#define PHONG",
-
-		"uniform vec3 diffuse;",
-		"uniform vec3 emissive;",
-		"uniform vec3 specular;",
-		"uniform float shininess;",
-		"uniform float opacity;",
-
-
-		THREE.ShaderChunk[ "common" ],
-		THREE.ShaderChunk[ "color_pars_fragment" ],
-		THREE.ShaderChunk[ "uv_pars_fragment" ],
-		THREE.ShaderChunk[ "uv2_pars_fragment" ],
-		THREE.ShaderChunk[ "map_pars_fragment" ],
-		THREE.ShaderChunk[ "alphamap_pars_fragment" ],
-		THREE.ShaderChunk[ "aomap_pars_fragment" ],
-		THREE.ShaderChunk[ "lightmap_pars_fragment" ],
-		THREE.ShaderChunk[ "emissivemap_pars_fragment" ],
-		THREE.ShaderChunk[ "envmap_pars_fragment" ],
-		THREE.ShaderChunk[ "fog_pars_fragment" ],
-		THREE.ShaderChunk[ "lights_phong_pars_fragment" ],
-		THREE.ShaderChunk[ "shadowmap_pars_fragment" ],
-		THREE.ShaderChunk[ "bumpmap_pars_fragment" ],
-		THREE.ShaderChunk[ "normalmap_pars_fragment" ],
-		THREE.ShaderChunk[ "specularmap_pars_fragment" ],
-		THREE.ShaderChunk[ "logdepthbuf_pars_fragment" ],
-
-		"void main() {",
-
-		"	vec3 outgoingLight = vec3( 0.0 );",
-		"	vec4 diffuseColor = vec4( diffuse, opacity );",
-		"	vec3 totalAmbientLight = ambientLightColor;",
-		"	vec3 totalEmissiveLight = emissive;",
-		"	vec3 shadowMask = vec3( 1.0 );",
-
-
-			THREE.ShaderChunk[ "logdepthbuf_fragment" ],
-			THREE.ShaderChunk[ "map_fragment" ],
-			THREE.ShaderChunk[ "color_fragment" ],
-			THREE.ShaderChunk[ "alphamap_fragment" ],
-			THREE.ShaderChunk[ "alphatest_fragment" ],
-			THREE.ShaderChunk[ "specularmap_fragment" ],
-			THREE.ShaderChunk[ "normal_phong_fragment" ],
-			THREE.ShaderChunk[ "lightmap_fragment" ],
-			THREE.ShaderChunk[ "hemilight_fragment" ],
-			THREE.ShaderChunk[ "aomap_fragment" ],
-			THREE.ShaderChunk[ "emissivemap_fragment" ],
-
-			THREE.ShaderChunk[ "lights_phong_fragment" ],
-			THREE.ShaderChunk[ "shadowmap_fragment" ],
-
-			"totalDiffuseLight *= shadowMask;",
-			"totalSpecularLight *= shadowMask;",
-
-			"#ifdef METAL",
-
-			"	outgoingLight += diffuseColor.rgb * ( totalDiffuseLight + totalAmbientLight ) * specular + totalSpecularLight + totalEmissiveLight;",
-
-			"#else",
-
-			"	outgoingLight += diffuseColor.rgb * ( totalDiffuseLight + totalAmbientLight ) + totalSpecularLight + totalEmissiveLight;",
-
-			"#endif",
-
-			THREE.ShaderChunk[ "envmap_fragment" ],
-
-			THREE.ShaderChunk[ "linear_to_gamma_fragment" ],
-
-			THREE.ShaderChunk[ "fog_fragment" ],
-
-		"	gl_FragColor = vec4( outgoingLight, diffuseColor.a );",
-
-
-		"}"
-
-	].join( "\n" );
-
-var idFragmentShader = [
-		"varying vec4 vID;",
-
-		"void main() {",
-
-		"	gl_FragColor = vID;",
-
-		"}"
-
-	].join( "\n" );
