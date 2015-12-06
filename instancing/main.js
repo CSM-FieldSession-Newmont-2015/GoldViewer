@@ -21,7 +21,9 @@ var lastMeshSwitch = Date.now() / 1e3;
 // Meshes we draw.
 var cylinderData   = null;
 
-var mouse = {};
+var mouse          = {};
+var lastClicked    = null;
+var hovered        = null;
 
 // Entry point.
 function start() {
@@ -95,10 +97,11 @@ function start() {
 
 	// Update mouse object when it moves
 	renderer.domElement.addEventListener( 'mousemove', onMouseMove );
+	renderer.domElement.addEventListener( 'click', onMouseClick );
 
 
 	// Obtain the Mesh containing the InstancedBufferGeometry and ShaderMaterial
-	cylinderData = loadCylinderData(120 * 1000, "Rainbow Stuff");
+	cylinderData = loadCylinderData(100 * 1000, "Rainbow Stuff");
 	scene.add(cylinderData.visibleMesh);
 	pickingScene.add(cylinderData.idMesh);
 
@@ -116,9 +119,6 @@ function keypress(event) {
 	else if(code == 45){
 		controls.dollyIn();
 	}
-	else if(code == 32){
-		pick();
-	}
 	else{
 		console.log(event.charCode);
 		renderPickingScene = !renderPickingScene;
@@ -131,9 +131,34 @@ function onMouseMove( e ) {
 
 	mouse.x = e.clientX;
 	mouse.y = e.clientY;
+	var id = pick();
+	updateHovered(id);
+
 
 }
 
+function onMouseClick( e ) {
+
+	var id = pick();
+	console.log(id);
+	updateClicked(id);
+
+}
+
+function updateHovered(id) {
+
+}
+
+function updateClicked(id) {
+	if(id < 0)
+		return;
+
+	var location = data.offsets.array.slice(3*id, 3*(id+1));
+	console.log(location);
+	controls.target.set(location[0], location[1], location[2]);
+	lastClicked = id;
+	//console.log()
+}
 
 function pick() {
 
@@ -153,11 +178,11 @@ function pick() {
 
 	//interpret the pixel as an ID
 
-	var id = ( pixelBuffer[0] << 24 ) | ( pixelBuffer[1] << 16 ) | ( pixelBuffer[2] << 8 ) | ( pixelBuffer[3] );
-	console.log(id);
+	var id = ( pixelBuffer[0] << 24 ) | ( pixelBuffer[1] << 16 ) | ( pixelBuffer[2] << 8 ) | ( pixelBuffer[3] << 0 );
 
 	renderer.enableScissorTest(false);
 
+	return id;
 }
 
 
@@ -170,7 +195,6 @@ function update(time) {
 
 	rotateCylinder(3.0);
 	centerLight.position.copy(controls.target);
-	//data.onHoverMaterial.uniforms.pointLightPosition.needsUpdate = true;
 }
 
 function render() {
@@ -343,18 +367,18 @@ function loadCylinderData(instances, type) {
 
 	var r, g, b;
 	var idR, idG, idB, idA;
-	for (i = 1; i <= colors.count; i += 1) {
+	for (i = 0; i < colors.count; i += 1) {
 		r = Math.random();//((i >> 16) & 0xff) / 0x100;
 		g = Math.random();//((i >> 8)  & 0xff) / 0x100;
 		b = Math.random();//(i         & 0xff) / 0x100;
-		colors.setXYZ(i-1, r, g, b);
+		colors.setXYZ(i, r, g, b);
 
 		// Will set a unique color for up to 2^24 objects (~16 million)
-		idR = ((i >> 24) & 0xff) / 0x100;
-		idG = ((i >> 16) & 0xff) / 0x100;
-		idB = ((i >>  8) & 0xff) / 0x100;
-		idA = (i         & 0xff) / 0x100;
-		idColors.setXYZW(i-1, idR, idG, idB, idA);
+		idR = ((i >>> 24) & 0xff) / 0xff;
+		idG = ((i >>> 16) & 0xff) / 0xff;
+		idB = ((i >>>  8) & 0xff) / 0xff;
+		idA = ((i >>>  0) & 0xff) / 0xff;
+		idColors.setXYZW(i, idR, idG, idB, idA);
 	}
 
 	
@@ -382,7 +406,8 @@ function loadCylinderData(instances, type) {
 		uniforms: 			phongUniforms,
 		vertexShader:   	phongVertexShaderModified,
 		fragmentShader: 	idFragmentShader,
-		vertexColors: 		THREE.NoColors
+		vertexColors: 		THREE.NoColors,
+		transparent:        false
 	})
 
 	// We only use the onHoverMaterial in special cases, so default to using the renderMaterial.
