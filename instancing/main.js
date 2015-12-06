@@ -137,6 +137,10 @@ function onMouseMove( e ) {
 
 function pick() {
 
+	//Only render the pixel that we need.
+	renderer.setScissor(mouse.x, pickingTexture.height - mouse.y, 1, 1);
+	renderer.enableScissorTest(true);
+
 	//render the picking scene off-screen
 
 	renderer.render( pickingScene, camera, pickingTexture );
@@ -151,6 +155,8 @@ function pick() {
 
 	var id = ( pixelBuffer[0] << 24 ) | ( pixelBuffer[1] << 16 ) | ( pixelBuffer[2] << 8 ) | ( pixelBuffer[3] );
 	console.log(id);
+
+	renderer.enableScissorTest(false);
 
 }
 
