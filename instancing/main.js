@@ -1,11 +1,16 @@
 // threejs stuff.
-var camera         = null;
-var canvas         = null;
-var centerLight    = null;
-var controls       = null;
-var renderer       = null;
-var scene          = null;
-var stats          = null;
+var camera          = null;
+var canvas          = null;
+var centerLight     = null;
+var controls        = null;
+var renderer        = null;
+var scene           = null;
+var stats           = null;
+
+// Picking Scene stuff
+var pickingScene       = null;
+var renderPickingScene = false;
+var pickingTexture     = null;
 
 // State we use when updating.
 var time           = null;
@@ -16,9 +21,12 @@ var lastMeshSwitch = Date.now() / 1e3;
 // Meshes we draw.
 var cylinderData   = null;
 
+var mouse = {};
+
 // Entry point.
 function start() {
-	// Setup the FPS counter.
+
+	// Set up the FPS counter.
 	stats = new Stats();
 	stats.setMode(0);
 	stats.domElement.style.position = "absolute";
@@ -26,25 +34,30 @@ function start() {
 	stats.domElement.style.top = "0px";
 	document.body.appendChild(stats.domElement);
 
-	// Scene.
 	scene = new THREE.Scene();
+	pickingScene = new THREE.Scene();
+	pickingTexture = new THREE.WebGLRenderTarget( window.innerWidth, window.innerHeight );
+	pickingTexture.texture.minFilter = THREE.LinearFilter;
+	pickingTexture.texture.generateMipmaps = false;
 
 	// Camera. TODO: Calculator fov because it looks weird on unexpected ratios.
 	var fov = 55;
 	var ratio = window.innerWidth / window.innerHeight;
 	camera = new THREE.PerspectiveCamera(fov, ratio, 0.1, 1.0e6);
 	camera.up.set(0, 0, 1);
-	camera.position.set(50.0, 50.0, 50.0);
+	camera.position.set(-30.0, -40.0, -50.0);
 	camera.lookAt(new THREE.Vector3(0, 0, 0));
 
 	// Setup the WebGL Rendering context.
 	canvas = document.getElementById("canvas");
 	renderer = new THREE.WebGLRenderer({
 		canvas: canvas,
-		antialias: true,
+		antialias: true
 	});
 	renderer.setSize(window.innerWidth, window.innerHeight);
 	renderer.setClearColor(0xdedede);
+	renderer.setSize(window.innerWidth, window.innerHeight);
+	renderer.setClearColor(0xffffff);
 	document.body.appendChild(renderer.domElement);
 
 	// We're going to load a *lot* of vertices. Make sure we can index them.
@@ -56,7 +69,6 @@ function start() {
 	// Setup basic orbiting controls.
 	controls = new THREE.OrbitControls(camera);
 
-
 	// Simple lighting.
 	scene.add(new THREE.AmbientLight(0xffffff));
 	var light = new THREE.PointLight(0xa0a0a0, 1.0, 1000.0);
@@ -64,10 +76,11 @@ function start() {
 	light.position.y = -30.0;
 	light.position.z = -50.0;
 	scene.add(light);
-	centerLight = new THREE.PointLight(0xdd30aa, 25.0, 100.0);
+	centerLight = new THREE.PointLight(0xcccccc, 5.0, 50.0);
 	scene.add(centerLight);
-	var hemisphereLight = new THREE.HemisphereLight( 0xffffbb, 0x080820, .1 );
+	var hemisphereLight = new THREE.HemisphereLight( 0xffffbb, 0x080820, .4 );
 	scene.add(hemisphereLight);
+	renderer.sortObjects = false;
 
 	// Standard resize handler.
 	window.addEventListener("resize", function () {
@@ -77,27 +90,70 @@ function start() {
 		renderer.setSize(window.innerWidth, window.innerHeight);
 	});
 
-	// Allow zooming in and out with +/- keys
-	window.onkeypress = function(event) {
-		var code = event.charCode;
+	// Add key events
+	window.onkeypress = keypress;
 
-		if(code == 61){
-			controls.dollyOut();
-		}
-		else if(code == 45){
-			controls.dollyIn();
-		}
-	   
-	  return false
-	}
+	// Update mouse object when it moves
+	renderer.domElement.addEventListener( 'mousemove', onMouseMove );
 
 
 	// Obtain the Mesh containing the InstancedBufferGeometry and ShaderMaterial
-	cylinderData = loadCylinderData(120 * 1000, "Blue Stuff");
-	scene.add(cylinderData.mesh);
+	cylinderData = loadCylinderData(120 * 1000, "Rainbow Stuff");
+	scene.add(cylinderData.visibleMesh);
+	pickingScene.add(cylinderData.idMesh);
 
 	render();
 }
+
+// Allow zooming in and out with +/- keys.
+// Pick by pressing the spacebar
+function keypress(event) {
+	var code = event.charCode;
+
+	if(code == 61){
+		controls.dollyOut();
+	}
+	else if(code == 45){
+		controls.dollyIn();
+	}
+	else if(code == 32){
+		pick();
+	}
+	else{
+		console.log(event.charCode);
+		renderPickingScene = !renderPickingScene;
+	}
+   
+  return false
+}
+
+function onMouseMove( e ) {
+
+	mouse.x = e.clientX;
+	mouse.y = e.clientY;
+
+}
+
+
+function pick() {
+
+	//render the picking scene off-screen
+
+	renderer.render( pickingScene, camera, pickingTexture );
+
+	//create buffer for reading single pixel
+	var pixelBuffer = new Uint8Array( 4 );
+
+	//read the pixel under the mouse from the texture
+	renderer.readRenderTargetPixels(pickingTexture, mouse.x, pickingTexture.height - mouse.y, 1, 1, pixelBuffer);
+
+	//interpret the pixel as an ID
+
+	var id = ( pixelBuffer[0] << 24 ) | ( pixelBuffer[1] << 16 ) | ( pixelBuffer[2] << 8 ) | ( pixelBuffer[3] );
+	console.log(id);
+
+}
+
 
 
 
@@ -106,7 +162,7 @@ function update(time) {
 	controls.update();
 	stats.update();
 
-	rotateCylinder(time);
+	rotateCylinder(3.0);
 	centerLight.position.copy(controls.target);
 	//data.onHoverMaterial.uniforms.pointLightPosition.needsUpdate = true;
 }
@@ -116,13 +172,21 @@ function render() {
 
 	update(Date.now() / 1e3);
 
-	renderer.render(scene, camera);
+	if(renderPickingScene){
+		renderer.setClearAlpha(0);
+		renderer.render(pickingScene, camera);
+		renderer.setClearAlpha(1);
+	}else{
+		renderer.render(scene, camera);
+	}
+	//renderer.render(pickingScene, camera);
 }
 
-// Slowly rotates the base cylinder geometry
-function rotateCylinder(time){
-	var radians = (time - lastTime) / 14;
-	lastTime = time;
+// Slowly rotates the base cylinder geometry 
+// The speed argument determines how many revolutions the
+//  cylinder makes per minute at 60 fps
+function rotateCylinder(speed){
+	var radians = speed * Math.PI * 2 / 60 / 60;
 	var euler = new THREE.Euler(0, radians, 0, 'XYZ');
 	var matrix = new THREE.Matrix4().makeRotationFromEuler(euler);
 	cylinderGeom.applyMatrix(matrix);
@@ -227,10 +291,10 @@ function loadCylinderData(instances, type) {
 	ggg = new THREE.CylinderGeometry(4.0, 4.0, 5.0, 7);
 	ggg.computeFaceNormals();
 	ggg.computeVertexNormals();
-	geometry = new THREE.InstancedBufferGeometry().fromGeometry(ggg);
+	data.geometry = new THREE.InstancedBufferGeometry().fromGeometry(ggg);
 	//geometry.computeVertexNormals();
 	//geometry.computeFaceNormals();
-	geometry.maxInstancedCount = instances;
+	data.geometry.maxInstancedCount = instances;
 
 	// The GLSL identifiers corresponding to each attribute.
 	var attributeNames = [
@@ -241,14 +305,12 @@ function loadCylinderData(instances, type) {
 		"color"];
 
 		console.log(data);
-	geometry.addAttribute(attributeNames[0], cylinderGeom.attributes.position);
+	data.geometry.addAttribute(attributeNames[0], cylinderGeom.attributes.position);
 	//geometry.addAttribute(attributeNames[1], cylinderGeom.attributes.)
-	geometry.addAttribute(attributeNames[1], data.offsets);
-	geometry.addAttribute(attributeNames[2], data.scales);
-	geometry.addAttribute(attributeNames[3], data.rotations);
-	geometry.setIndex(cylinderGeom.index);
-	geometry.computeVertexNormals();
-	geometry.computeFaceNormals();
+	data.geometry.addAttribute(attributeNames[1], data.offsets);
+	data.geometry.addAttribute(attributeNames[2], data.scales);
+	data.geometry.addAttribute(attributeNames[3], data.rotations);
+	data.geometry.setIndex(cylinderGeom.index);
 
 	// Load the shaders.
 
@@ -267,15 +329,31 @@ function loadCylinderData(instances, type) {
 		3,
 		1);
 
+	var idColors = new THREE.InstancedBufferAttribute(
+		new Float32Array(instances * 4),
+		4,
+		1);
+
+
 	var r, g, b;
+	var idR, idG, idB, idA;
 	for (i = 1; i <= colors.count; i += 1) {
-		r = ((i >> 16) & 0xff) / 0x100;
-		g = ((i >> 8)  & 0xff) / 0x100;
-		b = (i         & 0xff) / 0x100;
+		r = Math.random();//((i >> 16) & 0xff) / 0x100;
+		g = Math.random();//((i >> 8)  & 0xff) / 0x100;
+		b = Math.random();//(i         & 0xff) / 0x100;
 		colors.setXYZ(i-1, r, g, b);
+
+		// Will set a unique color for up to 2^24 objects (~16 million)
+		idR = ((i >> 24) & 0xff) / 0x100;
+		idG = ((i >> 16) & 0xff) / 0x100;
+		idB = ((i >>  8) & 0xff) / 0x100;
+		idA = (i         & 0xff) / 0x100;
+		idColors.setXYZW(i-1, idR, idG, idB, idA);
 	}
+
 	
-	geometry.addAttribute("color", colors);
+	data.geometry.addAttribute("color", colors);
+	data.geometry.addAttribute("id", idColors);
 
 	
 	phongUniforms.diffuse.value = new THREE.Color(0.3, 0.4, 0.5);
@@ -283,20 +361,28 @@ function loadCylinderData(instances, type) {
 	phongUniforms.refractionRatio.value = 1.0;
 
 
-	data.onHoverMaterial = new THREE.ShaderMaterial({
+	data.visibleMaterial = new THREE.ShaderMaterial({
 		uniforms: 			phongUniforms,
 		vertexShader:   	phongVertexShaderModified,
-		fragmentShader: 	THREE.ShaderLib.phong.fragmentShader,
+		fragmentShader: 	phongFragmentShaderModified,
 		lights: 			true,
 		transparent: 		false,
 		vertexColors: 		THREE.VertexColors,
 		shading: 			THREE.FlatShading
 	});
-	data.onHoverMaterial.update();
+	data.visibleMaterial.update();
+
+	data.idMaterial = new THREE.ShaderMaterial({
+		uniforms: 			phongUniforms,
+		vertexShader:   	phongVertexShaderModified,
+		fragmentShader: 	idFragmentShader,
+		vertexColors: 		THREE.NoColors
+	})
 
 	// We only use the onHoverMaterial in special cases, so default to using the renderMaterial.
 	//data.mesh = new THREE.Mesh(geometry, data.renderMaterial);
-	data.mesh = new THREE.Mesh(geometry, data.onHoverMaterial);
+	data.visibleMesh = new THREE.Mesh(data.geometry, data.visibleMaterial);
+	data.idMesh = new THREE.Mesh(data.geometry, data.idMaterial);
 	return data;
 }
 
@@ -305,10 +391,12 @@ var beforeMainVertexString = [
 			"attribute vec3 offset;",
 			"attribute vec3 scale;",
 			"attribute vec4 quaternion;\n",
+			"varying vec4 vID;",
+			"attribute vec4 id;",
 
-			"vec3 rotate_vector( vec4 quat, vec3 vec ) {\n\t",
-				"return vec + 2.0 * cross( cross( vec, quat.xyz ) + quat.w * vec, quat.xyz );\n",
-			"}\n\n"
+			"vec3 rotate_vector( vec4 quat, vec3 vec ) {",
+			"	return vec + 2.0 * cross( cross( vec, quat.xyz ) + quat.w * vec, quat.xyz );\n",
+			"}\n"
 
 		].join("\n");
 
@@ -316,7 +404,8 @@ var afterMainVertexString = [
 			
 				"vec3 newPosition = scale * position;",
 				"newPosition = rotate_vector( quaternion, newPosition);",
-				"newPosition = newPosition + offset;\n"
+				"newPosition = newPosition + offset;\n",
+				"vID = id;"
 
 			].join("\n");
 
@@ -387,81 +476,92 @@ var phongVertexShaderModified = [
 
 		].join( "\n" );
 
-	var phongFragmentShaderModified = [
+var phongFragmentShaderModified = [
 
-			"#define PHONG",
+		"#define PHONG",
 
-			"uniform vec3 diffuse;",
-			"uniform vec3 emissive;",
-			"uniform vec3 specular;",
-			"uniform float shininess;",
-			"uniform float opacity;",
-
-
-			THREE.ShaderChunk[ "common" ],
-			THREE.ShaderChunk[ "color_pars_fragment" ],
-			THREE.ShaderChunk[ "uv_pars_fragment" ],
-			THREE.ShaderChunk[ "uv2_pars_fragment" ],
-			THREE.ShaderChunk[ "map_pars_fragment" ],
-			THREE.ShaderChunk[ "alphamap_pars_fragment" ],
-			THREE.ShaderChunk[ "aomap_pars_fragment" ],
-			THREE.ShaderChunk[ "lightmap_pars_fragment" ],
-			THREE.ShaderChunk[ "emissivemap_pars_fragment" ],
-			THREE.ShaderChunk[ "envmap_pars_fragment" ],
-			THREE.ShaderChunk[ "fog_pars_fragment" ],
-			THREE.ShaderChunk[ "lights_phong_pars_fragment" ],
-			THREE.ShaderChunk[ "shadowmap_pars_fragment" ],
-			THREE.ShaderChunk[ "bumpmap_pars_fragment" ],
-			THREE.ShaderChunk[ "normalmap_pars_fragment" ],
-			THREE.ShaderChunk[ "specularmap_pars_fragment" ],
-			THREE.ShaderChunk[ "logdepthbuf_pars_fragment" ],
-
-			"void main() {",
-
-			"	vec3 outgoingLight = vec3( 0.0 );",
-			"	vec4 diffuseColor = vec4( diffuse, opacity );",
-			"	vec3 totalAmbientLight = ambientLightColor;",
-			"	vec3 totalEmissiveLight = emissive;",
-			"	vec3 shadowMask = vec3( 1.0 );",
+		"uniform vec3 diffuse;",
+		"uniform vec3 emissive;",
+		"uniform vec3 specular;",
+		"uniform float shininess;",
+		"uniform float opacity;",
 
 
-				THREE.ShaderChunk[ "logdepthbuf_fragment" ],
-				THREE.ShaderChunk[ "map_fragment" ],
-				THREE.ShaderChunk[ "color_fragment" ],
-				THREE.ShaderChunk[ "alphamap_fragment" ],
-				THREE.ShaderChunk[ "alphatest_fragment" ],
-				THREE.ShaderChunk[ "specularmap_fragment" ],
-				THREE.ShaderChunk[ "normal_phong_fragment" ],
-				THREE.ShaderChunk[ "lightmap_fragment" ],
-				THREE.ShaderChunk[ "hemilight_fragment" ],
-				THREE.ShaderChunk[ "aomap_fragment" ],
-				THREE.ShaderChunk[ "emissivemap_fragment" ],
+		THREE.ShaderChunk[ "common" ],
+		THREE.ShaderChunk[ "color_pars_fragment" ],
+		THREE.ShaderChunk[ "uv_pars_fragment" ],
+		THREE.ShaderChunk[ "uv2_pars_fragment" ],
+		THREE.ShaderChunk[ "map_pars_fragment" ],
+		THREE.ShaderChunk[ "alphamap_pars_fragment" ],
+		THREE.ShaderChunk[ "aomap_pars_fragment" ],
+		THREE.ShaderChunk[ "lightmap_pars_fragment" ],
+		THREE.ShaderChunk[ "emissivemap_pars_fragment" ],
+		THREE.ShaderChunk[ "envmap_pars_fragment" ],
+		THREE.ShaderChunk[ "fog_pars_fragment" ],
+		THREE.ShaderChunk[ "lights_phong_pars_fragment" ],
+		THREE.ShaderChunk[ "shadowmap_pars_fragment" ],
+		THREE.ShaderChunk[ "bumpmap_pars_fragment" ],
+		THREE.ShaderChunk[ "normalmap_pars_fragment" ],
+		THREE.ShaderChunk[ "specularmap_pars_fragment" ],
+		THREE.ShaderChunk[ "logdepthbuf_pars_fragment" ],
 
-				THREE.ShaderChunk[ "lights_phong_fragment" ],
-				THREE.ShaderChunk[ "shadowmap_fragment" ],
+		"void main() {",
 
-				"totalDiffuseLight *= shadowMask;",
-				"totalSpecularLight *= shadowMask;",
+		"	vec3 outgoingLight = vec3( 0.0 );",
+		"	vec4 diffuseColor = vec4( diffuse, opacity );",
+		"	vec3 totalAmbientLight = ambientLightColor;",
+		"	vec3 totalEmissiveLight = emissive;",
+		"	vec3 shadowMask = vec3( 1.0 );",
 
-				"#ifdef METAL",
 
-				"	outgoingLight += diffuseColor.rgb * ( totalDiffuseLight + totalAmbientLight ) * specular + totalSpecularLight + totalEmissiveLight;",
+			THREE.ShaderChunk[ "logdepthbuf_fragment" ],
+			THREE.ShaderChunk[ "map_fragment" ],
+			THREE.ShaderChunk[ "color_fragment" ],
+			THREE.ShaderChunk[ "alphamap_fragment" ],
+			THREE.ShaderChunk[ "alphatest_fragment" ],
+			THREE.ShaderChunk[ "specularmap_fragment" ],
+			THREE.ShaderChunk[ "normal_phong_fragment" ],
+			THREE.ShaderChunk[ "lightmap_fragment" ],
+			THREE.ShaderChunk[ "hemilight_fragment" ],
+			THREE.ShaderChunk[ "aomap_fragment" ],
+			THREE.ShaderChunk[ "emissivemap_fragment" ],
 
-				"#else",
+			THREE.ShaderChunk[ "lights_phong_fragment" ],
+			THREE.ShaderChunk[ "shadowmap_fragment" ],
 
-				"	outgoingLight += diffuseColor.rgb * ( totalDiffuseLight + totalAmbientLight ) + totalSpecularLight + totalEmissiveLight;",
+			"totalDiffuseLight *= shadowMask;",
+			"totalSpecularLight *= shadowMask;",
 
-				"#endif",
+			"#ifdef METAL",
 
-				THREE.ShaderChunk[ "envmap_fragment" ],
+			"	outgoingLight += diffuseColor.rgb * ( totalDiffuseLight + totalAmbientLight ) * specular + totalSpecularLight + totalEmissiveLight;",
 
-				THREE.ShaderChunk[ "linear_to_gamma_fragment" ],
+			"#else",
 
-				THREE.ShaderChunk[ "fog_fragment" ],
+			"	outgoingLight += diffuseColor.rgb * ( totalDiffuseLight + totalAmbientLight ) + totalSpecularLight + totalEmissiveLight;",
 
-			"	gl_FragColor = vec4( outgoingLight, diffuseColor.a );",
-			
+			"#endif",
 
-			"}"
+			THREE.ShaderChunk[ "envmap_fragment" ],
 
-		].join( "\n" );
+			THREE.ShaderChunk[ "linear_to_gamma_fragment" ],
+
+			THREE.ShaderChunk[ "fog_fragment" ],
+
+		"	gl_FragColor = vec4( outgoingLight, diffuseColor.a );",
+
+
+		"}"
+
+	].join( "\n" );
+
+var idFragmentShader = [
+		"varying vec4 vID;",
+
+		"void main() {",
+
+		"	gl_FragColor = vID;",
+
+		"}"
+
+	].join( "\n" );
