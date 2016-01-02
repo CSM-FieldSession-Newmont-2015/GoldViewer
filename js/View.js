@@ -182,6 +182,13 @@ function View(projectURL) {
 	var raycaster = null;
 
 	/**
+	 * Since we're dealing with a static scene, the renderer
+	 * will only render when this is set to true.
+	 * @type {Boolean}
+	 */
+	var renderFlag = true;
+
+	/**
 	 * The threejs WebGL rendering object.
 	 * @type {THREE.WebGLRenderer}
 	 */
@@ -295,6 +302,7 @@ function View(projectURL) {
 	 */
 	this.zoomIn = function () {
 		controls.dollyIn(zoomSpeed);
+		renderFlag = true;
 	};
 
 	/**
@@ -302,6 +310,7 @@ function View(projectURL) {
 	 */
 	this.zoomOut = function () {
 		controls.dollyIn(1.0 / zoomSpeed);
+		renderFlag = true;
 	};
 
 	/**
@@ -953,6 +962,7 @@ function View(projectURL) {
 
 	function updateVisibility(mineralName, lowerValue, higherValue) {
 		var mineral = null;
+		renderFlag = true;
 
 		try {
 			mineral = minerals[mineralName];
@@ -1232,9 +1242,16 @@ function View(projectURL) {
 	 */
 	function render() {
 		requestAnimationFrame(render);
-		controls.update();
 
+		if(!renderFlag){
+			return;
+		}
+		if(!controls.autoRotate && !motionInterval){
+			renderFlag = false;
+		}
+		
 		stats.update();
+		controls.update();
 
 		camera.updateMatrixWorld();
 
@@ -1518,6 +1535,8 @@ function View(projectURL) {
 			function mousemoveEventListener(event) {
 				event.preventDefault();
 
+				renderFlag = true;
+
 				// This will update the mouse position as well as make the
 				//   tooltipSprite follow the mouse.
 				var newX = event.clientX - (window.innerWidth / 2) + 20;
@@ -1579,6 +1598,7 @@ function View(projectURL) {
 
 		container.addEventListener("mousedown",
 			function mousedownEventListener(event) {
+				renderFlag = true;
 				event.preventDefault();
 				mouseMoved = 0;
 				// autoRotate is true when both left and right buttons are
