@@ -35,6 +35,13 @@ var attributeNames = [
 // Entry point.
 function start() {
 
+	console.log("\n"+
+				"GoldViewer instancing test..\n"+
+				"Hold A or D to change between logarithmic and constant widths,\n"+
+				"W or S to change the overall size of the cylinders,\n"+
+				"C to change between rendering the visible or picking scene,\n"+
+				"or Alt-Click to permanently remove a cylinder from the scene.");
+
 	// Set up the FPS counter.
 	stats = new Stats();
 	stats.setMode(0);
