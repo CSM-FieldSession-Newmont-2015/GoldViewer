@@ -228,7 +228,7 @@ function pick() {
 	renderer.enableScissorTest(true);
 
 	//Save these values to restore after the picking
-	var clearColor = renderer.getClearColor();
+	var clearColor = renderer.getClearColor().clone();
 	var alpha = renderer.getClearAlpha();
 
 	renderer.setClearColor(0xffffff, 0xfe/0xff);
