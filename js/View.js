@@ -545,10 +545,10 @@ function View( projectURL ) {
 			}
 		}
 
-		// Sorts the intervals in ascending order, and gives them IDs
+		// Sorts the intervals in descending order, and gives them IDs
 		function sortIntervals() {
 			minerals[ mineral ].intervals.sort( function ( a, b ) {
-				return a.raw.value - b.raw.value;
+				return b.raw.value - a.raw.value;
 			} );
 
 			for( var i = 0; i < minerals[ mineral ].intervals.length; i += 1 ){
@@ -696,8 +696,7 @@ function View( projectURL ) {
 	}
 
 	/**
-	 * Load the survey holes from `projectJSON`, and then adjust them up, so
-	 * they coincide with the surface terrain mesh.
+	 * Load the survey holes from `projectJSON`
 	 *
 	 * @todo Return the holes object instead of modifying a global object.
 	 */
@@ -709,6 +708,7 @@ function View( projectURL ) {
 
 		projectJSON["holes"].forEach( function ( jsonHole ) {
 
+			// Make a different geometry for each differently colored type of line
 			var color = jsonHole["traceColor"];
 			if ( geometries[color] === undefined ) {
 				geometries[color] = [];
@@ -716,28 +716,28 @@ function View( projectURL ) {
 
 			var surveys = jsonHole["rawDownholeSurveys"];
 
-			var lineGeometry = geometries[color];
-
 			var hole = {
 				name: jsonHole["name"],
 				longitude: jsonHole["longLat"][0],
 				latitude: jsonHole["longLat"][1],
 				location: jsonHole["location"]
 			};
-			var holeId = jsonHole['id'];
 
-			holes.ids[holeId] = hole;
+			holes.ids[ jsonHole[ 'id' ] ] = hole;
 
-			Array.prototype.push.apply( lineGeometry, surveys[ 0 ].location.toArray() );
+			// Push all of the locations to the geometry
+			Array.prototype.push.apply( geometries[ color ], surveys[ 0 ].location.toArray() );
 
 			for ( var i = 1; i < surveys.length - 1; i += 1 ) {
-				// Push the point twice
-				Array.prototype.push.apply( lineGeometry, surveys[ i ].location.toArray() );
-				Array.prototype.push.apply( lineGeometry, surveys[ i ].location.toArray() );
+				// Points in the middle are both at the end of one segment, and the start of the next
+				Array.prototype.push.apply( geometries[ color ], surveys[ i ].location.toArray() );
+				Array.prototype.push.apply( geometries[ color ], surveys[ i ].location.toArray() );
 			}
-			Array.prototype.push.apply( lineGeometry, surveys[ surveys.length - 1 ].location.toArray() );
+
+			Array.prototype.push.apply( geometries[ color ], surveys[ surveys.length - 1 ].location.toArray() );
 			totalMetersDrilled += jsonHole["depth"];
 		} );
+
 		property["totalMetersDrilled"] = Math.round( totalMetersDrilled );
 
 
@@ -746,10 +746,11 @@ function View( projectURL ) {
 
 			var material = new THREE.LineBasicMaterial( {
 				transparent: true,
-				opacity: 0.6,
+				opacity: 0.4,
 				color: color
 			} );
 
+			// Create a Geometry and Mesh out of the points we just acquired
 			var buffGeometry = new THREE.BufferGeometry();
 			buffGeometry.addAttribute( 'position',
 				new THREE.BufferAttribute( 
@@ -762,17 +763,8 @@ function View( projectURL ) {
 
 			holes.lines[jsonColor].matrixAutoUpdate = false;
 			scene.add( holes.lines[jsonColor] );
+
 		} );
-	}
-
-	/**
-	 * Because the raycaster is broken most of the time and can't be relied
-	 * upon to position the survey holes onto the terrain mesh, this function
-	 * takes a local coordinate and returns an elevation to put it flush with
-	 * the terrain.
-	 */
-	function projectOntoTerrain( xPos, yPos ){
-
 	}
 
 	this.autoRotate = function(){
@@ -1023,14 +1015,10 @@ function View( projectURL ) {
 	 */
 	this.updateVisibility = updateVisibility;
 
-	function updateVisibility( mineralName, lowerValue, higherValue ) {
-		var mineral = null;
+	function updateVisibility( mineralName, lowerValue ) {
 
-		try {
-			mineral = minerals[mineralName];
-		} catch ( e ) {
-			mineral = null;
-		}
+		var mineral = minerals[ mineralName ] || getMineral( mineralName );
+		
 		if ( !mineral ) {
 			console.log( "There's no data for " + mineralName +
 				", so I can't update the visibility of it.\n" +
@@ -1039,60 +1027,15 @@ function View( projectURL ) {
 			return;
 		}
 
+		lowerValue = lowerValue || 0;
 		var intervals = mineral.intervals;
 
-		//if we weren't given values in the arguments, update visibility with the current values.
-		if( intervals[mineral.minVisibleIndex] ){
-			lowerValue = lowerValue || intervals[mineral.minVisibleIndex].value;
-		}
-		higherValue = higherValue || intervals[mineral.maxVisibleIndex].value;
+		var count = 0;
 
-		var emptyMesh = new THREE.Mesh( new THREE.BoxGeometry( 0, 0, 0 ) );
-		mineral.minVisibleIndex = null;
-		mineral.maxVisibleIndex = null;
+		while( count < intervals.length && intervals[ count ].raw.value >= lowerValue )
+			count += 1;
 
-		// Don't add invisible things to the visibleMeshes array
-		var isVisible = ( mineral.mesh && mineral.mesh.visible );
-
-		// Here we iterate through all of the meshes of the mineral, setting
-		// the interval to be visible if it is between the value bounds
-		for ( var i = 0; i < intervals.length; i += 1 ) {
-			var value = intervals[i].value;
-			if ( lowerValue && ( value >= lowerValue && value <= higherValue ) ) {
-				if( isVisible ){
-					visibleMeshes[intervals[i].id] = meshes[intervals[i].id];
-				}
-				if ( !mineral.minVisibleIndex ) {
-					mineral.minVisibleIndex = i;
-				}
-			} else {
-				visibleMeshes[intervals[i].id] = emptyMesh;
-				if ( mineral.minVisibleIndex &&
-					!mineral.maxVisibleIndex ) {
-					mineral.maxVisibleIndex = i - 1;
-				}
-			}
-		}
-		if ( !mineral.maxVisibleIndex ) {
-			mineral.maxVisibleIndex = intervals.length - 1;
-		}
-
-		// Don't try to update the current mesh if it hasn't yet been instantiated.
-		if( !mineral.mesh ){
-			return;
-		}
-
-		// Now calculate the drawcall to give to the mineral mesh so only the visible
-		// intervals are being displayed in the screen
-		var verticesPerInterval =
-			meshes[0].geometry.attributes.position.array.length;
-
-		if( mineral.minVisibleIndex ){
-			mineral.mesh.geometry.setDrawRange(mineral.minVisibleIndex * verticesPerInterval / 3, ( mineral.maxVisibleIndex - mineral.minVisibleIndex + 1 ) * verticesPerInterval / 3 );
-		}
-		else{
-			mineral.mesh.geometry.setDrawRange(0, 0);
-		}
+			mineral.mesh.geometry.maxInstancedCount = count;
 	}
 
 	/**
@@ -1734,7 +1677,6 @@ function View( projectURL ) {
 					return;
 				}
 				var intersected = pick();
-				console.log(intersected);
 				if ( intersected.type == "interval" ) {
 					startMotion( mineralIDToInterval( intersected.id ).location );
 				} else if (intersected.type == "custom" ) {
