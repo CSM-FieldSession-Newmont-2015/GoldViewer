@@ -35,7 +35,7 @@
 		var values = [];
 		for (var interval in mineralIntervals.intervals) {
 			// We want to see the log of the data, because reasons.
-			var concentration = mineralIntervals.intervals[interval].value;
+			var concentration = mineralIntervals.intervals[interval].raw.value;
 			if (concentration < 0.0) {
 				console.warn(
 					"Found negative concentration when loading minerals:" +

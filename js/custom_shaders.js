@@ -72,7 +72,7 @@ function establishShaders(){
 			"}",
 			"",
 			"vec3 newPosition = vec3(logWidths, logWidths, 1.0) * vec3(width, width, height) * position + vec3(1.0-logWidths, 1.0-logWidths, 0.0 ) * position;",
-			"newPosition = newPosition * vec3(overallScale, overallScale, 1.0);",
+			"newPosition = newPosition * vec3(overallScale, overallScale, overallScale);",
 			"newPosition = rotate_vector( quaternion, newPosition);",
 			"newPosition = newPosition + offset;",
 			"vDynamicBits = float(dynamicBits);"
