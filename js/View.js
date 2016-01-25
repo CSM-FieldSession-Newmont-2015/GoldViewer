@@ -49,6 +49,13 @@ function View( projectURL ) {
 	var currentID = 0;
 
 	/**
+	 * Contains all of the event listeners we add to the window and container
+	 * so that we can remove them when we call dispose()
+	 * @type {Object}
+	 */
+	var eventListeners = {};
+
+	/**
 	 * Stores the data and metadata for the survey line holes.
 	 *
 	 * `holes.lines` contains the THREE.Mesh objects used to give lines their
@@ -95,7 +102,7 @@ function View( projectURL ) {
 
 	/**
 	 * Fancy array with minerals meta-data.
-	 * @see getMinerals
+	 * @see getMineral
 	 */
 	var minerals = {};
 
@@ -129,6 +136,12 @@ function View( projectURL ) {
 	var pickingScene = null;
 
 	/**
+	 * The texture we render to for gpu-picking.
+	 * @type {THREE.WebGLRenderTarget}
+	 */
+	var pickingTexture = null;
+
+	/**
 	 * The property JSON after it's loaded.
 	 */
 	var projectJSON = null;
@@ -149,6 +162,13 @@ function View( projectURL ) {
 	 * @type {THREE.WebGLRenderer}
 	 */
 	var renderer = null;
+
+	/**
+	 * Keeps track of the timeout for the animation loop.
+	 * This way we can clear it on disposing of this View.
+	 * @type {Number}
+	 */
+	var renderTimeout = null;
 
 	/**
 	 * Our orbital controls rotate, or orbit, around a centeral point. It's
@@ -244,31 +264,78 @@ function View( projectURL ) {
 				return this;
 			}
 
+			THREE.Quaternion.prototype.setFromAzimuthInclination = function( azimuth, inclination ){
+				var temp = new THREE.Euler( 0 , THREE.Math.degToRad( 90 - inclination ), THREE.Math.degToRad( azimuth + 90 ) );
+				return this.setFromEuler( temp );
+			}
+
 			projectJSON = json;
-			holesJSON = projectJSON.holes;
 			interpolateDownholeSurveys();
 
+			baseCylinderGeometry = makeCylinderGeometry( 1, 1, 7 );
+
 		})();
+
 		property = getProperty( projectJSON );
 
-		maxDimension = Math.max( 
-			property.box.size.x,
-			property.box.size.y,
-			property.box.size.z );
 		container.contents().find( 'body' ).html( '<div></div>' );
 		container = container.contents().find( 'div:first' ).get( 0 );
+
 		setupCamera();
 		setupRenderer();
+		this.renderer = renderer;
 		this.controls = setupControls();
 		this.scene = setupScene();
-		//remove this line eventually
-		this.pickingScene = pickingScene;
 		this.minerals = minerals;
+
 		setupStats();
 		setupWindowListeners();
 
 		addTerrain();
-	};
+
+		addBoundingBox();
+		addAxisLabels();
+		addReticle();
+		addLights();
+
+		for( var analyte in property.analytes ) {
+			if( getMineral( analyte ) ){
+				scene.add( minerals[ analyte ].mesh );
+			}
+		}
+
+		render();
+
+	}
+
+	// Returns a simple indexed cylinder BufferGeometry. Included
+	//  because the THREE library wouldn't index the positions with its built-in method
+	function makeCylinderGeometry(diameter, height, sides){
+
+		var cylinder = new THREE.CylinderGeometry(diameter / 2, diameter / 2, height, sides);
+
+		// Manually take the positions and indices from the initial cylinder geometry
+		var positions = new Float32Array(cylinder.vertices.length * 3);
+		for(var i = 0; i < cylinder.vertices.length; i += 1){
+			positions.set(cylinder.vertices[i].toArray(), i * 3)
+		}
+
+		var indices = new Uint16Array(cylinder.faces.length * 3);
+		for(var i = 0; i < cylinder.faces.length; i += 1){
+			indices[i*3]   = cylinder.faces[i].a;
+			indices[i*3+1] = cylinder.faces[i].b;
+			indices[i*3+2] = cylinder.faces[i].c;
+		}
+
+		var bufferCylinder = new THREE.BufferGeometry();
+		bufferCylinder.addAttribute("position", new THREE.BufferAttribute(positions, 3));
+		bufferCylinder.setIndex(new THREE.BufferAttribute(indices, 1));
+
+		// Rotate it so that z is pointing up
+		bufferCylinder.rotateX( Math.PI / 2 );
+
+		return bufferCylinder;
+	}
 
 	/**
 	 * Handle used by the controls to zoom in on an event, like a button press.
@@ -284,25 +351,11 @@ function View( projectURL ) {
 		controls.dollyIn();
 	};
 
-	/**
-	 * Load minerals, the bounding box, the axis labels, the reticle, the lights,
-	 *  and start rendering. This is called in addSurveyLines, which is called
-	 *  after Terrain loads.
-	 */
-	function addLastElements() {
-		getMinerals();
-		addBoundingBox();
-		addAxisLabels();
-		addReticle();
-		addLights();
-		render();
-	}
-
 	// Adds locations to the rawDownholeSurveys
 	function interpolateDownholeSurveys() {
 		var warn = false
 
-		holesJSON.forEach( function ( hole ) {
+		projectJSON.holes.forEach( function ( hole ) {
 			var location = vec3FromArray( hole.location );
 
 			// If rawDownholeSurveys is not defined, make a deep copy of the
@@ -313,6 +366,9 @@ function View( projectURL ) {
 			}
 
 			hole.rawDownholeSurveys[ 0 ].location = location.clone();
+			hole.rawDownholeSurveys[ 0 ].quaternion = new THREE.Quaternion().setFromAzimuthInclination(
+																		hole.rawDownholeSurveys[ 0 ].azimuth,
+																		hole.rawDownholeSurveys[ 0 ].inclination );
 
 			// For every next survey after the first, move the location down by the given depth, and clone it
 			for( var i = 1; i < hole.rawDownholeSurveys.length; i += 1 ) {
@@ -320,6 +376,9 @@ function View( projectURL ) {
 					hole.rawDownholeSurveys[ i ].depth - hole.rawDownholeSurveys[ i - 1].depth,
 					degToRad( hole.rawDownholeSurveys[ i - 1 ].azimuth ), 
 					degToRad( hole.rawDownholeSurveys[ i - 1 ].inclination ) ).clone();
+					hole.rawDownholeSurveys[ i ].quaternion = new THREE.Quaternion().setFromAzimuthInclination(
+																			hole.rawDownholeSurveys[ i ].azimuth,
+																			hole.rawDownholeSurveys[ i ].inclination );
 			}
 
 		} );
@@ -328,6 +387,36 @@ function View( projectURL ) {
 			console.warn( "interpolatedDownholeSurveys is deprecated. Use rawDownholeSurveys instead." );
 		}
 	}
+
+
+	/**
+	 * Parse `projectJSON["holes"]` into `minerals`, which looks like this:
+	 * ```
+	 * {
+	 *      MineralString: {
+	 *          intervals: [
+	 *              {
+	 *                  value: Number,
+	 *                  hole:  String,
+	 *                  id:    Number,
+	 *                  depth: {
+	 *                      start: Number,
+	 *                      end:   Number
+	 *                  },
+	 *                  path: {
+	 *                      start: THREE.Vector3,
+	 *                      end: THREE.Vector3
+	 *                  }
+	 *              }
+	 *          ],
+	 *          mesh: THREE.Mesh,
+	 *			color: String,
+	 *          geometry: THREE.BufferGeometry,
+	 *          minVisibleIndex: Integer,
+	 *          maxVisibleIndex: Integer
+	 *      }
+	 * }
+	 */
 
 	// Extracts a single mineral from the JSON object and prepares it for
 	//  rendering in the scene.
@@ -340,13 +429,22 @@ function View( projectURL ) {
 		}
 
 		// Return if it has already been instantiated
-		if( minerals[ mineral ] && false ){	// but ignore logic while troubleshooting
+		if( minerals[ mineral ] ){
 			return;
 		}
 
 		loadFromJSON();
+
+		var instances = minerals[ mineral ].intervals.length;
+		if( instances == 0 ){
+			console.warn( mineral + " did not have any intervals in the JSON." );
+			delete minerals[ mineral ];
+			return;
+		}
+
 		sortIntervals();
 		loadAttributes();
+		createMeshes();
 
 		return minerals[ mineral ];
 
@@ -355,10 +453,12 @@ function View( projectURL ) {
 		function loadFromJSON(){
 
 			minerals[ mineral ] = {
-				color: property.analytes[ mineral ].color,
+				color: colorFromString( property.analytes[ mineral ].color ),
 				intervals: [],
 				startID: currentID
 			}
+
+			var holesJSON = projectJSON.holes;
 
 			// Iterate over all the holes in the JSON object
 			for( var i = 0; i < holesJSON.length; i += 1 ){
@@ -428,8 +528,7 @@ function View( projectURL ) {
 					length:      to - from,
 					location:    location,
 					holeID:      holeID,
-					azimuth:     survey.azimuth,
-					inclination: survey.inclination,
+					quaternion:  survey.quaternion,
 					raw:         rawInterval
 				}
 
@@ -444,13 +543,121 @@ function View( projectURL ) {
 			} );
 
 			for( var i = 0; i < minerals[ mineral ].intervals.length; i += 1 ){
-				minerals[ mineral ].intervals[ i ].intervalID = currentID ++;
+				minerals[ mineral ].intervals[ i ].id = currentID ++;
 			}
 		}
 
 		// Sets up the attributes to be rendered as an instanced geometry
 		function loadAttributes() {
+			var intervals = minerals[ mineral ].intervals;
+			var instances = intervals.length;
 
+			// This buffer holds all the attributes that won't change.
+			var staticInterleavedBuffer = new THREE.InstancedInterleavedBuffer( new Float32Array( instances * 13 ), 13, 1 );
+
+			var data = {
+				interleavedBuffer: staticInterleavedBuffer,
+
+				// Use staticInterleavedBuffer, 3 items in offsets attribute, starting at offset 0
+				offsets:   new THREE.InterleavedBufferAttribute( staticInterleavedBuffer, 3, 0 ),
+				heights:   new THREE.InterleavedBufferAttribute( staticInterleavedBuffer, 1, 3 ),
+				widths:    new THREE.InterleavedBufferAttribute( staticInterleavedBuffer, 1, 4 ),
+				rotations: new THREE.InterleavedBufferAttribute( staticInterleavedBuffer, 4, 5 ),
+				idColors:  new THREE.InterleavedBufferAttribute( staticInterleavedBuffer, 4, 9 ),
+
+				/* Extra bits to determine how each cylinder is rendered... */
+				/*
+				**  When set to true, the bits have the following effects
+				**  0: do not render
+				**  1: emit hover color
+				**  2: emit diffuse color
+				**  3: increase size
+				**  4: decrease size
+				**  5: transparent
+				*/
+				bitAttributes: new THREE.InstancedBufferAttribute( new Float32Array( instances ), 1, 1 ).setDynamic( true )
+			}
+
+			minerals[ mineral ].data = data;
+
+			for( var i = 0; i < instances; i += 1 ) {
+
+				data.offsets.setXYZ( i,
+					                    intervals[ i ].location.x,
+					                    intervals[ i ].location.y,
+					                    intervals[ i ].location.z );
+				data.heights.setX(   i, intervals[ i ].length );
+				data.widths.setX(    i, Math.log( intervals[ i ].raw.value + 1.01 ) );
+
+				var quaternion = intervals[ i ].quaternion;
+
+				data.rotations.setXYZW( i,
+										quaternion.x,
+										quaternion.y,
+										quaternion.z,
+										quaternion.w );
+
+				// Will set a unique color for over 2^31 objects (~4 billion)
+				//  to go onto the idMesh
+				var idA = ((intervals[i].id >>> 24) & 0xff) / 0xff;
+				var idR = ((intervals[i].id >>> 16) & 0xff) / 0xff;
+				var idG = ((intervals[i].id >>>  8) & 0xff) / 0xff;
+				var idB = ((intervals[i].id >>>  0) & 0xff) / 0xff;
+				data.idColors.setXYZW( i, idR, idG, idB, idA );
+
+				// Delete duplicated and unnecessary variables
+				delete intervals[ i ].quaternion;
+				delete intervals[ i ].id;
+				delete intervals[ i ].length;
+			}
+		}
+
+		// Initializes the visible and picking meshes, and their corresponding
+		//  geometry and materials
+		function createMeshes() {
+			var data = minerals[ mineral ].data;
+
+			var geometry = new THREE.InstancedBufferGeometry().copy( baseCylinderGeometry );
+			geometry.maxInstancedCount = minerals[ mineral ].intervals.length;
+
+			geometry.addAttribute( "position",    baseCylinderGeometry.attributes.position );
+			geometry.addAttribute( "offset",      data.offsets );
+			geometry.addAttribute( "height",      data.heights );
+			geometry.addAttribute( "width",       data.widths );
+			geometry.addAttribute( "quaternion",  data.rotations );
+			geometry.addAttribute( "dynamicBits", data.bitAttributes );
+			geometry.addAttribute( "id",          data.idColors );
+ 
+			var phongUniforms = THREE.UniformsUtils.clone( THREE.ShaderLib['instancing_visible'].uniforms );
+
+			phongUniforms.diffuse.value = minerals[ mineral ].color;
+
+			// Set up a phong material with our custom vertex shader
+			var visibleMaterial = new THREE.ShaderMaterial({
+				uniforms: 			phongUniforms,
+				vertexShader:   	THREE.ShaderLib["instancing_visible"].vertexShader,
+				fragmentShader: 	THREE.ShaderLib["instancing_visible"].fragmentShader,
+				lights: 			true,
+				transparent: 		true,
+				shading: 			THREE.FlatShading
+			});
+
+			// Use our custom fragment shader to render the IDs
+			var idMaterial = new THREE.ShaderMaterial({
+				uniforms: 			phongUniforms,
+				vertexShader:   	THREE.ShaderLib["instancing_picking"].vertexShader,
+				fragmentShader: 	THREE.ShaderLib["instancing_picking"].fragmentShader,
+				lights:             false,
+				transparent:        false
+			});
+
+			var visibleMesh = new THREE.Mesh( geometry, visibleMaterial );
+			minerals[ mineral ].mesh = visibleMesh;
+			visibleMesh.frustumCulled = false;
+
+			var pickingMesh = new THREE.Mesh( geometry, idMaterial );
+			visibleMesh.pickingMesh = pickingMesh;
+			pickingMesh.frustumCulled = false;
 		}
 	}
 
@@ -462,255 +669,6 @@ function View( projectURL ) {
 
 	function radToDeg( rad ){
 		return rad / Math.PI * 180;
-	}
-
-	/**
-	 * Parse `projectJSON["holes"]` into `minerals`, which looks like this:
-	 * ```
-	 * {
-	 *      MineralString: {
-	 *          intervals: [
-	 *              {
-	 *                  value: Number,
-	 *                  hole:  String,
-	 *                  id:    Number,
-	 *                  depth: {
-	 *                      start: Number,
-	 *                      end:   Number
-	 *                  },
-	 *                  path: {
-	 *                      start: THREE.Vector3,
-	 *                      end: THREE.Vector3
-	 *                  }
-	 *              }
-	 *          ],
-	 *          mesh: THREE.Mesh,
-	 *			color: String,
-	 *          geometry: THREE.BufferGeometry,
-	 *          minVisibleIndex: Integer,
-	 *          maxVisibleIndex: Integer
-	 *      }
-	 * }
-	 * ```
-	 * Where `MineralString` is the string used to mark the mineral in the
-	 * original file. e.g., for gold it is often "Au".
-	 *
-	 * After completing, this calls `delegate( minerals )`.
-	 *
-	 * @todo  Unspaghettify this.
-	 */
-	function getMinerals() {
-		var holesJSON = projectJSON["holes"];
-		var currentID = 0;
-
-		holesJSON.forEach( function holesJsonForEach( hole ) {
-			hole["downholeDataValues"].forEach( 
-				function downholeDataForEach( mineral ) {
-					if ( minerals[mineral["name"]] === undefined ) {
-						minerals[mineral["name"]] = {
-							intervals: [],
-							color: property.analytes[mineral["name"]].color
-						};
-					}
-
-					mineral["intervals"].forEach( 
-						function mineralIntervalsForEach( interval ) {
-							var path = interval["path"][0].concat( interval["path"][1] );
-							var data = {
-								mineral: mineral["name"],
-								value: interval["value"],
-								depth: {
-									start: interval["from"],
-									end: interval["to"]
-								},
-								path: new Float32Array( path ),
-								hole: hole["id"],
-								id: currentID
-							};
-							minerals[mineral["name"]].intervals.push( data );
-							mineralData[currentID] = data;
-							currentID += 1;
-						} );
-				} );
-		} );
-
-		totalGeometries = currentID;
-		Object.keys( minerals ).forEach( function ( mineral ) {
-			minerals[mineral].minVisibleIndex = 0;
-			minerals[mineral].maxVisibleIndex = minerals[mineral].intervals.length - 1;
-			if ( minerals[mineral].intervals.length === 0 ) {
-				delete minerals[mineral];
-			}
-		} );
-		sortMinerals();
-		loadSidebar( minerals,property );
-		delegate( minerals );
-	}
-
-	/**
-	 * Make a mesh, ready to render, from a buffer of vertices. This is intended
-	 * to be called with data from the workers ( see `delegate` ) to create
-	 * a single cylinder mesh, and save it in `meshes`.
-	 * @see  delegate
-	 * `data` is expected to be a flat array of floats.
-	 *
-	 * The array`[new THREE.Vector3( 1, 2, 3 ), new THREE.Vector3( 4, 5, 6 )]`
-	 * should be passed in as `[1, 2, 3, 4, 5, 6]`.
-	 *
-	 * @param  {[number]} data An flat array of floats.
-	 *
-	 * @todo  Return the data, instead of writing out to globals.
-	 * @todo  Unspaghettify this.
-	 */
-	function makeMesh( data ) {
-		var intervalID = data[1];
-
-		var material = new THREE.MeshBasicMaterial( {
-			color: View.colors.tooltipsSelection
-		} );
-		var geometry = new THREE.BufferGeometry();
-
-		geometry.addAttribute( 'position',
-			new THREE.BufferAttribute( new Float32Array( data[0] ), 3 ) );
-
-		var mesh = new THREE.Mesh( geometry, material );
-		// Piggy back our data into the mesh, for easier access later.
-		mesh.mineralData = mineralData[intervalID];
-		// These meshes only exist for tool tips, so we don't actually
-		//   want to render them.
-		mesh.autoUpdate = false;
-
-		// Save all of the meshes for tool tips.
-		meshes[intervalID] = mesh;
-		visibleMeshes[intervalID] = mesh;
-
-		// Keep us up to date on how much has procssed ever x%.
-		var percentInterval = Math.ceil( 0.005 * totalGeometries );
-		if ( returnedGeometry % percentInterval === 0 ) {
-			// We can measure how many of the geometries we've loaded,
-			//   but we can't easily predict how long the BigMesh will
-			//   take, so assume 2%.
-			setProgressBar( 90 * returnedGeometry / totalGeometries );
-		}
-
-		if ( returnedGeometry >= totalGeometries ) {
-			setProgressBar( 95 );
-			makeBigMeshes();
-			setupRaycaster();
-			setProgressBar( 100 );
-		}
-	}
-
-	/**
-	 * Initiate the HTML5 Web Worker( s ) to load the mesh data for the mineral
-	 * cylinders.
-	 *
-	 * @param  {Minerals} meshlessData A `Minerals` object with meshless
-	 *                                 mineral data.
-	 *
-	 * @todo Return the data instead of just assigning it to minerals.
-	 */
-	function delegate( meshlessData ) {
-		var numWorkers = 1;
-		var workers = [];
-
-		function workerMessageEventListener( e ) {
-			returnedGeometry += 1;
-			makeMesh( e.data );
-		}
-
-		for ( var i = 0; i < numWorkers; i += 1 ) {
-			var worker = new Worker( 'js/MeshWorker.js' );
-			worker.addEventListener( 'message', workerMessageEventListener );
-			workers.push( worker );
-		}
-
-		var index = 0;
-		Object.keys( minerals ).forEach( function ( mineral ) {
-			minerals[mineral].intervals.forEach( function ( interval ) {
-				interval.path[2] += holes.ids[interval.hole].zOffset;
-				interval.path[5] += holes.ids[interval.hole].zOffset;
-				workers[index % numWorkers].postMessage( [
-					interval.path.buffer,
-					interval.value,
-					interval.id
-				], [interval.path.buffer] );
-				index += 1;
-			} );
-		} );
-		return;
-	}
-
-	/**
-	 * Sort each `intervals` array in the minerals object based on
-	 * concentration.
-	 *
-	 * @todo Take in an array of intervals and sort it / return a sorted copy.
-	 */
-	function sortMinerals() {
-		Object.keys( minerals ).forEach( function ( mineral ) {
-			minerals[mineral].intervals.sort( function ( a, b ) {
-				return a.value - b.value;
-			} );
-		} );
-	}
-
-	/**
-	 * Make a single, massive mesh for all of the cylinders of a single type
-	 * of mineral. This is used to easily add and remove minerals of a type
-	 * to the scene.
-	 */
-	function makeBigMeshes() {
-		if ( meshes.length === 0 ) {
-			console.log( "`meshes` is empty. Are there any intervals?" );
-			return;
-		}
-
-		var verticesPerInterval = meshes[0].geometry.attributes
-			.position.array.length;
-
-		for( var mineral in minerals ) {
-
-			var numVertices = verticesPerInterval * minerals[mineral].intervals.length;
-			var verts = new Float32Array( numVertices );
-			var indeces = new Uint32Array( numVertices / 3 );
-
-			var counter = 0;
-			minerals[mineral].intervals.forEach( function ( interval ) {
-				var floatArray = new Float32Array( 
-					meshes[interval['id']].geometry.attributes.position.array );
-				verts.set( floatArray, counter * verticesPerInterval );
-				counter += 1;
-			} );
-
-			for( var i = 0; i < numVertices / 3; i += 1 ){
-				indeces[i] = i;
-			}
-
-			var geometry = new THREE.BufferGeometry();
-			geometry.addAttribute( 'position',
-				new THREE.BufferAttribute( verts, 3 ) );
-			geometry.setIndex(
-				new THREE.BufferAttribute( indeces, 1 ) );
-			geometry.computeFaceNormals();
-			geometry.computeVertexNormals();
-			
-			var color = colorFromString( property.analytes[mineral].color );
-			var material = new THREE.MeshPhongMaterial( {
-				color: color,
-				refractionRatio: 1.0,
-				shininess: 4.0
-			} );
-			minerals[mineral]["geometry"] = geometry;
-			minerals[mineral].mesh = new THREE.Mesh( geometry, material );
-
-			minerals[mineral].mesh.matrix.AutoUpdate = false;
-			scene.add( minerals[mineral].mesh );
-
-		}
-		for( var mineral in minerals ){
-			updateVisibility( mineral );
-		}
 	}
 
 	/**
@@ -829,7 +787,6 @@ function View( projectURL ) {
 			holes.lines[jsonColor].matrixAutoUpdate = false;
 			scene.add( holes.lines[jsonColor] );
 		} );
-		addLastElements();
 	}
 
 	/**
@@ -1051,8 +1008,7 @@ function View( projectURL ) {
 			} );
 
 			terrainMesh.matrixAutoUpdate = false;
-			scene.add( terrainMesh );
-			setTimeout( function(){addSurveyLines()}, 0 );
+			scene.add( terrainMesh, false );
 		}
 	}
 
@@ -1365,14 +1321,86 @@ function View( projectURL ) {
 		scene.add( reticleLight );
 	}
 
+
+	// This function renders to a texture offscreen and returns
+	//  the ID of the cylinder that is underneath the pointer
+	function pick() {
+
+		//Only render the pixel that we need.
+		renderer.setScissor(mouse.x, pickingTexture.height - mouse.y, 1, 1);
+		renderer.enableScissorTest(true);
+
+		//Save these values to restore after the picking
+		var clearColor = renderer.getClearColor().clone();
+		var alpha = renderer.getClearAlpha();
+		var antialias = renderer.antialias;
+
+		renderer.setClearColor(0xffffff, 0xfe/0xff);
+		renderer.antialias = false;
+
+		//render the picking scene off-screen
+		renderer.render( pickingScene, camera, pickingTexture, true );
+
+
+		//create buffer for reading single pixel
+		var pixelBuffer = new Uint8Array( 4 );
+
+		//read the pixel under the mouse from the texture
+		renderer.readRenderTargetPixels(pickingTexture, mouse.x, pickingTexture.height - mouse.y, 1, 1, pixelBuffer);
+
+		//interpret the pixel as an ID (Unsigned integer)
+		var id = ( ( pixelBuffer[3] << 24 ) | ( pixelBuffer[0] << 16 ) | ( pixelBuffer[1] << 8 ) | ( pixelBuffer[2] << 0 ) ) >>> 0;
+
+		var object = {};
+
+		if( id == 0xfefefefe ){		// special value reserved for background color
+			object = {
+				type: "background"
+			}
+		}
+		else if( pixelBuffer [3] == 255 ){				// All user added objects should be
+			console.log("intersected custom object");	// completely opaque on the picking scene.
+			object = {
+				type: "custom",
+				id: id - 0xff000000
+			}
+		}
+		else if( id < 0xfefefefe ){						// Otherwise we have a cylinder and it's ID
+			object = {
+				type: "interval",
+				id: id
+			}
+		}
+		else{
+			console.log( "intersected object with invalid ID:" );
+			object = {
+				type: "unknown"
+			}
+		}
+
+		//return renderer to its previous state
+		renderer.enableScissorTest(false);
+		renderer.setClearColor( clearColor );
+		renderer.setClearAlpha( alpha );
+		renderer.antialias = antialias;
+		//renderer.forceContextLoss();
+
+		//NOT SURE WHY I HAVE TO DO THIS, BUT OTHERWISE IT FLASHES BLACK
+		//renderer.render( scene, camera );
+
+		return object;
+	}
+
 	/**
 	 * The main render loop.
 	 */
 	function render() {
-		requestAnimationFrame( render );
+		renderTimeout = requestAnimationFrame( render );
 		
 		stats.update();
 		controls.update();
+
+		rotateBaseCylinder( 1 );
 
 		camera.updateMatrixWorld();
 
@@ -1380,10 +1408,15 @@ function View( projectURL ) {
 		reticleLight.position.copy( controls.target );
 		cameraLight.position.copy( camera.position );
 
-		renderer.clear();
-		renderer.render( scene, camera );
+		
+		renderer.render( scene, camera, undefined, true );
 		renderer.clearDepth();
 		renderer.render( sceneOrtho, cameraOrtho );
+	}
+
+	function rotateBaseCylinder( rpm ) {
+		var theta = rpm * 2 * Math.PI / 60 / 60;
+		baseCylinderGeometry.rotateZ( theta );
 	}
 
 	/**
@@ -1640,8 +1673,9 @@ function View( projectURL ) {
 	// Below here is only setup functions, typically called once.
 
 	function setupWindowListeners() {
+
 		// Resize the camera when the window is resized.
-		window.addEventListener( 'resize', function resizeEventListener( event ) {
+		eventListeners.windowListener = function ( event ) {
 			camera.aspect = window.innerWidth / window.innerHeight;
 			camera.updateProjectionMatrix();
 
@@ -1653,83 +1687,95 @@ function View( projectURL ) {
 			cameraOrtho.updateProjectionMatrix();
 
 			renderer.setSize( window.innerWidth, window.innerHeight );
-		} );
+			pickingTexture.setSize( window.innerWidth, window.innerHeight );
+		}
 
-		container.addEventListener( 'mousemove',
-			function mousemoveEventListener( event ) {
-				event.preventDefault();
+		eventListeners.mousemoveListener = function( event ) {
+			event.preventDefault();
 
-				// This will update the mouse position as well as make the
-				//   tooltipSprite follow the mouse.
-				var newX = event.clientX - ( window.innerWidth / 2 ) + 20;
-				var newY = -event.clientY + ( window.innerHeight / 2 ) - 40;
-				if ( tooltipSpriteLocation.x == newX &&
-					tooltipSpriteLocation.y == newY ) {
-					// The mousemove event is called when a simple click is triggered, so
-					// If the mouse wasn't moved, ignore the following logic
+			mouse.x = event.clientX;
+			mouse.y = event.clientY;
+
+			if( event.buttons % 4 == 0 ){
+				pick();
+			}
+
+			// This will update the mouse position as well as make the
+			//   tooltipSprite follow the mouse.
+			var newX = event.clientX - ( window.innerWidth / 2 ) + 20;
+			var newY = -event.clientY + ( window.innerHeight / 2 ) - 40;
+			if ( tooltipSpriteLocation.x == newX &&
+				tooltipSpriteLocation.y == newY ) {
+				// The mousemove event is called when a simple click is triggered, so
+				// If the mouse wasn't moved, ignore the following logic
+				return;
+			}
+			tooltipSpriteLocation.x = newX;
+			tooltipSpriteLocation.y = newY;
+			
+
+			var newX = ( event.clientX / window.innerWidth ) * 2 - 1;
+			var newY = -( event.clientY / window.innerHeight ) * 2 + 1;
+			mouseMoved += Math.sqrt( Math.pow( mouse.x - newX, 2 ) + Math.pow( mouse.y - newY, 2 ) );
+			mouse.x = newX;
+			mouse.y = newY;
+
+			if( mouseMoved >= .01 ){
+				sceneOrtho.remove( tooltipSprite );
+				scene.remove( intersected );
+				intersected = null;
+			}
+
+			window.clearTimeout( mouseTimeout );
+			if ( event.buttons === 0 && raycaster && !controls.autoRotate && !motionInterval ) {
+				mouseTimeout = window.setTimeout( checkHover, 150 );
+			}
+
+			if ( event.buttons % 4 - event.buttons % 2 == 2 ) { //panning!
+				window.clearInterval( motionInterval );
+				motionInterval = null;
+			}
+		};
+
+		eventListeners.mouseClickListener = function( event ) {
+			if ( mouseMoved < .005 ) {
+				//clicking while motion is in progress causes problems, so
+				//don't try to initiate new movement if it's in progress
+				if( motionInterval ){
+					clearInterval( motionInterval );
+					motionInterval = null;
+					mouseTimeout = setTimeout( checkHover, 150 );
 					return;
 				}
-				tooltipSpriteLocation.x = newX;
-				tooltipSpriteLocation.y = newY;
-
-
-				var newX = ( event.clientX / window.innerWidth ) * 2 - 1;
-				var newY = -( event.clientY / window.innerHeight ) * 2 + 1;
-				mouseMoved += Math.sqrt( Math.pow( mouse.x - newX, 2 ) + Math.pow( mouse.y - newY, 2 ) );
-				mouse.x = newX;
-				mouse.y = newY;
-
-				if( mouseMoved >= .01 ){
-					sceneOrtho.remove( tooltipSprite );
-					scene.remove( intersected );
-					intersected = null;
-				}
-
-				window.clearTimeout( mouseTimeout );
-				if ( event.buttons === 0 && raycaster && !controls.autoRotate && !motionInterval ) {
-					mouseTimeout = window.setTimeout( checkHover, 150 );
-				}
-
-				if ( event.buttons % 4 - event.buttons % 2 == 2 ) { //panning!
-					window.clearInterval( motionInterval );
-					motionInterval = null;
-				}
-			}, false );
-
-		container.addEventListener( "click",
-			function mouseClickEventListener( event ) {
-				if ( mouseMoved < .005 ) {
-					//clicking while motion is in progress causes problems, so
-					//don't try to initiate new movement if it's in progress
-					if( motionInterval ){
-						clearInterval( motionInterval );
-						motionInterval = null;
-						mouseTimeout = setTimeout( checkHover, 150 );
-						return;
-					}
+				var intersected = pick();
+				if ( intersected ) {
+					console.log(intersected);
+					//startMotion( intersected );
+				} else {
+					checkMouseIntercept();
 					if ( intersected ) {
 						startMotion( intersected );
-					} else {
-						checkMouseIntercept();
-						if ( intersected ) {
-							startMotion( intersected );
-						}
 					}
 				}
-			} );
+			}
+		}
 
-		container.addEventListener( "mousedown",
-			function mousedownEventListener( event ) {
-				event.preventDefault();
-				mouseMoved = 0;
-				// autoRotate is true when both left and right buttons are
-				// clicked simultaneously and false otherwise
-				if ( event.buttons == 3 ) {
-					controls.autoRotate = true;
-				} else {
-					controls.autoRotate = false;
-				}
-			} );
+		eventListeners.mousedownListener = function( event ){
+			event.preventDefault();
+			mouseMoved = 0;
+			// autoRotate is true when both left and right buttons are
+			// clicked simultaneously and false otherwise
+			if ( event.buttons == 3 ) {
+				controls.autoRotate = true;
+			} else {
+				controls.autoRotate = false;
+			}
+		}
+
+		window.addEventListener(    'resize',    eventListeners.windowListener,     false );
+		container.addEventListener( 'mousemove', eventListeners.mousemoveListener , false);
+		container.addEventListener( "click",     eventListeners.mouseClickListener, false );
+		container.addEventListener( "mousedown", eventListeners.mousedownListener,  false );
 	}
 
 	function startMotion( toHere ) {
@@ -1932,6 +1978,8 @@ function View( projectURL ) {
 	function setupScene() {
 		scene = new THREE.Scene();
 		pickingScene = new THREE.Scene();
+		pickingTexture = new THREE.WebGLRenderTarget( window.innerWidth, window.innerHeight );
+		pickingTexture.texture.generateMipmaps = false;
 
 		// Override the old add remove functions with a closure
 		//  so that when we add to the scene, we also add to the
@@ -2016,6 +2064,30 @@ function View( projectURL ) {
 		raycaster = new THREE.Raycaster();
 	}
 
+	this.dispose = function(){
+		cancelAnimationFrame( renderTimeout );
+		window.removeEventListener(    'resize',    eventListeners.windowListener );
+		container.removeEventListener( 'mousemove', eventListeners.mousemoveListener );
+		container.removeEventListener( 'click',     eventListeners.mouseClickListener );
+		container.removeEventListener( 'mousedown', eventListeners.mousedownListener );
+
+		
+		for( var mineral in minerals ){
+			minerals[ mineral ].mesh.geometry.dispose();
+			minerals[ mineral ].mesh.material.dispose();
+			minerals[ mineral ].mesh.pickingMesh.geometry.dispose();
+			minerals[ mineral ].mesh.pickingMesh.material.dispose();
+		}
+
+		for( var line in holes ){
+			holes[ line ].geometry.dispose();
+			holes[ line ].material.dispose();
+		}
+		
+		renderer.dispose();
+		
+	}
+
 	function getHistogramCSV( JSONData, ShowLabel ) {
 		//If JSONData is not an object then JSON.parse will parse the JSON string in an Object
 		var arrData = typeof JSONData != 'object' ? JSON.parse( JSONData ) : JSONData;
@@ -2093,6 +2165,7 @@ View.loadJSON = function( url, callback ) {
 	$.ajax( {
 		'url': url,
 		'dataType': "json",
+		'global': "false",
 		'success': function ( data ) { setTimeout( function() { callback ( data ) }, 0 ); }
 	} );
 
