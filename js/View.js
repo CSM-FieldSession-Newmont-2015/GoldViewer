@@ -256,27 +256,16 @@ function View( projectURL ) {
 	}
 
 	function setup( json ) {
-		
-		now = performance.now();
-		
-		THREE.Vector3.prototype.moveDownhole = function( depth, azimuth, inclination ){
-			this.x += depth * Math.sin( azimuth ) * Math.cos( inclination );
-			this.y += depth * Math.cos( azimuth ) * Math.cos( inclination );
-			this.z += depth * Math.sin( inclination );
-			return this;
-		}
-
-		THREE.Quaternion.prototype.setFromAzimuthInclination = function( azimuth, inclination ){
-			var temp = new THREE.Euler( 0 , THREE.Math.degToRad( 90 - inclination ), THREE.Math.degToRad( azimuth + 90 ) );
-			return this.setFromEuler( temp );
-		}
 
 		projectJSON = json;
-		interpolateDownholeSurveys();
 
-		baseCylinderGeometry = makeCylinderGeometry( 1, 1, 7 );
+		addPrototypeFunctions();
 
 		property = getProperty( projectJSON );
+
+		interpolateDownholeSurveys();
+		baseCylinderGeometry = makeCylinderGeometry( 1, 1, 7 );
+
 
 		container.contents().find( 'body' ).html( '<div></div>' );
 		container = container.contents().find( 'div:first' ).get( 0 );
@@ -303,7 +292,24 @@ function View( projectURL ) {
 		setupWindowListeners();
 		addBoundingBox();
 		addAxisLabels();
+		addSurveyLines();
 		addTerrain();
+
+	}
+
+	function addPrototypeFunctions() {
+
+		THREE.Vector3.prototype.moveDownhole = function( depth, azimuth, inclination ){
+			this.x += depth * Math.sin( azimuth ) * Math.cos( inclination );
+			this.y += depth * Math.cos( azimuth ) * Math.cos( inclination );
+			this.z += depth * Math.sin( inclination );
+			return this;
+		}
+
+		THREE.Quaternion.prototype.setFromAzimuthInclination = function( azimuth, inclination ){
+			var temp = new THREE.Euler( 0 , THREE.Math.degToRad( 90 - inclination ), THREE.Math.degToRad( azimuth + 90 ) );
+			return this.setFromEuler( temp );
+		}
 
 	}
 
@@ -360,7 +366,10 @@ function View( projectURL ) {
 			// If rawDownholeSurveys is not defined, make a deep copy of the
 			//  interpolatedDownholeSurveys object.
 			if( !hole.rawDownholeSurveys ){
-				hole.rawDownholeSurveys = jQuery.extend( true, {}, hole.interpolatedDownholeSurveys );
+				hole.rawDownholeSurveys = [];
+				for( var survey in hole.interpolatedDownholeSurveys ){
+					hole.rawDownholeSurveys.push( jQuery.extend( true, {}, hole.interpolatedDownholeSurveys[survey] ) );
+				}
 				warn = true;
 			}
 
@@ -589,7 +598,7 @@ function View( projectURL ) {
 					                    intervals[ i ].location.y,
 					                    intervals[ i ].location.z );
 				data.heights.setX(   i, intervals[ i ].length );
-				data.widths.setX(    i, Math.log( intervals[ i ].raw.value + 1.01 ) );
+				data.widths.setX(    i, 5 * Math.log( intervals[ i ].raw.value + 1.01 ) );
 
 				var quaternion = intervals[ i ].quaternion;
 
@@ -690,93 +699,44 @@ function View( projectURL ) {
 	 * Load the survey holes from `projectJSON`, and then adjust them up, so
 	 * they coincide with the surface terrain mesh.
 	 *
-	 * @param {THREE.PlaneGeometry} terrainMesh A plane representing the
-	 *                                          surface mesh.
-	 *
-	 * @todo Unspaghettify this.
 	 * @todo Return the holes object instead of modifying a global object.
 	 */
 	function addSurveyLines() {
 		var totalMetersDrilled = 0;
-		var surveyCaster = new THREE.Raycaster();
 		var geometries = {};
-		var up = vec3FromArray( [0, 0, 1] );
-		var down = vec3FromArray( [0, 0, -1] );
 		holes.lines = {};
 		holes.ids = {};
 
 		projectJSON["holes"].forEach( function ( jsonHole ) {
 
-
 			var color = jsonHole["traceColor"];
-			totalMetersDrilled+= jsonHole["depth"];
-
 			if ( geometries[color] === undefined ) {
 				geometries[color] = [];
 			}
 
-			var surveys = jsonHole["interpolatedDownholeSurveys"];
-			var initialLocation = surveys[0].location;
-			var lineGeometry = geometries[color];
+			var surveys = jsonHole["rawDownholeSurveys"];
 
-			// Now we use the Raycaster to find the initial z value
-			surveyCaster.set( vec3FromArray( [
-					initialLocation[0],
-					initialLocation[1],
-					0
-				] ),
-				up );
-			var intersect = surveyCaster.intersectObject( terrainMesh ); //look up
-			surveyCaster.set( surveyCaster.ray.origin, down );
-			Array.prototype.push.apply( intersect, surveyCaster.intersectObject( terrainMesh ) ); //and down
-			var zOffset = 0;
-			if ( intersect.length !== 0 ) {
-				zOffset = intersect[0].distance - initialLocation[2];
-			} else {
-				console.log( 
-					"Survey hole #" + jsonHole["id"] +
-					"'s raycast did not intersect the terrain mesh." );
-			}
+			var lineGeometry = geometries[color];
 
 			var hole = {
 				name: jsonHole["name"],
 				longitude: jsonHole["longLat"][0],
 				latitude: jsonHole["longLat"][1],
-				location: jsonHole["location"],
-				zOffset: zOffset
+				location: jsonHole["location"]
 			};
 			var holeId = jsonHole['id'];
 
-			// Javascript uses 64-bit doubles to store all numbers. If they're
-			// smaller than that, we can use them as exact integers.
-			// We treat survey hole ids as integers, so it's important to check
-			// that every id we load is within this bound.
-			if ( holeId >= ( 1 << 53 ) ) {
-				console.warn( "Survey hole # " + holeId +
-					" is too large to store as an integer. " +
-					"Some hole ids may be rounded and behave strangely." );
-			}
 			holes.ids[holeId] = hole;
 
-			lineGeometry.push( 
-				initialLocation[0],
-				initialLocation[1],
-				initialLocation[2] + zOffset );
+			Array.prototype.push.apply( lineGeometry, surveys[ 0 ].location.toArray() );
 
 			for ( var i = 1; i < surveys.length - 1; i += 1 ) {
-				// Push the point twice.
-				lineGeometry.push( 
-					surveys[i].location[0],
-					surveys[i].location[1],
-					surveys[i].location[2] + zOffset,
-					surveys[i].location[0],
-					surveys[i].location[1],
-					surveys[i].location[2] + zOffset );
+				// Push the point twice
+				Array.prototype.push.apply( lineGeometry, surveys[ i ].location.toArray() );
+				Array.prototype.push.apply( lineGeometry, surveys[ i ].location.toArray() );
 			}
-			lineGeometry.push( 
-				surveys[surveys.length - 1].location[0],
-				surveys[surveys.length - 1].location[1],
-				surveys[surveys.length - 1].location[2] + zOffset );
+			Array.prototype.push.apply( lineGeometry, surveys[ surveys.length - 1 ].location.toArray() );
+			totalMetersDrilled += jsonHole["depth"];
 		} );
 		property["totalMetersDrilled"] = Math.round( totalMetersDrilled );
 
@@ -799,6 +759,7 @@ function View( projectURL ) {
 			holes.lines[jsonColor] = new THREE.Line( buffGeometry,
 				material,
 				THREE.LinePieces );
+
 			holes.lines[jsonColor].matrixAutoUpdate = false;
 			scene.add( holes.lines[jsonColor] );
 		} );
@@ -1323,6 +1284,9 @@ function View( projectURL ) {
 		var ambientLight = new THREE.AmbientLight( View.colors.ambientLight );
 		scene.add( ambientLight );
 
+		var hemisphereLight = new THREE.HemisphereLight( View.colors.ambientLight, View.colors. reticleLight, 0.6 );
+		scene.add( hemisphereLight );
+
 		// Apply the adjustment that our box gets.
 		var offset = property.box.center.z - 0.5 * property.box.size.z;
 
@@ -1411,7 +1375,7 @@ function View( projectURL ) {
 		stats.update();
 		controls.update();
 
-		rotateBaseCylinder( 1 );
+		rotateBaseCylinder( 10 );
 
 		camera.updateMatrixWorld();
 
@@ -1718,7 +1682,7 @@ function View( projectURL ) {
 			mouse.x = event.clientX;
 			mouse.y = event.clientY;
 
-			if( event.buttons % 4 == 0 ){
+			if( event.buttons % 4 == 0 && !motionInterval){
 				pick();
 			}
 
@@ -2106,11 +2070,12 @@ function View( projectURL ) {
 			minerals[ mineral ].mesh.pickingMesh.material.dispose();
 		}
 
+		/*
 		for( var line in holes ){
 			holes[ line ].geometry.dispose();
 			holes[ line ].material.dispose();
 		}
-		
+		*/
 		renderer.dispose();
 		
 	}
