@@ -66,11 +66,6 @@ function establishShaders(){
 
 	var afterMainVertexString = [
 			
-			"if(checkBit(dynamicBits, 0.0)){",
-			"	gl_Position = vec4(0.0, 0.0, 0.0, 0.0);",
-			"	return;",
-			"}",
-			"",
 			"vec3 newPosition = vec3(logWidths, logWidths, 1.0) * vec3(width, width, height) * position + vec3(1.0-logWidths, 1.0-logWidths, 0.0 ) * position;",
 			"newPosition = newPosition * vec3(overallScale, overallScale, overallScale);",
 			"newPosition = rotate_vector( quaternion, newPosition);",
@@ -107,6 +102,11 @@ function establishShaders(){
 				beforeMainVertexString,
 				mainVertexString,
 
+				"if(checkBit(dynamicBits, 0.0) || checkBit(dynamicBits, 6.0)){",
+				"	gl_Position = vec4(0.0, 0.0, 0.0, 0.0);",
+				"	return;",
+				"}",
+
 				"if(checkBit(dynamicBits, 3.0)){",
 				"	overallScale *= 1.2;",
 				"}",
@@ -130,22 +130,24 @@ function establishShaders(){
 
 				"vec3 newEmissive = emissive;",
 
+				"vec3 newDiffuse = diffuse;",
+
 				"float opacity = 1.0;",
+
+				"if(checkBit(vDynamicBits, 1.0) ){",
+				"	newDiffuse = hoverColor;",
+				"}",
 				
 				"if(checkBit(vDynamicBits, 2.0)){",
-				"	newEmissive = diffuse;",
-				"}",
-
-				"if(checkBit(vDynamicBits, 3.0)){",
-				"	newEmissive = hoverColor;",
+				"	newEmissive = newDiffuse;",
 				"}",
 
 				"if(checkBit(vDynamicBits, 5.0)){",
-				"	opacity = uniformTransparency;",
+				"	opacity *= uniformTransparency;",
 				"}",
 
 				
-				fragmentSplit[1].replace(/emissive/g, "newEmissive").replace(/diffuseColor\.a/g, "opacity")
+				fragmentSplit[1].replace(/emissive/g, "newEmissive").replace(/diffuseColor\.a/g, "opacity").replace(/diffuse/g, "newDiffuse")
 			].join("\n");
 
 	THREE.ShaderLib["instancing_visible"].uniforms = makeUniforms();
@@ -158,6 +160,11 @@ function establishShaders(){
 			beforeMainVertexString,
 
 			mainVertexString,
+
+			"if(checkBit(dynamicBits, 6.0)){",
+			"	gl_Position = vec4(0.0, 0.0, 0.0, 0.0);",
+			"	return;",
+			"}",
 
 			"	vID = id;",
 

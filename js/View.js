@@ -529,6 +529,7 @@ function View( projectURL ) {
 				**  3: increase size
 				**  4: decrease size
 				**  5: transparent
+				**  6: remove
 				*/
 				bitAttributes: new THREE.InstancedBufferAttribute( new Float32Array( instances ), 1, 1 ).setDynamic( true )
 			}
@@ -1488,7 +1489,7 @@ function View( projectURL ) {
 		sceneOrtho.remove( tooltipSprite );
 
 		if( intersected ){
-			setIntervalAttributes( intersected.id, [] );
+			setIntervalAttributes( intersected.id );
 		}
 
 	}
@@ -1502,7 +1503,7 @@ function View( projectURL ) {
 
 		var pickObject = pick();
 
-		if( pickObject == intersected ){
+		if( intersected && pickObject.id == intersected.id && pickObject.type == intersected.type ){
 			return;
 		}
 		
@@ -1515,7 +1516,7 @@ function View( projectURL ) {
 		}
 
 		if( intersected.type == "interval" ){
-			setIntervalAttributes( intersected.id, [ 'hover', 'emit', 'big', 'transparent' ] );
+			setIntervalAttributes( intersected.id, [ 'hover', 'emit' ] );
 		}
 
 		var mineral = mineralIDToMineral( intersected.id );
@@ -1549,22 +1550,30 @@ function View( projectURL ) {
 		sceneOrtho.add( tooltipSprite );
 	}
 
+	// Updates the bitAttributes of the cylindergiven by the parameter id
+	//  and therefore changes how it renders on-screen.
+	//  The attributes parameter should be an array of attributes for the 
 	function setIntervalAttributes( id, attributes ){
-		/*
-		 **  0: do not render
-		 **  1: render hover color
-		 **  2: emit diffuse color
-		 **  3: increase size
-		 **  4: decrease size
-		 **  5: transparent
-		*/
-		var attributeList = [ 'dnr', 'hover', 'emit', 'big', 'small', 'transparent' ];
 
 		var value = 0;
 
-		for( var i = 0; i < attributeList.length; i += 1 ){
-			if( attributes.includes( attributeList[ i ] ) ){
-				value += 1 << i;
+		if( attributes ){
+			/*
+			 **  dnr:         do not render
+			 **  hover:       change diffuse to hover color
+			 **  emit:        emit diffuse color
+			 **  big:         increase size
+			 **  small:       decrease size
+			 **  transparent: transparent
+			 **  remove:      removes the cylinder from visible & picking scenes
+			*/
+			var attributeList = [ 'dnr', 'hover', 'emit', 'big', 'small', 'transparent', 'remove' ];
+
+
+			for( var i = 0; i < attributeList.length; i += 1 ){
+				if( attributes.includes( attributeList[ i ] ) ){
+					value += 1 << i;
+				}
 			}
 		}
 
@@ -1658,6 +1667,7 @@ function View( projectURL ) {
 				if( motionInterval ){
 					clearInterval( motionInterval );
 					motionInterval = null;
+					return checkHover();
 				}
 
 				var intersected = pick();
