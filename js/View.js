@@ -163,6 +163,8 @@ function View( projectURL ) {
 	 */
 	var renderer = null;
 
+	var renderPickingScene = false;
+
 	/**
 	 * Keeps track of the timeout for the animation loop.
 	 * This way we can clear it on disposing of this View.
@@ -255,26 +257,24 @@ function View( projectURL ) {
 
 	function setup( json ) {
 		
-		( function newstuff() {
+		now = performance.now();
+		
+		THREE.Vector3.prototype.moveDownhole = function( depth, azimuth, inclination ){
+			this.x += depth * Math.sin( azimuth ) * Math.cos( inclination );
+			this.y += depth * Math.cos( azimuth ) * Math.cos( inclination );
+			this.z += depth * Math.sin( inclination );
+			return this;
+		}
 
-			THREE.Vector3.prototype.moveDownhole = function( depth, azimuth, inclination ){
-				this.x += depth * Math.sin( azimuth ) * Math.cos( inclination );
-				this.y += depth * Math.cos( azimuth ) * Math.cos( inclination );
-				this.z += depth * Math.sin( inclination );
-				return this;
-			}
+		THREE.Quaternion.prototype.setFromAzimuthInclination = function( azimuth, inclination ){
+			var temp = new THREE.Euler( 0 , THREE.Math.degToRad( 90 - inclination ), THREE.Math.degToRad( azimuth + 90 ) );
+			return this.setFromEuler( temp );
+		}
 
-			THREE.Quaternion.prototype.setFromAzimuthInclination = function( azimuth, inclination ){
-				var temp = new THREE.Euler( 0 , THREE.Math.degToRad( 90 - inclination ), THREE.Math.degToRad( azimuth + 90 ) );
-				return this.setFromEuler( temp );
-			}
+		projectJSON = json;
+		interpolateDownholeSurveys();
 
-			projectJSON = json;
-			interpolateDownholeSurveys();
-
-			baseCylinderGeometry = makeCylinderGeometry( 1, 1, 7 );
-
-		})();
+		baseCylinderGeometry = makeCylinderGeometry( 1, 1, 7 );
 
 		property = getProperty( projectJSON );
 
@@ -283,28 +283,27 @@ function View( projectURL ) {
 
 		setupCamera();
 		setupRenderer();
-		this.renderer = renderer;
-		this.controls = setupControls();
+		setupControls();
 		this.scene = setupScene();
 		this.minerals = minerals;
 
 		setupStats();
-		setupWindowListeners();
 
-		addTerrain();
-
-		addBoundingBox();
-		addAxisLabels();
 		addReticle();
 		addLights();
 
+		render();
+		
 		for( var analyte in property.analytes ) {
 			if( getMineral( analyte ) ){
 				scene.add( minerals[ analyte ].mesh );
 			}
 		}
 
-		render();
+		setupWindowListeners();
+		addBoundingBox();
+		addAxisLabels();
+		addTerrain();
 
 	}
 
@@ -433,6 +432,7 @@ function View( projectURL ) {
 			return;
 		}
 
+		var now = performance.now();
 		loadFromJSON();
 
 		var instances = minerals[ mineral ].intervals.length;
@@ -464,7 +464,6 @@ function View( projectURL ) {
 			for( var i = 0; i < holesJSON.length; i += 1 ){
 				// Iterate over all the different minerals in each hole
 				holesJSON[ i ].downholeDataValues.forEach( function( dhValue ){
-
 					// Return unless we found the correct mineral
 					if( dhValue.name != mineral){
 						return;
@@ -503,6 +502,7 @@ function View( projectURL ) {
 						
 						from = rawDH[ index ].depth;
 					}
+					index += 1;
 				}
 
 				// Last interval that doesn't span across two surveys
@@ -545,6 +545,8 @@ function View( projectURL ) {
 			for( var i = 0; i < minerals[ mineral ].intervals.length; i += 1 ){
 				minerals[ mineral ].intervals[ i ].id = currentID ++;
 			}
+
+			minerals[ mineral ].endID = currentID - 1;
 		}
 
 		// Sets up the attributes to be rendered as an instanced geometry
@@ -669,6 +671,19 @@ function View( projectURL ) {
 
 	function radToDeg( rad ){
 		return rad / Math.PI * 180;
+	}
+
+	function mineralIDToInterval( id ) {
+		var mineral = mineralIDToMineral( id );
+		return mineral.intervals[ id - mineral.startID ];
+	}
+
+	function mineralIDToMineral( id ) {
+		for( var mineral in minerals ) {
+			if( id >= minerals[ mineral ].startID && id <= minerals[ mineral ].endID ){
+				return minerals[ mineral ];
+			}
+		}
 	}
 
 	/**
@@ -857,7 +872,7 @@ function View( projectURL ) {
 
 		var saveName = property.name + "v2.terrain";
 		if ( localStorage.hasOwnProperty( saveName ) && loadFromCache ) {
-			console.log( 'Loading ' + saveName + ' from cache.' );
+			//console.log( 'Loading ' + saveName + ' from cache.' );
 			var elevationObject = JSON.parse( localStorage[saveName] );
 			xSamples = elevationObject.xSamples;
 			ySamples = elevationObject.ySamples;
@@ -1383,10 +1398,6 @@ function View( projectURL ) {
 		renderer.setClearColor( clearColor );
 		renderer.setClearAlpha( alpha );
 		renderer.antialias = antialias;
-		//renderer.forceContextLoss();
-
-		//NOT SURE WHY I HAVE TO DO THIS, BUT OTHERWISE IT FLASHES BLACK
-		//renderer.render( scene, camera );
 
 		return object;
 	}
@@ -1409,7 +1420,18 @@ function View( projectURL ) {
 		cameraLight.position.copy( camera.position );
 
 		
-		renderer.render( scene, camera, undefined, true );
+		if( renderPickingScene ){
+			var color = renderer.getClearColor().clone();
+			var alpha = renderer.getClearAlpha();
+			renderer.setClearColor( 0xffffff, 0xfe / 0xff );
+
+			renderer.render( pickingScene, camera, undefined, true );
+
+			renderer.setClearColor( color );
+			renderer.setClearAlpha( alpha );
+		}else{
+			renderer.render( scene, camera, undefined, true );
+		}
 		renderer.clearDepth();
 		renderer.render( sceneOrtho, cameraOrtho );
 	}
@@ -1712,13 +1734,13 @@ function View( projectURL ) {
 			}
 			tooltipSpriteLocation.x = newX;
 			tooltipSpriteLocation.y = newY;
-			
 
-			var newX = ( event.clientX / window.innerWidth ) * 2 - 1;
-			var newY = -( event.clientY / window.innerHeight ) * 2 + 1;
-			mouseMoved += Math.sqrt( Math.pow( mouse.x - newX, 2 ) + Math.pow( mouse.y - newY, 2 ) );
-			mouse.x = newX;
-			mouse.y = newY;
+			mouse.old = mouse.old || new THREE.Vector2();
+
+			var newX = ( mouse.x / window.innerWidth ) * 2 - 1;
+			var newY = -( mouse.y / window.innerHeight ) * 2 + 1;
+			mouseMoved += Math.sqrt( Math.pow( mouse.old.x - newX, 2 ) + Math.pow( mouse.old.y - newY, 2 ) );
+			mouse.old = new THREE.Vector2( newX, newY );
 
 			if( mouseMoved >= .01 ){
 				sceneOrtho.remove( tooltipSprite );
@@ -1748,14 +1770,11 @@ function View( projectURL ) {
 					return;
 				}
 				var intersected = pick();
-				if ( intersected ) {
-					console.log(intersected);
-					//startMotion( intersected );
-				} else {
-					checkMouseIntercept();
-					if ( intersected ) {
-						startMotion( intersected );
-					}
+				console.log(intersected);
+				if ( intersected.type == "interval" ) {
+					startMotion( mineralIDToInterval( intersected.id ).location );
+				} else if (intersected.type == "custom" ) {
+					startMotionToMesh( scene.getObjectById( intersected.id ) );
 				}
 			}
 		}
@@ -1778,20 +1797,21 @@ function View( projectURL ) {
 		container.addEventListener( "mousedown", eventListeners.mousedownListener,  false );
 	}
 
-	function startMotion( toHere ) {
+	function startMotionToMesh( mesh ) {
 
 		sceneOrtho.remove( tooltipSprite );
-		scene.remove( intersected );
-		intersected = null;
 		clearTimeout( mouseTimeout );
 
-		if ( toHere.geometry.boundingSphere === undefined ) {
-			toHere.computeBoundingSphere();
+		if ( mesh.geometry.boundingSphere === undefined ) {
+			mesh.computeBoundingSphere();
 		}
 
 		// Use the bounding sphere to get the center of the mesh
 		// and to determine a reasonable distance to approach to
-		var toSphere = toHere.geometry.boundingSphere;
+		var toSphere = mesh.geometry.boundingSphere.clone();
+
+		toSphere.center.add( mesh.position );
+		toSphere.radius *= Math.max.apply( null, mesh.scale.toArray() );
 		var movementVector = new THREE.Vector3();
 
 		// get the movement vector
@@ -1809,6 +1829,13 @@ function View( projectURL ) {
 		tempVec1.normalize();
 		tempVec1.multiplyScalar( -1 * reticle.geometry.boundingSphere.radius );
 		movementVector.add( tempVec1 );
+
+		startMotion( controls.target.clone().add( movementVector ) );
+	}
+
+	function startMotion( toHere ){
+
+		var movementVector = toHere.clone().sub( controls.target );
 
 		var acceleration = movementVector.length() / 25000 + 0.01;
 
@@ -1997,7 +2024,7 @@ function View( projectURL ) {
 				}
 
 				// If the pickingMesh has already been instantiated, return
-				if( mesh.pickingMesh ){
+				if( mesh.pickingMesh && mesh.pickingMesh.geometry == mesh.geometry ){
 					pickingScene.add( mesh.pickingMesh );
 					return;
 				}
@@ -2009,7 +2036,7 @@ function View( projectURL ) {
 					} )
 				);
 
-				pickingMesh.matrixAutoUpdate = true;
+				pickingMesh.matrixAutoUpdate = false;
 				mesh.pickingMesh = pickingMesh;
 				pickingScene.add( pickingMesh );
 
