@@ -2,9 +2,7 @@
 //  with the built-in phong material and gpu picking for over
 //  2^31 unique cylinders.
 
-establishShaders();
-
-function establishShaders(){
+( function establishShaders(){
 	THREE.ShaderLib["instancing_visible"] = {};
 	THREE.ShaderLib["instancing_picking"] = {};
 
@@ -32,6 +30,7 @@ function establishShaders(){
 
 			"uniform float uniformScale;",
 			"uniform float logWidths;",
+			"uniform float scaleAttributeUniform;",
 
 			"attribute vec3 offset;",
 			"attribute float height;",
@@ -108,11 +107,11 @@ function establishShaders(){
 				"}",
 
 				"if(checkBit(dynamicBits, 3.0)){",
-				"	overallScale *= 1.2;",
+				"	overallScale *= scaleAttributeUniform;",
 				"}",
 
 				"if(checkBit(dynamicBits, 4.0)){",
-				"	overallScale /= 1.2;",
+				"	overallScale /= scaleAttributeUniform;",
 				"}",
 
 				afterMainVertexString,
@@ -208,6 +207,11 @@ function establishShaders(){
 			value: new THREE.Color(1.0, 0.0, 1.0)
 		}
 
+		uniforms.scaleAttributeUniform = {
+			type: "f",
+			value: 1.2
+		}
+
 		// When set to 1, this uniform will make all cylinders render at 
 		//  custom widths. At 0, it will render the cylinders at a constant width.
 		//  Midway values will interpolate between the two.
@@ -232,4 +236,4 @@ function establishShaders(){
 
 		return uniforms;
 	}
-}
+} )();

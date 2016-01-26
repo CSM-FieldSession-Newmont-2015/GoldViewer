@@ -166,6 +166,12 @@ function View( projectURL ) {
 	var sceneOrtho = new THREE.Scene();
 
 	/**
+	 * Size in bytes of file holding the projectJSON object
+	 * @type {Number}
+	 */
+	var size = null;
+
+	/**
 	 * FPS counter. https://github.com/mrdoob/stats.js/
 	 * @type {[type]}
 	 */
@@ -197,6 +203,9 @@ function View( projectURL ) {
 	 */
 
 	this.start = function () {
+
+		View.getJsonSize( projectURL, setSize );
+
 		// Starts an asynchronous ajax request to setup
 		View.loadJSON( projectURL, setup.bind( this ) );
 
@@ -218,11 +227,17 @@ function View( projectURL ) {
 		render();
 	}
 
+	function setSize( bytes ) {
+		size = Number( bytes );
+		console.log(size)
+	}
+
 	function setup( json ) {
 
 		projectJSON = json;
 
 		property = getProperty( projectJSON );
+		this.property = property;
 		interpolateDownholeSurveys();
 
 		addTerrain();
@@ -231,21 +246,27 @@ function View( projectURL ) {
 		addSurveyLines();
 		addReticle();
 		addLights();
-		
-		setTimeout( function() {
-			for( var analyte in property.analytes ) {
-				if( getMineral( analyte ) ){
-					scene.add( minerals[ analyte ].mesh );
-				}
-			}
-
-			loadSidebar( minerals, property );
-		}, 1000 );
 
 		this.camera = camera;
 		this.controls = controls;
 		this.minerals = minerals;
 		this.scene = scene;
+		loadSidebar( property );
+		
+		// If our JSON file is less than a gigabyte, we should be fine loading in all
+		// the minerals simultaneously and adding them to the scene.
+		if( size && size < 1024 * 1024 * 1024){
+			setTimeout( function() {
+				for( var analyte in property.analytes ) {
+					if( getMineral( analyte ) ){
+						scene.add( minerals[ analyte ].mesh );
+					}
+				}
+			}, 500 );
+		} else {
+			console.log( "JSON object detected to be large. (" + ( size >> 20 ) + " MB)\n" +
+				         "Manually add analytes using the sidebar " );
+		}
 
 		finishSetup();
 	}
@@ -262,6 +283,83 @@ function View( projectURL ) {
 		THREE.Quaternion.prototype.setFromAzimuthInclination = function( azimuth, inclination ){
 			var temp = new THREE.Euler( 0 , THREE.Math.degToRad( 90 - inclination ), THREE.Math.degToRad( azimuth + 90 ) );
 			return this.setFromEuler( temp );
+		}
+
+		View.Interval = function( fields ){
+
+			// Default value, should be overwritten
+			this.id = 0;
+
+			for( var key in fields ){
+				this[ key ] = fields[ key ];
+			}
+
+			return this;
+		}
+
+		View.Interval.prototype = {
+
+			constructor: View.Interval,
+
+			get mesh() {
+
+				var mineral = mineralIDToMineral( this.id );
+				var index = this.id - minerals[ mineral ].startID;
+				var data = minerals[ mineral ].data;
+
+				var width = data.widths.getX( index );
+				var height = data.heights.getX( index );
+				var position = new THREE.Vector3( data.offsets.getX( index ),
+					                              data.offsets.getY( index ),
+					                              data.offsets.getZ( index ) );
+
+				var quaternion = new THREE.Quaternion( data.rotations.getX( index ),
+					                                   data.rotations.getY( index ),
+					                                   data.rotations.getZ( index ),
+					                                   - data.rotations.getW( index ) );
+
+				var logWidths = data.uniforms.logWidths.value;
+				var uniformScale = data.uniforms.uniformScale.value;
+
+				var scale = new THREE.Vector3( width, width, height );
+				scale.multiply( new THREE.Vector3( logWidths, logWidths, 1 ) );
+				scale.add( new THREE.Vector3( 1 - logWidths, 1 - logWidths, 0 ) );
+				scale.multiply( new THREE.Vector3( uniformScale, uniformScale, 1 ) );
+
+				var bitAttributes = data.bitAttributes.getX( index );
+
+				var diffuse = data.uniforms.diffuse.value;
+				var emissive = new THREE.Color( 0, 0, 0 );
+				var opacity = data.uniforms.opacity.value;
+
+				if( bitAttributes & 1 << View.Render.HoverColor )
+					diffuse = data.uniforms.hoverColor.value;
+
+				if( bitAttributes & 1 << View.Render.EmitDiffuse )
+					emissive = diffuse;
+
+				if( bitAttributes & 1 << View.Render.Transparent )
+					opacity = data.uniforms.uniformTransparency.value;
+
+				var material = new THREE.MeshPhongMaterial( {
+					color:           diffuse,
+					emissive:        emissive,
+					opacity:         opacity,
+					refractionRatio: data.uniforms.refractionRatio.value,
+					shading:         THREE.FlatShading,
+					shininess:       data.uniforms.shininess.value,
+					transparent:     true
+				});
+
+				var geometry = baseCylinderGeometry.clone();
+
+				var mesh = new THREE.Mesh( geometry, material );
+				mesh.position.copy( position );
+				mesh.quaternion.copy( quaternion );
+				mesh.scale.copy( scale );
+
+				return mesh;
+			}
 		}
 
 	}
@@ -386,8 +484,7 @@ function View( projectURL ) {
 		var now = performance.now();
 		loadFromJSON();
 
-		var instances = minerals[ mineral ].intervals.length;
-		if( instances == 0 ){
+		if( minerals[ mineral ].intervals.length == 0 ){
 			console.warn( mineral + " did not have any intervals in the JSON." );
 			delete minerals[ mineral ];
 			return;
@@ -396,6 +493,8 @@ function View( projectURL ) {
 		sortIntervals();
 		loadAttributes();
 		createMeshes();
+
+		addMineralToSidebar( mineral, minerals[ mineral ].intervals );
 
 		return minerals[ mineral ];
 
@@ -411,7 +510,7 @@ function View( projectURL ) {
 
 			var holesJSON = projectJSON.holes;
 
-			var preventZFighting = Object.keys(minerals).length * Math.PI / 100;
+			var preventZFighting = ( Object.keys(minerals).length - 1 ) * Math.PI / 300;
 
 			// Iterate over all the holes in the JSON object
 			for( var i = 0; i < holesJSON.length; i += 1 ){
@@ -477,13 +576,13 @@ function View( projectURL ) {
 										degToRad( survey.azimuth ),
 										degToRad( survey.inclination ) );
 				
-				var interval = {
+				var interval = new View.Interval( {
 					length:      to - from + preventZFighting,
 					location:    location,
 					holeID:      holeID,
 					quaternion:  survey.quaternion,
 					raw:         rawInterval
-				}
+				} );
 
 				return interval;
 			}
@@ -545,6 +644,7 @@ function View( projectURL ) {
 				data.heights.setX(   i, intervals[ i ].length );
 				data.widths.setX(    i, 5 * Math.log( intervals[ i ].raw.value + 1.01 ) );
 
+				// Use the quaternion that we took from the survey line
 				var quaternion = intervals[ i ].quaternion;
 
 				data.rotations.setXYZW( i,
@@ -560,11 +660,6 @@ function View( projectURL ) {
 				var idG = ((intervals[i].id >>>  8) & 0xff) / 0xff;
 				var idB = ((intervals[i].id >>>  0) & 0xff) / 0xff;
 				data.idColors.setXYZW( i, idR, idG, idB, idA );
-
-				// Delete duplicated and unnecessary variables
-				delete intervals[ i ].quaternion;
-				delete intervals[ i ].id;
-				delete intervals[ i ].length;
 			}
 		}
 
@@ -584,23 +679,23 @@ function View( projectURL ) {
 			geometry.addAttribute( "dynamicBits", data.bitAttributes );
 			geometry.addAttribute( "id",          data.idColors );
  
-			var phongUniforms = THREE.UniformsUtils.clone( THREE.ShaderLib['instancing_visible'].uniforms );
+			data.uniforms = THREE.UniformsUtils.clone( THREE.ShaderLib['instancing_visible'].uniforms );
 
-			phongUniforms.diffuse.value = colorFromString( minerals[ mineral ].color );
+			data.uniforms.diffuse.value = colorFromString( minerals[ mineral ].color );
 
 			// Set up a phong material with our custom vertex shader
 			var visibleMaterial = new THREE.ShaderMaterial({
-				uniforms: 			phongUniforms,
+				uniforms: 			data.uniforms,
 				vertexShader:   	THREE.ShaderLib["instancing_visible"].vertexShader,
 				fragmentShader: 	THREE.ShaderLib["instancing_visible"].fragmentShader,
 				lights: 			true,
-				transparent: 		true,
+				//transparent: 		true,
 				shading: 			THREE.FlatShading
 			});
 
 			// Use our custom fragment shader to render the IDs
 			var idMaterial = new THREE.ShaderMaterial({
-				uniforms: 			phongUniforms,
+				uniforms: 			data.uniforms,
 				vertexShader:   	THREE.ShaderLib["instancing_picking"].vertexShader,
 				fragmentShader: 	THREE.ShaderLib["instancing_picking"].fragmentShader,
 				lights:             false,
@@ -677,7 +772,6 @@ function View( projectURL ) {
 
 			// Add a placeholder survey at the bottom of the hole if there isn't one already there
 			if( jsonHole.depth > lastSurvey.depth ){
-				console.log(lastSurvey)
 				var location = lastSurvey.location.clone();
 				location.moveDownhole( jsonHole.depth - lastSurvey.depth,
 									   THREE.Math.degToRad( lastSurvey.azimuth ),
@@ -690,8 +784,6 @@ function View( projectURL ) {
 					location: location,
 					quaternion: lastSurvey.quaternion
 				}
-
-				console.log(lastSurvey)
 
 				surveys.push( lastSurvey );
 
@@ -722,7 +814,7 @@ function View( projectURL ) {
 
 			var material = new THREE.LineBasicMaterial( {
 				transparent: true,
-				opacity: 0.4,
+				opacity: 0.6,
 				color: color
 			} );
 
@@ -732,9 +824,8 @@ function View( projectURL ) {
 					new Float32Array( geometries[jsonColor] ),
 					3 ) );
 
-			holes.lines[jsonColor] = new THREE.Line( buffGeometry,
-				material,
-				THREE.LinePieces );
+			holes.lines[jsonColor] = new THREE.LineSegments( buffGeometry,
+				material );
 
 			holes.lines[jsonColor].matrixAutoUpdate = false;
 			scene.add( holes.lines[jsonColor] );
@@ -944,12 +1035,6 @@ function View( projectURL ) {
 			} );
 			terrainMesh = new THREE.Mesh( geometry, material );
 
-			var lineMaterial = new THREE.LineBasicMaterial( {
-				color: View.colors.terrain_frame,
-				transparent: true,
-				opacity: 0.2
-			} );
-
 			terrainMesh.matrixAutoUpdate = false;
 			scene.add( terrainMesh, false );
 		}
@@ -985,12 +1070,10 @@ function View( projectURL ) {
 	 *                              JSON file for the mineral.
 	 * @param  {Number} lowerValue  The lower bound to keep meshes visible.
 	 * @param  {Number} higherValue The upper bound to keep meshes visible.
-	 *
-	 * @todo I think Mason changed this to concentration values, not indices.
 	 */
 	this.updateVisibility = updateVisibility;
 
-	function updateVisibility( mineralName, lowerValue ) {
+	function updateVisibility( mineralName, lowerValue, higherValue ) {
 
 		var mineral = minerals[ mineralName ] || getMineral( mineralName );
 		
@@ -1007,10 +1090,20 @@ function View( projectURL ) {
 
 		var count = 0;
 
-		while( count < intervals.length && intervals[ count ].raw.value >= lowerValue )
-			count += 1;
+		while( count < intervals.length && intervals[ count ].raw.value >= lowerValue ){
 
-			mineral.mesh.geometry.maxInstancedCount = count;
+			// If we're above our higher value, set the remove flag
+			if(intervals[ count ].raw.value > higherValue ){
+				mineral.data.bitAttributes.array[ count ] = mineral.data.bitAttributes.array[ count ] | (1 << 6);
+			}else{
+				mineral.data.bitAttributes.array[ count ] -= mineral.data.bitAttributes.array[ count ] & (1 << 6);
+			}
+
+			count += 1;
+		}
+
+		mineral.data.bitAttributes.needsUpdate = true;
+		mineral.mesh.geometry.maxInstancedCount = count;
 	}
 
 	/**
@@ -1045,9 +1138,16 @@ function View( projectURL ) {
 		}
 
 		var mineral = minerals[objectName];
+
+		// If it wasn't in the minerals object, maybe it hasn't been instantiated yet.
 		if( !mineral ){
+			mineral = getMineral( objectName );
+			if( mineral ){
+				return scene.add( mineral.mesh );
+			}
 			return;
 		}
+
 		var intervals = mineral.intervals;
 		if( visible == null ){
 			visible = !mineral.mesh.visible;
@@ -1256,8 +1356,7 @@ function View( projectURL ) {
 				type: "background"
 			}
 		}
-		else if( pixelBuffer [3] == 255 ){				// All user added objects should be
-			console.log("intersected custom object");	// completely opaque on the picking scene.
+		else if( pixelBuffer [3] == 255 ){				// All user added objects should be	completely opaque on the picking scene.
 			object = {
 				type: "custom",
 				id: id - 0xff000000
@@ -1295,7 +1394,7 @@ function View( projectURL ) {
 		stats.update();
 		controls.update();
 
-		rotateBaseCylinder( 5 );
+		rotateBaseCylinder( 2 );
 
 		camera.updateMatrixWorld();
 
@@ -1486,6 +1585,7 @@ function View( projectURL ) {
 
 	function removeHoverInformation() {
 
+		window.clearTimeout( eventListeners.spriteTimeout );
 		sceneOrtho.remove( tooltipSprite );
 
 		if( intersected ){
@@ -1511,13 +1611,14 @@ function View( projectURL ) {
 
 		intersected = pickObject;
 
-		if( intersected.type == "background" || intersected.type == "custom" ){
+		if( !intersected || intersected.type == "background" || intersected.type == "custom" ){
 			return;
 		}
 
 		if( intersected.type == "interval" ){
 			setIntervalAttributes( intersected.id, [ 'hover', 'emit' ] );
 		}
+
 
 		var mineral = mineralIDToMineral( intersected.id );
 		var interval = minerals[ mineral ].intervals[ intersected.id - minerals[ mineral ].startID ];
@@ -1545,9 +1646,12 @@ function View( projectURL ) {
 
 		tooltipSprite.scale.set( 250, 250, 1 );
 		tooltipSprite.position.z = 0;
-		tooltipSprite.position.x = tooltipSpriteLocation.x;
-		tooltipSprite.position.y = tooltipSpriteLocation.y;
-		sceneOrtho.add( tooltipSprite );
+		tooltipSprite.position.x =  mouse.x - ( window.innerWidth / 2 ) + 25;
+		tooltipSprite.position.y = -mouse.y + ( window.innerHeight / 2 ) - 50;
+
+		eventListeners.spriteTimeout = window.setTimeout( function(){
+			sceneOrtho.add( tooltipSprite );
+		}, 300 );
 	}
 
 	// Updates the bitAttributes of the cylindergiven by the parameter id
@@ -1643,12 +1747,9 @@ function View( projectURL ) {
 			mouse.x = event.clientX;
 			mouse.y = event.clientY;
 
-			// Update the tooltipSprite's location.
-			tooltipSpriteLocation.x = mouse.x - ( window.innerWidth / 2 ) + 25;
-			tooltipSpriteLocation.y = -mouse.y + ( window.innerHeight / 2 ) - 50;
-
+			// Check what we're hovering over if the camera isn't moving and no buttons are being pressed
 			if( !motionInterval && !controls.autoRotate && event.buttons == 0 ){
-				checkHover();
+				return checkHover();
 			}
 
 			// Clear the motion interval if the user begins panning
@@ -1656,92 +1757,129 @@ function View( projectURL ) {
 				window.clearInterval( motionInterval );
 				motionInterval = null;
 			}
-		};
+		}
 
 		eventListeners.mouseClickListener = function( event ) {
 
-			// If the mouse has moved less than 3 pixels from the down location, interperet
-			//  it as a click rather than just a button release.
-			if ( mouse.downLocation && mouse.distanceTo( mouse.downLocation ) <= 3 ) {
-
-				if( motionInterval ){
-					clearInterval( motionInterval );
-					motionInterval = null;
-					return checkHover();
-				}
-
-				var intersected = pick();
-
-				if ( intersected.type == "interval" ) {
-					return startMotion( mineralIDToInterval( intersected.id ).location );
-				}
-
-				if (intersected.type == "custom" ) {
-					return startMotionToMesh( scene.getObjectById( intersected.id ) );
-				}
-
+			if( motionInterval ){
+				clearInterval( motionInterval );
+				motionInterval = null;
+				return checkHover();
 			}
+
+			var intersected = pick();
+
+			if ( intersected.type == "interval" ) {
+				return startMotionToMesh( mineralIDToInterval( intersected.id ).mesh, !event.ctrlKey );
+			}
+
+			if (intersected.type == "custom" ) {
+				return startMotionToMesh( scene.getObjectById( intersected.id ), !event.ctrlKey );
+			}
+
 		}
 
 		eventListeners.mousedownListener = function( event ){
 
-			controls.autoRotate = false;
 			removeHoverInformation();
-			mouse.downLocation = new THREE.Vector2( mouse.x, mouse.y );
+			controls.autoRotate = false;
 
 		}
 
-		window.addEventListener(    'resize',    eventListeners.windowListener,     false );
-		container.addEventListener( 'mousemove', eventListeners.mousemoveListener , false);
-		container.addEventListener( "click",     eventListeners.mouseClickListener, false );
-		container.addEventListener( "mousedown", eventListeners.mousedownListener,  false );
+		eventListeners.keypressListener = function( event ){
+
+			var code = event.charCode;
+			switch(code){
+				case 61: 		//+
+					controls.dollyOut();
+					break;
+				case 45: 		//-
+					controls.dollyIn();
+					break;
+				default:
+			}
+
+		}
+
+		window.onresize       = eventListeners.windowListener;
+		container.onmousemove = eventListeners.mousemoveListener;
+		container.onclick     = eventListeners.mouseClickListener;
+		container.onmousedown = eventListeners.mousedownListener;
+		window.onkeypress     = eventListeners.keypressListener;
 	}
 
-	function startMotionToMesh( mesh ) {
+	// Moves the controls target to the given mesh so that once the motion is finished, the user
+	//  will be able to rotate, pan and zoom around the object they're moving to.
+	function startMotionToMesh( mesh, withCamera ) {
 
 		removeHoverInformation();
-		clearTimeout( mouseTimeout );
+		mesh.updateMatrixWorld();
 
-		if ( mesh.geometry.boundingSphere === undefined ) {
-			mesh.computeBoundingSphere();
+		// Use the bounding sphere to guess the center of the object
+		if ( !mesh.geometry.boundingSphere ) {
+			mesh.geometry.computeBoundingSphere();
 		}
 
-		// Use the bounding sphere to get the center of the mesh
-		// and to determine a reasonable distance to approach to
-		var toSphere = mesh.geometry.boundingSphere.clone();
+		var source = controls.target.clone();
+		var target = mesh.geometry.boundingSphere.center.clone().add( mesh.position );
+		var direction = target.clone().sub( source ).normalize();
 
-		toSphere.center.add( mesh.position );
-		toSphere.radius *= Math.max.apply( null, mesh.scale.toArray() );
-		var movementVector = new THREE.Vector3();
+		var raycaster = new THREE.Raycaster( source, direction );
+		var intersection = raycaster.intersectObject( mesh );
 
-		// get the movement vector
-		movementVector.subVectors( toSphere.center, controls.target );
+		// If we didn't find an intersection, move to the center of the object
+		if( intersection.length == 0 ){
+			console.log("didn't intersect");
+			return startMotion( target.add( mesh.position ) );
+		}
 
-		// and subtract the radius of both of the bounding spheres from
-		//the vector
+		var maxScale = Math.max( mesh.scale.x, mesh.scale.y, mesh.scale.z );
 
-		var tempVec1 = movementVector.clone();
-		tempVec1.normalize();
-		tempVec1.multiplyScalar( -1 * toSphere.radius );
-		movementVector.add( tempVec1 );
+		var totalDistance = source.distanceTo( target );
+		var distanceFromCenter = totalDistance - intersection[ 0 ].distance;
+		var reticleRadius = reticle.geometry.boundingSphere.radius;
 
-		tempVec1 = movementVector.clone();
-		tempVec1.normalize();
-		tempVec1.multiplyScalar( -1 * reticle.geometry.boundingSphere.radius );
-		movementVector.add( tempVec1 );
+		var movement = direction.multiplyScalar( totalDistance -
+		                                         distanceFromCenter * 1.5 -
+		                                         reticleRadius * 3 -
+		                                         maxScale * mesh.geometry.boundingSphere.radius / 10 );
 
-		startMotion( controls.target.clone().add( movementVector ) );
+		newTarget = controls.target.clone().add( movement );
+
+		if( !withCamera ){
+			return startMotion( newTarget );
+		}
+
+		if( withCamera == true ){
+			var cameraTarget = camera.position.clone().add( movement );
+			return startMotion( newTarget, cameraTarget );
+		}
+
+		var azimuth = Math.random() * Math.PI * 2;
+		var inclination = ( Math.random() - .5 ) * Math.PI / 4;
+		var distance = Math.max( mesh.geometry.boundingSphere.radius * maxScale, 10 ) * ( 1 + Math.random() ) * 3;
+
+		var cameraDest = target.moveDownhole( distance, azimuth, inclination );
+
+		return startMotion( newTarget, cameraDest );
+
 	}
 
-	function startMotion( toHere ){
+	function startMotion( controlsDestination, cameraDestination ){
 
-		var movementVector = toHere.clone().sub( controls.target );
+		var controlsMovementVector = controlsDestination.clone().sub( controls.target );
 
-		var acceleration = movementVector.length() / 25000 + 0.01;
+		var acceleration = controlsMovementVector.length() / 25000 + 0.01;
 
-		var reticleMotion = getDeltasForMovement( movementVector, acceleration );
-		var cameraMotion = getDeltasForMovement( movementVector,
-			acceleration * 0.2 );
+		var reticleMotion = getDeltasForMovement( controlsMovementVector, acceleration );
+		var cameraMoion =   [];
+
+		if( cameraDestination ){
+			var cameraMovementVector = cameraDestination.clone().sub( camera.position );
+
+			cameraMotion = getDeltasForMovement( cameraMovementVector, acceleration * 0.25 * 
+			                                     ( cameraMovementVector.length() / ( controlsMovementVector.length() + 2) ) );
+		}
 
 		//get rid of the last interval, in case it exists
 		window.clearInterval( motionInterval );
@@ -1833,7 +1971,7 @@ function View( projectURL ) {
 				wireframe: true
 			} ) );
 
-		scene.add( reticle );
+		scene.add( reticle, false );
 	}
 
 	function finishSetup() {
@@ -1880,7 +2018,6 @@ function View( projectURL ) {
 
 		renderer.setSize( window.innerWidth, window.innerHeight );
 		renderer.setClearColor( View.colors.background, 1 );
-		renderer.sortObjects = false;
 		renderer.autoClear = false;
 		container.appendChild( renderer.domElement );
 
@@ -1921,10 +2058,10 @@ function View( projectURL ) {
 		pickingTexture = new THREE.WebGLRenderTarget( window.innerWidth, window.innerHeight );
 		pickingTexture.texture.generateMipmaps = false;
 
-		// Override the old add remove functions with a closure
-		//  so that when we add to the scene, we also add an ID mesh to the picking scene
 		( function(){
 
+			// Override the old scene.add function with a closure so that when we add
+			//  a mesh to the scene, we also add an ID mesh to the picking scene
 			var sceneAddCache = scene.add;
 
 			// If pick is false, then the object will not be pickable
@@ -1942,6 +2079,8 @@ function View( projectURL ) {
 					return result;
 				}
 
+				// Create the picking mesh with the same geometry, and a color that
+				//  reflects the added mesh's id
 				var pickingMesh = new THREE.Mesh( mesh.geometry,
 					new THREE.MeshBasicMaterial( {
 						color: new THREE.Color( mesh.id ),
@@ -1949,11 +2088,11 @@ function View( projectURL ) {
 					} )
 				);
 
-				pickingMesh.matrixAutoUpdate = false;
 				mesh.pickingMesh = pickingMesh;
+				pickingMesh.matrixAutoUpdate = false;
 				pickingScene.add( pickingMesh );
 
-				// Make it so that our picking mesh moves, rotates and
+				// Also make it so that our picking mesh moves, rotates and
 				//  scales with the visible mesh.
 				( function(){
 					var updateMatrixCache = mesh.updateMatrix;
@@ -2007,12 +2146,9 @@ function View( projectURL ) {
 	// To be called when the view object is no longer being used.
 	//  Allows the garbage collector to free up memory.
 	this.dispose = function(){
+
 		window.clearInterval( motionInterval );
 		cancelAnimationFrame( eventListeners[ "animationRequest" ] );
-		window.removeEventListener(    'resize',    eventListeners.windowListener );
-		container.removeEventListener( 'mousemove', eventListeners.mousemoveListener );
-		container.removeEventListener( 'click',     eventListeners.mouseClickListener );
-		container.removeEventListener( 'mousedown', eventListeners.mousedownListener );
 		
 		renderer.dispose();
 	}
@@ -2049,6 +2185,21 @@ View.colors = {
 	tooltipsSelection: 0xff00ff, // Bright pink
 };
 
+
+/**
+ * Constants that designate which bit should be true in bitAttributes
+ *  for a cylinder to be rendered in a certain way.
+ */
+View.Render = {
+	DoNotRender: 0,
+	HoverColor: 1,
+	EmitDiffuse: 2,
+	Bigger: 3,
+	Smaller: 4,
+	Transparent: 5,
+	Remove: 6
+}
+
 /**
  * // TODO: Figure out what should be used in place of markdown.
  * Loads a JSON data file from `url`.
@@ -2060,10 +2211,19 @@ View.colors = {
 View.loadJSON = function( url, callback ) {
 
 	$.ajax( {
-		'url': url,
-		'dataType': "json",
-		'global': "false",
-		'success': function ( data ) { setTimeout( function() { callback ( data ) }, 0 ); }
+		url: url,
+		dataType: "json",
+		success: function ( data ) { setTimeout( function() { callback ( data ) }, 0 ); }
 	} );
 
+}
+
+View.getJsonSize = function( url, callback ) {
+	
+	var xhr = $.ajax( {
+	  type:  "HEAD",
+	  url: url,
+	  success: function( msg ) { callback( xhr.getResponseHeader( 'Content-Length' ) );
+	  }
+	} );
 }
