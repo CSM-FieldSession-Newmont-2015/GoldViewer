@@ -25,7 +25,9 @@ function loadMenu() {
 												$('.dataset').each(function (data) {
 													$(this).click(function () {
 														$('#dialogDatasets').dialog("close");
-														initProgressBar();
+														if( typeof view !== 'undefined' ){
+															view.dispose();
+														}
 														view = new View($(this).attr('data-url'));
 														setTimeout(function () {
 															view.start();
