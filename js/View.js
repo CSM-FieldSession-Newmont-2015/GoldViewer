@@ -229,7 +229,6 @@ function View( projectURL ) {
 
 	function setSize( bytes ) {
 		size = Number( bytes );
-		console.log(size)
 	}
 
 	function setup( json ) {
@@ -1753,20 +1752,25 @@ function View( projectURL ) {
 
 		eventListeners.mouseClickListener = function( event ) {
 
-			if( motionInterval ){
-				clearInterval( motionInterval );
-				motionInterval = null;
-				return checkHover();
-			}
+			// If the mouse has moved less than 3 pixels from the down loaction, interperet
+			//  it as a click rather than jut a button release
+			if( mouse.downLocation && mouse.distanceTo( mouse.downLocation ) < 3 ){
 
-			var intersected = pick();
+				if( motionInterval ){
+					clearInterval( motionInterval );
+					motionInterval = null;
+					return checkHover();
+				}
 
-			if ( intersected.type == "interval" ) {
-				return startMotionToMesh( mineralIDToInterval( intersected.id ).mesh, !event.ctrlKey );
-			}
+				var intersected = pick();
 
-			if (intersected.type == "custom" ) {
-				return startMotionToMesh( scene.getObjectById( intersected.id ), !event.ctrlKey );
+				if ( intersected.type == "interval" ) {
+					return startMotionToMesh( mineralIDToInterval( intersected.id ).mesh, !event.ctrlKey );
+				}
+
+				if (intersected.type == "custom" ) {
+					return startMotionToMesh( scene.getObjectById( intersected.id ), !event.ctrlKey );
+				}
 			}
 
 		}
@@ -1775,6 +1779,7 @@ function View( projectURL ) {
 
 			removeHoverInformation();
 			controls.autoRotate = false;
+			mouse.downLocation = new THREE.Vector2( mouse.x, mouse.y );
 
 		}
 
