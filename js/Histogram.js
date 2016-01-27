@@ -36,13 +36,19 @@ function addMineralToSidebar( mineralName, intervals ){
 	var values = [];
 	for (var interval in intervals) {
 		// We want to see the log of the data, because reasons.
-		var concentration = intervals[interval].raw.value;
+		var concentration = intervals[interval].value;
 		if (concentration < 0.0) {
 			console.warn(
 				"Found negative concentration when loading minerals:" +
 				JSON.stringify(intervals[interval]));
 		}
-		values.push(Math.log(concentration));
+
+		var obj = {
+			value: Math.log(concentration),
+			valueOf: function(){ return this.value },
+			intervalLength: intervals[interval].length
+		}
+		values.push(obj);
 	}
 
 	if (values.length === 0) {
@@ -72,6 +78,18 @@ function addMineralToSidebar( mineralName, intervals ){
 	var data = d3.layout.histogram()
 		.bins(x.ticks(intervals))
 		(values);
+
+	// Instead of making a histogram based solely on the number intervals for each bin,
+	//  make the y axis represent the sum of the concentration of the intervals
+	//  multiplied by their length. This should give an idea for how much of the
+	//  total amount of this mineral is represented by this concentration.
+	for(var i = 0; i < data.length; i += 1){
+		data[i].y = 0;
+		for(var j = 0; j < data[i].length; j += 1){
+			data[i].y += Math.pow(Math.E, data[i][j]) * data[i][j].intervalLength;
+		}
+	}
+
 
 	var y = d3.scale.linear()
 		.domain([0, d3.max(data, function (d) {
@@ -117,6 +135,7 @@ function addMineralToSidebar( mineralName, intervals ){
 			return height - y(d.y);
 		});
 
+	/*
 	// Labels for the bar frequency
 	bar.append("text")
 		// 2 looks nice. This offset should scale with graph size,
@@ -144,7 +163,7 @@ function addMineralToSidebar( mineralName, intervals ){
 		.style("text-anchor", "start")
 		.attr("transform", function (d) {
 			return "translate(10,5) rotate(-65)";
-		});
+		});*/
 
 	svg.append("g")
 		.attr("class", "x axis")

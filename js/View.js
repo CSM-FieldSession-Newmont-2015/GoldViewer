@@ -7,7 +7,7 @@
 function View( projectURL ) {
 
 	/**
-	 * The base geometry used for instancing.
+	 * The base geometry used for instancing interval cylinders.
 	 * @type {THREE.BufferGeometry}
 	 */
 	var baseCylinderGeometry = null;
@@ -17,12 +17,6 @@ function View( projectURL ) {
 	 * @type {THREE.Camera}
 	 */
 	var camera = null;
-
-	/**
-	 * A light source which moves around with the camera.
-	 * @type {THREE.PointLight}
-	 */
-	var cameraLight = null;
 
 	/**
 	 * An orthographic camera used to render tooltips.
@@ -49,11 +43,17 @@ function View( projectURL ) {
 	var currentID = 0;
 
 	/**
+	 * Scale which the width of the interval cylinder's widths with be
+	 * multiplied by before being added to the scene.
+	 * @type {Number}
+	 */
+	var cylinderScale = 1.0;
+
+	/**
 	 * Contains event listeners we add to the window and container
-	 * so that we can remove them when we call dispose()
 	 * @type {Object}
 	 */
-	var eventListeners = {};
+	var timeouts = {};
 
 	/**
 	 * Stores the data and metadata for the survey line holes.
@@ -90,7 +90,7 @@ function View( projectURL ) {
 
 	/**
 	 * Fancy array with minerals meta-data.
-	 * @see getMineral
+	 * @see getMinerals
 	 */
 	var minerals = {};
 
@@ -117,7 +117,7 @@ function View( projectURL ) {
 	/**
 	 * The property JSON after it's loaded.
 	 */
-	var projectJSON = null;
+	var project = {};
 
 	/**
 	 * The property object after it's been processed.
@@ -131,25 +131,11 @@ function View( projectURL ) {
 	var renderer = null;
 
 	/**
-	 * Renderer will render the picking scene to the screen 
-	 * instead of the visible scene when this is true
-	 * @type {Boolean}
-	 */
-	var renderPickingScene = false;
-
-	/**
 	 * Our orbital controls rotate, or orbit, around a centeral point. It's
 	 * hard to tell where that is, so we keep a sphere positioned there.
-	 * @see  reticleLight
 	 * @type {THREE.Mesh}
 	 */
 	var reticle = null;
-
-	/**
-	 * Our reticle emits a point light from its center.
-	 * @type {THREE.PointLight}
-	 */
-	var reticleLight = null;
 
 	/**
 	 * The objects threejs uses to represent what it needs to draw.
@@ -166,7 +152,7 @@ function View( projectURL ) {
 	var sceneOrtho = new THREE.Scene();
 
 	/**
-	 * Size in bytes of file holding the projectJSON object
+	 * Size in bytes of file holding the project.json object
 	 * @type {Number}
 	 */
 	var size = null;
@@ -211,156 +197,76 @@ function View( projectURL ) {
 
 		// In the meantime, run the methods not dependent on the project
 		baseCylinderGeometry = makeCylinderGeometry( 1, 1, 6 );
-		addPrototypeFunctions();
 
-		container.contents().find( 'body' ).html( '<div></div>' );
-		container = container.contents().find( 'div:first' ).get( 0 );
-
+		setupContainerAndStats();
 		setupRenderer();
-		setupCamera();
-		setupControls();
+		setupCameraAndControls();
 		setupScene();
-		setupStats();
 
 		setupWindowListeners();
 
 		render();
 	}
 
+	// The callback given to getJsonSize. The parameter reads in the byte size
+	//  of the JSON being loaded, and loads the property from cache if it exists
 	function setSize( bytes ) {
+
 		size = Number( bytes );
+		var saveName = projectURL + size + '.property' ;
+
+		if( loadFromCache && !property && localStorage.hasOwnProperty( saveName ) ){
+
+			//console.log( 'loading ' + saveName + ' from cache.' );
+			property = JSON.parse( localStorage[ saveName ] );
+
+			loadFromProperty( property );
+		}
 	}
 
 	function setup( json ) {
 
-		projectJSON = json;
+		project.json = json;
 
-		property = getProperty( projectJSON );
-		this.property = property;
+		if( !property ){
+			property = getProperty();
+			loadFromProperty();
+		}
+
 		interpolateDownholeSurveys();
-
-		addTerrain();
-		addBoundingBox();
-		addAxisLabels();
 		addSurveyLines();
-		addReticle();
-		addLights();
-
-		this.camera = camera;
-		this.controls = controls;
-		this.minerals = minerals;
-		this.scene = scene;
-		loadSidebar( property );
 		
 		// If our JSON file is less than a gigabyte, we should be fine loading in all
 		// the minerals simultaneously and adding them to the scene.
-		if( size && size < 1024 * 1024 * 1024){
-			setTimeout( function() {
-				for( var analyte in property.analytes ) {
-					if( getMineral( analyte ) ){
-						scene.add( minerals[ analyte ].mesh );
-					}
-				}
-			}, 500 );
+		if( !size || size < 1024 * 1024 * 1024){
+
+			setTimeout( getMinerals, 500 );
+
 		} else {
 			console.log( "JSON object detected to be large. (" + ( size >> 20 ) + " MB)\n" +
 				         "Manually add analytes using the sidebar " );
 		}
 
-		finishSetup();
+		this.property = property;
+		this.controls = controls;
+		this.minerals = minerals;
+		this.scene = scene;
+
 	}
 
-	function addPrototypeFunctions() {
+	// Detached from the rest of setup because none of this needs the full
+	//  project JSON to be completed
+	function loadFromProperty() {
 
-		THREE.Vector3.prototype.moveDownhole = function( depth, azimuth, inclination ){
-			this.x += depth * Math.sin( azimuth ) * Math.cos( inclination );
-			this.y += depth * Math.cos( azimuth ) * Math.cos( inclination );
-			this.z += depth * Math.sin( inclination );
-			return this;
-		}
+		addTerrain();
+		addBoundingBox();
+		addAxisLabels();
+		addReticle();
+		addLights();
 
-		THREE.Quaternion.prototype.setFromAzimuthInclination = function( azimuth, inclination ){
-			var temp = new THREE.Euler( 0 , THREE.Math.degToRad( 90 - inclination ), THREE.Math.degToRad( azimuth + 90 ) );
-			return this.setFromEuler( temp );
-		}
+		loadSidebar( property );
 
-		View.Interval = function( fields ){
-
-			// Default value, should be overwritten
-			this.id = 0;
-
-			for( var key in fields ){
-				this[ key ] = fields[ key ];
-			}
-
-			return this;
-		}
-
-		View.Interval.prototype = {
-
-			constructor: View.Interval,
-
-			get mesh() {
-
-				var mineral = mineralIDToMineral( this.id );
-				var index = this.id - minerals[ mineral ].startID;
-				var data = minerals[ mineral ].data;
-
-				var width = data.widths.getX( index );
-				var height = data.heights.getX( index );
-				var position = new THREE.Vector3( data.offsets.getX( index ),
-					                              data.offsets.getY( index ),
-					                              data.offsets.getZ( index ) );
-
-				var quaternion = new THREE.Quaternion( data.rotations.getX( index ),
-					                                   data.rotations.getY( index ),
-					                                   data.rotations.getZ( index ),
-					                                   - data.rotations.getW( index ) );
-
-				var logWidths = data.uniforms.logWidths.value;
-				var uniformScale = data.uniforms.uniformScale.value;
-
-				var scale = new THREE.Vector3( width, width, height );
-				scale.multiply( new THREE.Vector3( logWidths, logWidths, 1 ) );
-				scale.add( new THREE.Vector3( 1 - logWidths, 1 - logWidths, 0 ) );
-				scale.multiply( new THREE.Vector3( uniformScale, uniformScale, 1 ) );
-
-				var bitAttributes = data.bitAttributes.getX( index );
-
-				var diffuse = data.uniforms.diffuse.value;
-				var emissive = new THREE.Color( 0, 0, 0 );
-				var opacity = data.uniforms.opacity.value;
-
-				if( bitAttributes & 1 << View.Render.HoverColor )
-					diffuse = data.uniforms.hoverColor.value;
-
-				if( bitAttributes & 1 << View.Render.EmitDiffuse )
-					emissive = diffuse;
-
-				if( bitAttributes & 1 << View.Render.Transparent )
-					opacity = data.uniforms.uniformTransparency.value;
-
-				var material = new THREE.MeshPhongMaterial( {
-					color:           diffuse,
-					emissive:        emissive,
-					opacity:         opacity,
-					refractionRatio: data.uniforms.refractionRatio.value,
-					shading:         THREE.FlatShading,
-					shininess:       data.uniforms.shininess.value,
-					transparent:     true
-				});
-
-				var geometry = baseCylinderGeometry.clone();
-
-				var mesh = new THREE.Mesh( geometry, material );
-				mesh.position.copy( position );
-				mesh.quaternion.copy( quaternion );
-				mesh.scale.copy( scale );
-
-				return mesh;
-			}
-		}
-
+		finishSetup();
 	}
 
 	// Returns a simple indexed bufferGeometry representing a cylinder. Included
@@ -399,7 +305,7 @@ function View( projectURL ) {
 	function interpolateDownholeSurveys() {
 		var warn = false
 
-		projectJSON.holes.forEach( function ( hole ) {
+		project.json.holes.forEach( function ( hole ) {
 			var location = vec3FromArray( hole.location );
 
 			// If rawDownholeSurveys is not defined, make a deep copy of the
@@ -412,20 +318,24 @@ function View( projectURL ) {
 				warn = true;
 			}
 
-			hole.rawDownholeSurveys[ 0 ].location = location.clone();
-			hole.rawDownholeSurveys[ 0 ].quaternion = new THREE.Quaternion().setFromAzimuthInclination(
-																		hole.rawDownholeSurveys[ 0 ].azimuth,
-																		hole.rawDownholeSurveys[ 0 ].inclination );
+			hole.rawDownholeSurveys[0].location = location.clone();
+			hole.rawDownholeSurveys[0].quaternion = new THREE.Quaternion().setFromAzimuthInclination(
+																		hole.rawDownholeSurveys[0].azimuth,
+																		hole.rawDownholeSurveys[0].inclination );
 
-			// For every next survey after the first, move the location down by the given depth, and clone it
+			// For every next survey after the first, move the location down by the given depth, and clone it.
+			// Also make a quaternion for the rotation of cylinders that lie along this hole
 			for( var i = 1; i < hole.rawDownholeSurveys.length; i += 1 ) {
-				hole.rawDownholeSurveys[ i ].location = location.moveDownhole(
-					hole.rawDownholeSurveys[ i ].depth - hole.rawDownholeSurveys[ i - 1].depth,
-					THREE.Math.degToRad( hole.rawDownholeSurveys[ i - 1 ].azimuth ), 
-					THREE.Math.degToRad( hole.rawDownholeSurveys[ i - 1 ].inclination ) ).clone();
-					hole.rawDownholeSurveys[ i ].quaternion = new THREE.Quaternion().setFromAzimuthInclination(
-																			hole.rawDownholeSurveys[ i ].azimuth,
-																			hole.rawDownholeSurveys[ i ].inclination );
+
+				var thisSurvey = hole.rawDownholeSurveys[ i ];
+				var lastSurvey = hole.rawDownholeSurveys[ i - 1 ];
+
+				thisSurvey.location = location.moveDownhole(
+					thisSurvey.depth - lastSurvey.depth,
+					lastSurvey.azimuth, 
+					lastSurvey.inclination ).clone();
+
+				thisSurvey.quaternion = new THREE.Quaternion().setFromAzimuthInclination( thisSurvey.azimuth, thisSurvey.inclination );
 			}
 
 		} );
@@ -437,7 +347,7 @@ function View( projectURL ) {
 
 
 	/**
-	 * Parse `projectJSON["holes"]` into `minerals`, which looks like this:
+	 * Parse `project.json["holes"]` into `minerals`, which looks like this:
 	 * ```
 	 * {
 	 *      MineralString: {
@@ -465,6 +375,18 @@ function View( projectURL ) {
 	 * }
 	 */
 
+	// Adds all minerals to the scene
+	function getMinerals() {
+
+		for( var analyte in property.analytes ) {
+			if( getMineral( analyte ) ){
+				scene.add( minerals[ analyte ].mesh );
+			}
+		}
+
+		return minerals;
+	}
+
 	// Extracts a single mineral from the JSON object and prepares it for
 	//  rendering in the scene.
 	function getMineral( mineral ) {
@@ -476,16 +398,18 @@ function View( projectURL ) {
 		}
 
 		// Return if it has already been instantiated
-		if( minerals[ mineral ] ){
+		if( minerals[ mineral ] || minerals[ mineral ] === null ){
 			return;
 		}
 
-		var now = performance.now();
 		loadFromJSON();
 
 		if( minerals[ mineral ].intervals.length == 0 ){
 			console.warn( mineral + " did not have any intervals in the JSON." );
-			delete minerals[ mineral ];
+
+			minerals[ mineral ] = null;
+
+			checkDeleteProject();
 			return;
 		}
 
@@ -495,19 +419,22 @@ function View( projectURL ) {
 
 		addMineralToSidebar( mineral, minerals[ mineral ].intervals );
 
+		checkDeleteProject();
+
 		return minerals[ mineral ];
 
 
-		// Reformats the data from projectJSON into the mineral's intervals object
+		// Reformats the data from project.json into the mineral's intervals object
 		function loadFromJSON(){
 
 			minerals[ mineral ] = {
 				color: property.analytes[ mineral ].color,
 				intervals: [],
-				startID: currentID
+				startID: currentID,
+				maxValue: 0
 			}
 
-			var holesJSON = projectJSON.holes;
+			var holesJSON = project.json.holes;
 
 			var preventZFighting = ( Object.keys(minerals).length - 1 ) * Math.PI / 300;
 
@@ -523,8 +450,21 @@ function View( projectURL ) {
 					// Iterate over all the intervals of this mineral found in this hole.
 					//  Add each to the intervals array to be sorted and added to a Mesh
 					for( var j = 0; j < dhValue.intervals.length; j += 1 ){
-						var intervals = interpolateInterval( dhValue.intervals[ j ], holesJSON[ i ] );
-						Array.prototype.push.apply( minerals[ mineral ].intervals, intervals );
+						var interval = dhValue.intervals[ j ];
+
+						// In the case that there are two consecutive intervals with the
+						//  same value, collapse them before adding them to intervals
+						while( j < dhValue.intervals.length - 1 && interval.to == dhValue.intervals[ j + 1 ].from
+						                                        && interval.value == dhValue.intervals[ j + 1 ].value ){
+
+							interval.to = dhValue.intervals[ ++j ].to;
+
+						}
+
+						var interpolated = interpolateInterval( dhValue.intervals[ j ], holesJSON[ i ] );
+						Array.prototype.push.apply( minerals[ mineral ].intervals, interpolated );
+
+						minerals[ mineral ].maxValue = Math.max( interval.value, minerals[ mineral ].maxValue );
 					}
 
 				} );
@@ -572,15 +512,17 @@ function View( projectURL ) {
 				var halfWayDepth = from + ( to - from ) / 2 - survey.depth;
 				var location = survey.location.clone().moveDownhole(
 										halfWayDepth, 
-										THREE.Math.degToRad( survey.azimuth ),
-										THREE.Math.degToRad( survey.inclination ) );
+										survey.azimuth,
+										survey.inclination );
 				
 				var interval = new View.Interval( {
 					length:      to - from + preventZFighting,
 					location:    location,
 					holeID:      holeID,
 					quaternion:  survey.quaternion,
-					raw:         rawInterval
+					value:       rawInterval.value,
+					from:        from,
+					to:          to
 				} );
 
 				return interval;
@@ -589,12 +531,15 @@ function View( projectURL ) {
 
 		// Sorts the intervals in descending order, and gives them IDs
 		function sortIntervals() {
-			minerals[ mineral ].intervals.sort( function ( a, b ) {
-				return b.raw.value - a.raw.value;
+
+			var intervals = minerals[ mineral ].intervals;
+			intervals.sort( function ( a, b ) {
+				return b.value - a.value;
 			} );
 
-			for( var i = 0; i < minerals[ mineral ].intervals.length; i += 1 ){
-				minerals[ mineral ].intervals[ i ].id = currentID ++;
+			for( var i = 0; i < intervals.length; i += 1, currentID += 1 ){
+				intervals[ i ].id = currentID;
+				holes.ids[ intervals[ i ].holeID ].intervalIDs.push( currentID );
 			}
 
 			minerals[ mineral ].endID = currentID - 1;
@@ -636,12 +581,11 @@ function View( projectURL ) {
 
 			for( var i = 0; i < instances; i += 1 ) {
 
-				data.offsets.setXYZ( i,
-					                    intervals[ i ].location.x,
+				data.offsets.setXYZ( i, intervals[ i ].location.x,
 					                    intervals[ i ].location.y,
 					                    intervals[ i ].location.z );
 				data.heights.setX(   i, intervals[ i ].length );
-				data.widths.setX(    i, 5 * Math.log( intervals[ i ].raw.value + 1.01 ) );
+				data.widths.setX(    i, Math.log( intervals[ i ].value + 1.0 ) );
 
 				// Use the quaternion that we took from the survey line
 				var quaternion = intervals[ i ].quaternion;
@@ -681,6 +625,7 @@ function View( projectURL ) {
 			data.uniforms = THREE.UniformsUtils.clone( THREE.ShaderLib['instancing_visible'].uniforms );
 
 			data.uniforms.diffuse.value = colorFromString( minerals[ mineral ].color );
+			data.uniforms.uniformSceneScale.value = cylinderScale;
 
 			// Set up a phong material with our custom vertex shader
 			var visibleMaterial = new THREE.ShaderMaterial({
@@ -711,25 +656,30 @@ function View( projectURL ) {
 		}
 	}
 
-	this.getMineral = getMineral;
+	// delete the JSON object when it's no longer needed to free memory
+	function checkDeleteProject() {
+
+		if( project.json.analytes.length == Object.keys( minerals ).length ){
+			return delete project.json;
+		}
+
+	}
 
 	function mineralIDToInterval( id ) {
 		var mineral = minerals[ mineralIDToMineral( id ) ];
 		return mineral.intervals[ id - mineral.startID ];
 	}
-	this.mineralIDToInterval = mineralIDToInterval;
 
 	function mineralIDToMineral( id ) {
 		for( var mineral in minerals ) {
-			if( id >= minerals[ mineral ].startID && id <= minerals[ mineral ].endID ){
+			if( minerals[ mineral ] && id >= minerals[ mineral ].startID && id <= minerals[ mineral ].endID ){
 				return mineral;
 			}
 		}
 	}
-	this.mineralIDToMineral = mineralIDToMineral;
 
 	/**
-	 * Load the survey holes from `projectJSON`
+	 * Load the survey holes from `project.json`
 	 *
 	 * @todo Return the holes object instead of modifying a global object.
 	 */
@@ -739,7 +689,7 @@ function View( projectURL ) {
 		holes.lines = {};
 		holes.ids = {};
 
-		projectJSON["holes"].forEach( function ( jsonHole ) {
+		project.json["holes"].forEach( function ( jsonHole ) {
 
 			// Make a different geometry for each differently colored type of line
 			var color = jsonHole["traceColor"];
@@ -750,10 +700,11 @@ function View( projectURL ) {
 			var surveys = jsonHole["rawDownholeSurveys"];
 
 			var hole = {
-				name: jsonHole["name"],
-				longitude: jsonHole["longLat"][0],
-				latitude: jsonHole["longLat"][1],
-				location: jsonHole["location"]
+				name:        jsonHole["name"],
+				longitude:   jsonHole["longLat"][0],
+				latitude:    jsonHole["longLat"][1],
+				location:    jsonHole["location"],
+				intervalIDs: []
 			};
 
 			holes.ids[ jsonHole[ 'id' ] ] = hole;
@@ -765,8 +716,8 @@ function View( projectURL ) {
 			if( jsonHole.depth > lastSurvey.depth ){
 				var location = lastSurvey.location.clone();
 				location.moveDownhole( jsonHole.depth - lastSurvey.depth,
-									   THREE.Math.degToRad( lastSurvey.azimuth ),
-									   THREE.Math.degToRad( lastSurvey.inclination ) );
+									   lastSurvey.azimuth,
+									   lastSurvey.inclination );
 
 				lastSurvey = {
 					depth: jsonHole.depth,
@@ -782,7 +733,7 @@ function View( projectURL ) {
 
 
 			// Push all of the locations to the geometry
-			Array.prototype.push.apply( geometries[ color ], surveys[ 0 ].location.toArray() );
+			Array.prototype.push.apply( geometries[ color ], surveys[0].location.toArray() );
 
 			for ( var i = 1; i < surveys.length - 1; i += 1 ) {
 				// Points in the middle are both at the end of one segment, and the start of the next
@@ -824,24 +775,23 @@ function View( projectURL ) {
 		} );
 	}
 
-	this.autoRotate = function(){
-		controls.autoRotate = !controls.autoRotate;
-	}
-
 	/**
 	 * Retrieve image to display on terrain mesh
 	 *
 	 */
 	function addTerrainImage( mesh ) {
+
+		longLatMin = vec3FromArray( property.longLatMin );
+		longLatMax = vec3FromArray( property.longLatMax );
 		//get the center of the property
-		var latCenter = ( property.longLatMin.y + property.longLatMax.y ) / 2;
-		var lngCenter = ( property.longLatMin.x + property.longLatMax.x ) / 2;
+		var latCenter = ( longLatMin.y + longLatMax.y ) / 2;
+		var lngCenter = ( longLatMin.x + longLatMax.x ) / 2;
 		//construct google maps request
 		var mapImage = "https://maps.googleapis.com/maps/api/staticmap?" +
 			"center=" + latCenter + "," + lngCenter +
 			"&zoom=12&size=640x640&maptype=satellite" +
-			"&visible=" + property.longLatMin.y + "," + property.longLatMin.x +
-			"&visible=" + property.longLatMax.y + "," + property.longLatMax.x;
+			"&visible=" + longLatMin.y + "," + longLatMin.x +
+			"&visible=" + longLatMax.y + "," + longLatMax.x;
 
 		// load a texture, set wrap mode to repeat
 		THREE.ImageUtils.crossOrigin = '';
@@ -854,33 +804,34 @@ function View( projectURL ) {
 
 	function addTerrain() {
 
-		var sizeX = property.box.size.x * 1.02;
-		var sizeY = property.box.size.y * 1.02;
+		var sizeX = property.box.size[0];
+		var sizeY = property.box.size[1];
 
 
-		var maxTerrainDim = Math.max( sizeX, sizeY );
-		var minTerrainDim = Math.min( property.box.size.x, property.box.size.y );
+		var maxTerrainDim = Math.max( sizeX, sizeY ) * 1.02;
+		var minTerrainDim = Math.min( sizeX, sizeY );
 
 		// Setting this variable makes it so that small property boxes
 		// don't wind up with a large numbers of segments
-		var longSegments = Math.min( Math.ceil( maxTerrainDim / 2.0 ),
+		var maxDimSegmentAmount = Math.min( Math.ceil( maxTerrainDim / 2.0 ),
 			maxPossibleSegments );
-		var segmentLength = maxTerrainDim / longSegments;
-		var shortSegments = Math.ceil( minTerrainDim / segmentLength );
-		minTerrainDim = shortSegments * segmentLength;
+
+		var segmentLength = maxTerrainDim / maxDimSegmentAmount;
+		var minDimSegmentAmount = Math.ceil( minTerrainDim / segmentLength );
+		minTerrainDim = minDimSegmentAmount * segmentLength;
 
 		var xSamples, ySamples;
 		var elevations = [];
 
-		if ( sizeX > sizeY ) {
-			xSamples = longSegments + 1;
-			ySamples = shortSegments + 1;
+		if ( sizeX >= sizeY ) {
+			xSamples = maxDimSegmentAmount + 1;
+			ySamples = minDimSegmentAmount + 1;
 		} else {
-			ySamples = longSegments + 1;
-			xSamples = shortSegments + 1;
+			ySamples = maxDimSegmentAmount + 1;
+			xSamples = minDimSegmentAmount + 1;
 		}
 
-		var saveName = property.name + "v2.terrain";
+		var saveName = property.name + ".terrain";
 		if ( localStorage.hasOwnProperty( saveName ) && loadFromCache ) {
 			//console.log( 'Loading ' + saveName + ' from cache.' );
 			var elevationObject = JSON.parse( localStorage[saveName] );
@@ -894,8 +845,8 @@ function View( projectURL ) {
 		var elevator = new google.maps.ElevationService();
 		var openRequests = 0;
 
-		var latLngMin = new google.maps.LatLng( property.longLatMin.y, property.longLatMin.x );
-		var latLngMax = new google.maps.LatLng( property.longLatMax.y, property.longLatMax.x );
+		var latLngMin = new google.maps.LatLng( property.longLatMin[1], property.longLatMin[0] );
+		var latLngMax = new google.maps.LatLng( property.longLatMax[1], property.longLatMax[0] );
 
 		var dx = ( latLngMax.lat() - latLngMin.lat() ) / xSamples;
 		var dy = ( latLngMax.lng() - latLngMin.lng() ) / ySamples;
@@ -1004,11 +955,12 @@ function View( projectURL ) {
 				for( var i = 0; i < xSamples; i += 1 )
 					maxElevation = Math.max( maxElevation, elevations[j][i] );
 
-			var offset = property.box.center.z + property.box.size.z / 2 - maxElevation;
+			var center = vec3FromArray( property.box.center );
+			var offset = center.z + property.box.size[2] / 2 - maxElevation;
 			for ( var j = 0; j < ySamples; j += 1 ) {
 				for ( var i = 0; i < xSamples; i += 1 ) {
-					geometry.vertices[counter].x += property.box.center.x;
-					geometry.vertices[counter].y += property.box.center.y;
+					geometry.vertices[counter].x += center.x;
+					geometry.vertices[counter].y += center.y;
 					if( elevations[j][i] )
 						geometry.vertices[counter].z = elevations[j][i] + offset;
 					counter += 1;
@@ -1081,10 +1033,10 @@ function View( projectURL ) {
 
 		var count = 0;
 
-		while( count < intervals.length && intervals[ count ].raw.value >= lowerValue ){
+		while( count < intervals.length && intervals[ count ].value >= lowerValue ){
 
 			// If we're above our higher value, set the remove flag
-			if(intervals[ count ].raw.value > higherValue ){
+			if(intervals[ count ].value > higherValue ){
 				mineral.data.bitAttributes.array[ count ] = mineral.data.bitAttributes.array[ count ] | (1 << 6);
 			}else{
 				mineral.data.bitAttributes.array[ count ] -= mineral.data.bitAttributes.array[ count ] & (1 << 6);
@@ -1241,16 +1193,16 @@ function View( projectURL ) {
 		}
 
 		// Our box is offset from the origin.
-		var base = property.box.center.z - property.box.size.z / 2;
+		var base = property.box.center[2] - property.box.size[2] / 2;
 
 		// Force a scope.
 		( function () {
-			var length = property.box.size.x;
+			var length = property.box.size[0];
 			// Lay out the X-axis labels. Ensure they are at least a minimum
 			//   distance apart. This minimum distance is set in makeTextSprite,
 			//   with the "sprite.scale.set( * )" line.
 			var markerDistance = Math.max( 
-				property.box.size.x / 5 - 1,
+				property.box.size[0] / 5 - 1,
 				property.maxDimension / 20 );
 
 			//add zero
@@ -1266,7 +1218,7 @@ function View( projectURL ) {
 		} )();
 
 		( function () {
-			var length = property.box.size.y;
+			var length = property.box.size[1];
 			var markerDistance = Math.max( length / 5 - 1, property.maxDimension / 20 );
 			for ( var y = markerDistance; y < length; y += markerDistance ) {
 				scene.add( makeLabel( formatKm( y ), 0, y, base ) );
@@ -1276,7 +1228,7 @@ function View( projectURL ) {
 		} )();
 
 		( function () {
-			var length = property.box.size.z;
+			var length = property.box.size[2];
 			var markerDistance = Math.max( length / 5 - 1, property.maxDimension / 20 );
 			for ( var z = markerDistance; z < length; z += markerDistance ) {
 				scene.add( makeLabel( formatKm( z ), 0, 0, z + base ) );
@@ -1297,17 +1249,17 @@ function View( projectURL ) {
 		var ambientLight = new THREE.AmbientLight( View.colors.ambientLight );
 		scene.add( ambientLight );
 
-		var hemisphereLight = new THREE.HemisphereLight( View.colors.ambientLight, View.colors. reticleLight, 0.6 );
+		var hemisphereLight = new THREE.HemisphereLight( View.colors.ambientLight, View.colors.reticleLight, 0.6 );
 		scene.add( hemisphereLight );
 
-		cameraLight = new THREE.PointLight( View.colors.cameraLight, 3, property.maxDimension );
-		scene.add( cameraLight );
+		camera.light = new THREE.PointLight( View.colors.cameraLight, 3, property.maxDimension );
+		scene.add( camera.light );
 
-		reticleLight = new THREE.PointLight( 
+		reticle.light = new THREE.PointLight( 
 			View.colors.reticleLight,
-			5,
+			3,
 			property.maxDimension / 15 );
-		scene.add( reticleLight );
+		scene.add( reticle.light );
 	}
 
 
@@ -1375,39 +1327,30 @@ function View( projectURL ) {
 		return object;
 	}
 
+	this.pick = pick;
+
 	/**
 	 * The main render loop.
 	 */
 	function render() {
 
-		eventListeners.animationRequest = requestAnimationFrame( render );
+		timeouts.animation = requestAnimationFrame( render );
 		
 		stats.update();
 		controls.update();
 
-		rotateBaseCylinder( 2 );
+		rotateBaseCylinder( -2 );
 
 		camera.updateMatrixWorld();
 
 		if( reticle ){
 			reticle.position.copy( controls.target );
-			reticleLight.position.copy( controls.target );
-			cameraLight.position.copy( camera.position );
+			reticle.light.position.copy( controls.target );
+			camera.light.position.copy( camera.position );
 		}
 
 		
-		if( renderPickingScene ){
-			var color = renderer.getClearColor().clone();
-			var alpha = renderer.getClearAlpha();
-			renderer.setClearColor( 0xffffff, 0xfe / 0xff );
-
-			renderer.render( pickingScene, camera, undefined, true );
-
-			renderer.setClearColor( color );
-			renderer.setClearAlpha( alpha );
-		}else{
-			renderer.render( scene, camera, undefined, true );
-		}
+		renderer.render( scene, camera, undefined, true );
 		renderer.clearDepth();
 		renderer.render( sceneOrtho, cameraOrtho );
 	}
@@ -1513,11 +1456,11 @@ function View( projectURL ) {
 	 *     description: String,
 	 *     numHoles: Number,
 	 *     epsg: Number,
-	 *     originShift: THREE.Vector3,
-	 *     boxMin: THREE.Vector3,
-	 *     boxMax: THREE.Vector3,
-	 *     longLatMin: THREE.Vector3,
-	 *     longLatMax: THREE.Vector3,
+	 *     originShift: Array[Number],
+	 *     boxMin: Array[Number],
+	 *     boxMax: Array[Number],
+	 *     longLatMin: Array[Number],
+	 *     longLatMax: Array[Number],
 	 *     desurveyMethod: String,
 	 *     analytes: [{
 	 *         color: String,
@@ -1525,58 +1468,58 @@ function View( projectURL ) {
 	 *     }],
 	 *     formatVersion: Number,
 	 *     box: {
-	 *         size:   THREE.Vector3,
-	 *         center: THREE.Vector3
+	 *         size:   Array[Number],
+	 *         center: Array[Number]
 	 *     }
 	 * }
-	 * @param  {Object} projectJSON The property JSON loaded as a javascript
+	 * @param  {Object} project.json The property JSON loaded as a javascript
 	 *                              object.
 	 *
 	 * @return {Object} The property object.
 	 *
 	 * @todo  Use a string to store format versions?
 	 */
-	function getProperty( projectJSON ) {
-		var boxMin = vec3FromArray( projectJSON["boxMin"] );
-		var boxMax = vec3FromArray( projectJSON["boxMax"] );
+	function getProperty() {
+		var boxMin = project.json["boxMin"];
+		var boxMax = project.json["boxMax"];
 
-		var size = boxMax.clone().sub( boxMin );
-		var maxDimension = Math.max( size.x, size.y, size.z );
-		var center = size.clone().multiplyScalar( 0.5 ).add( boxMin );
+		var boxSize = [ boxMax[0] - boxMin[0], boxMax[1] - boxMin[1], boxMax[2] - boxMin[2] ];
+		var maxDimension = Math.max( boxSize[0], boxSize[1], boxSize[2] );
+		var center = [ boxMin[0] + .5*boxSize[0], boxMin[1] + .5*boxSize[1], boxMin[2] + .5*boxSize[2] ];
 
 		var property = {
-			name: projectJSON["projectName"],
-			description: projectJSON["description"],
-			numHoles: projectJSON["numHoles"],
-			epsg: projectJSON["projectionEPSG"],
-			originShift: projectJSON["originShift"],
-			boxMin: boxMin,
-			boxMax: boxMax,
+			name: project.json["projectName"],
+			description: project.json["description"],
+			numHoles: project.json["numHoles"],
+			epsg: project.json["projectionEPSG"],
+			originShift: project.json["originShift"],
 			maxDimension: maxDimension,
-			longLatMin: vec3FromArray( projectJSON["longLatMin"] ),
-			longLatMax: vec3FromArray( projectJSON["longLatMax"] ),
-			desurveyMethod: projectJSON["desurveyMethod"],
+			longLatMin: project.json["longLatMin"],
+			longLatMax: project.json["longLatMax"],
+			desurveyMethod: project.json["desurveyMethod"],
 			analytes: {},
-			formatVersion: projectJSON["formatVersion"],
+			formatVersion: project.json["formatVersion"],
 			box: {
-				size: size,
+				size: boxSize,
 				center: center
 			}
 		};
 
-		projectJSON["analytes"].forEach( function ( analyte ) {
+		project.json["analytes"].forEach( function ( analyte ) {
 			property.analytes[analyte.name] = {
 				color: analyte.color,
 				description: analyte.description
 			};
 		} );
 
+		saveToCache( projectURL + size + '.property', property );
+
 		return property;
 	}
 
 	function removeHoverInformation() {
 
-		window.clearTimeout( eventListeners.spriteTimeout );
+		window.clearTimeout( timeouts.sprite );
 		sceneOrtho.remove( tooltipSprite );
 
 		if( intersected ){
@@ -1607,7 +1550,7 @@ function View( projectURL ) {
 		}
 
 		if( intersected.type == "interval" ){
-			setIntervalAttributes( intersected.id, [ 'hover', 'emit' ] );
+			setIntervalAttributes( intersected.id, [ 'hover', 'emit', 'transparent' ] );
 		}
 
 
@@ -1618,8 +1561,8 @@ function View( projectURL ) {
 		//   is visible.
 		tooltipSprite = makeTextSprite( 
 			"Mineral: " + mineral +
-			"\nValue: " + interval.raw.value +
-			"\nDepth: " + interval.raw.from + '-' + interval.raw.to +
+			"\nValue: " + interval.value +
+			"\nDepth: " + interval.from + '-' + interval.to +
 			"\nHole: " + holes.ids[interval.holeID].name, {
 				backgroundColor: {
 					r: 11,
@@ -1640,9 +1583,10 @@ function View( projectURL ) {
 		tooltipSprite.position.x =  mouse.x - ( window.innerWidth / 2 ) + 25;
 		tooltipSprite.position.y = -mouse.y + ( window.innerHeight / 2 ) - 50;
 
-		eventListeners.spriteTimeout = window.setTimeout( function(){
+		timeouts.sprite = window.setTimeout( function(){
 			sceneOrtho.add( tooltipSprite );
 		}, 300 );
+
 	}
 
 	// Updates the bitAttributes of the cylindergiven by the parameter id
@@ -1713,7 +1657,7 @@ function View( projectURL ) {
 	function setupWindowListeners() {
 
 		// Resize the camera when the window is resized.
-		eventListeners.windowListener = function ( event ) {
+		window.onresize = function ( event ) {
 			camera.aspect = window.innerWidth / window.innerHeight;
 			camera.updateProjectionMatrix();
 
@@ -1728,9 +1672,8 @@ function View( projectURL ) {
 			pickingTexture.setSize( window.innerWidth, window.innerHeight );
 		}
 
-		eventListeners.mousemoveListener = function( event ) {
+		container.onmousemove = function( event ) {
 
-			// return if the mouse hasn't moved
 			if( event.clientX = mouse.x && event.clientY == mouse.y ){
 				return;
 			}
@@ -1750,15 +1693,15 @@ function View( projectURL ) {
 			}
 		}
 
-		eventListeners.mouseClickListener = function( event ) {
+		container.onclick = function( event ) {
 
 			// If the mouse has moved less than 3 pixels from the down loaction, interperet
-			//  it as a click rather than jut a button release
+			//  it as a click rather than just a button release
 			if( mouse.downLocation && mouse.distanceTo( mouse.downLocation ) < 3 ){
 
-				if( motionInterval ){
-					clearInterval( motionInterval );
-					motionInterval = null;
+				if( timeouts.motionInterval ){
+					clearInterval( timeouts.motionInterval );
+					timeouts.motionInterval = null;
 					return checkHover();
 				}
 
@@ -1775,7 +1718,7 @@ function View( projectURL ) {
 
 		}
 
-		eventListeners.mousedownListener = function( event ){
+		container.onmousedown = function( event ){
 
 			removeHoverInformation();
 			controls.autoRotate = false;
@@ -1783,7 +1726,7 @@ function View( projectURL ) {
 
 		}
 
-		eventListeners.keypressListener = function( event ){
+		window.onkeypress = function( event ){
 
 			var code = event.charCode;
 			switch(code){
@@ -1797,12 +1740,6 @@ function View( projectURL ) {
 			}
 
 		}
-
-		window.onresize       = eventListeners.windowListener;
-		container.onmousemove = eventListeners.mousemoveListener;
-		container.onclick     = eventListeners.mouseClickListener;
-		container.onmousedown = eventListeners.mousedownListener;
-		window.onkeypress     = eventListeners.keypressListener;
 	}
 
 	// Moves the controls target to the given mesh so that once the motion is finished, the user
@@ -1833,7 +1770,7 @@ function View( projectURL ) {
 		var maxScale = Math.max( mesh.scale.x, mesh.scale.y, mesh.scale.z );
 
 		var totalDistance = source.distanceTo( target );
-		var distanceFromCenter = totalDistance - intersection[ 0 ].distance;
+		var distanceFromCenter = totalDistance - intersection[0].distance;
 		var reticleRadius = reticle.geometry.boundingSphere.radius;
 
 		var movement = direction.multiplyScalar( totalDistance -
@@ -1942,18 +1879,18 @@ function View( projectURL ) {
 	function addBoundingBox() {
 
 		var geometry = new THREE.BoxGeometry( 
-			property.box.size.x,
-			property.box.size.y,
-			property.box.size.z );
+			property.box.size[0],
+			property.box.size[1],
+			property.box.size[2] );
 
 		var property_boundary = new THREE.Mesh( geometry );
 
 		var box = new THREE.EdgesHelper( property_boundary, View.colors.axes );
 		box.applyMatrix( new THREE.Matrix4()
 			.makeTranslation( 
-				property.box.center.x,
-				property.box.center.y,
-				property.box.center.z ) );
+				property.box.center[0],
+				property.box.center[1],
+				property.box.center[2] ) );
 		box.matrixAutoUpdate = false;
 		scene.add( box );
 
@@ -1973,20 +1910,25 @@ function View( projectURL ) {
 
 	function finishSetup() {
 
+		var boxCenter = vec3FromArray( property.box.center );
+
 		camera.position.set( 
 			1.3 * property.maxDimension,
 			1.3 * property.maxDimension,
-			1.3 * property.maxDimension + property.box.center.z - 0.5 * property.box.size.z );
+			1.3 * property.maxDimension + boxCenter.z - 0.5 * property.box.size[2] );
 
-		camera.lookAt( property.box.center );
+		camera.lookAt( boxCenter );
 
 		controls.minDistance = property.maxDimension / 200;
 		controls.maxDistance = property.maxDimension * 2;
-		controls.target = property.box.center;
+		controls.target = boxCenter;
 		controls.autoRotate = true;
+
+		cylinderScale = Math.log( Math.max( property.box.size[0], property.box.size[1] ) )
+
 	}
 
-	function setupCamera() {
+	function setupCameraAndControls() {
 
 		//Sets up the camera object for the 3d scene
 		camera = new THREE.PerspectiveCamera( 45,
@@ -2005,6 +1947,13 @@ function View( projectURL ) {
 			1,
 			1000 );
 		cameraOrtho.position.set( 0, 0, 1 );
+
+		controls = new THREE.OrbitControls( camera,
+			$( '#viewFrame' ).contents().find( 'div' ).get( 0 ) );
+
+		controls.zoomSpeed = 3.0;
+		controls.autoRotateSpeed = 1.0;
+
 	}
 
 	function setupRenderer() {
@@ -2030,21 +1979,6 @@ function View( projectURL ) {
 			} );
 			console.error( msg.join( '\n' ) );
 		}
-	}
-
-	function setupControls() {
-
-		if ( camera === null ) {
-			console.error( "Controls must be initialized after camera." );
-			return;
-		}
-
-		controls = new THREE.OrbitControls( camera,
-			$( '#viewFrame' ).contents().find( 'div' ).get( 0 ) );
-
-		controls.zoomSpeed = 3.0;
-
-		return controls;
 	}
 
 	function setupScene() {
@@ -2128,16 +2062,163 @@ function View( projectURL ) {
 		return scene;
 	}
 
-	function setupStats() {
-		if ( container === null ) {
-			console.error( "Stats must be initialized after container." );
-			return;
+	// Provides an API for controlling how the cylinders are being rendered
+	this.Cylinders = {
+		logWidths: logWidths,
+		normalizeWidths: normalizeWidths,
+		setUniformScale: setSceneScale,
+		setMineralScale: setMineralScale
+	}
+
+	function logWidths ( value ){
+
+		if( value == undefined ){
+			value = 1.0;
 		}
+
+		value = Number( value );
+
+		for( var mineral in minerals ){
+			if( minerals[ mineral ] ){
+				minerals[ mineral ].data.uniforms.logWidths.value = value;
+			}
+		}
+	}
+
+	function normalizeWidths ( value ) {
+
+		cylinderScale = value || cylinderScale;
+
+		var maxValue = 0;
+
+		for( var mineral in minerals ){
+			if( !minerals[ mineral ] ){
+				continue;
+			}
+			maxValue = Math.max( maxValue, minerals[ mineral ].maxValue );
+		}
+
+		console.log( maxValue )
+
+		for( var mineral in minerals ){
+			if( !minerals[ mineral ] ){
+				continue;
+			}
+			minerals[ mineral ].data.uniforms.uniformSceneScale.value = cylinderScale;
+			minerals[ mineral ].data.uniforms.uniformMineralScale.value = Math.log( maxValue + 1 ) / Math.log( minerals[ mineral ].maxValue + 1 );
+		}
+
+	}
+
+	function setSceneScale( value ) {
+
+		for( var mineral in minerals ) {
+			if( minerals[ mineral ] ){
+				minerals[ mineral ].data.uniforms.uniformSceneScale.value = value;
+			}
+		}
+
+		cylinderScale = value;
+
+	}
+
+	function setMineralScale( mineral, value ) {
+
+		if( minerals[ mineral ] ) {
+			minerals[ mineral ].data.uniforms.uniformMineralScale.value = value;
+		}
+
+	}
+
+	function setupContainerAndStats() {
+
+		container.contents().find( 'body' ).html( '<div></div>' );
+		container = container.contents().find( 'div:first' ).get( 0 );
+
 		stats = new Stats();
 		stats.domElement.style.position = 'absolute';
 		stats.domElement.style.right = '0px';
 		stats.domElement.style.bottom = '0px';
 		container.appendChild( stats.domElement );
+
+	}
+
+	View.Interval = function( fields ){
+
+		// Default value, should be overwritten
+		this.id = 0;
+
+		for( var key in fields ){
+			this[ key ] = fields[ key ];
+		}
+
+		return this;
+	}
+
+	View.Interval.prototype = {
+
+		constructor: View.Interval,
+
+		get mesh() {
+
+			var mineral = mineralIDToMineral( this.id );
+			var index = this.id - minerals[ mineral ].startID;
+			var data = minerals[ mineral ].data;
+
+			var width = data.widths.getX( index );
+			var height = data.heights.getX( index );
+			var position = new THREE.Vector3( data.offsets.getX( index ),
+				                              data.offsets.getY( index ),
+				                              data.offsets.getZ( index ) );
+
+			var quaternion = new THREE.Quaternion( data.rotations.getX( index ),
+				                                   data.rotations.getY( index ),
+				                                   data.rotations.getZ( index ),
+				                                   - data.rotations.getW( index ) );
+
+			var logWidths = data.uniforms.logWidths.value;
+			var uniformScale = data.uniforms.uniformMineralScale.value;
+			uniformScale *= data.uniforms.uniformSceneScale.value;
+
+			var scale = new THREE.Vector3( width, width, height );
+			scale.multiply( new THREE.Vector3( logWidths, logWidths, 1 ) );
+			scale.add( new THREE.Vector3( 1 - logWidths, 1 - logWidths, 0 ) );
+			scale.multiply( new THREE.Vector3( uniformScale, uniformScale, 1 ) );
+
+			var bitAttributes = data.bitAttributes.getX( index );
+
+			var diffuse = data.uniforms.diffuse.value;
+			var emissive = new THREE.Color( 0, 0, 0 );
+			var opacity = data.uniforms.opacity.value;
+
+			if( bitAttributes & 1 << View.Render.HoverColor )
+				diffuse = data.uniforms.hoverColor.value;
+
+			if( bitAttributes & 1 << View.Render.EmitDiffuse )
+				emissive = diffuse;
+
+			if( bitAttributes & 1 << View.Render.Transparent )
+				opacity = data.uniforms.uniformTransparency.value;
+
+			var material = new THREE.MeshPhongMaterial( {
+				color:           diffuse,
+				emissive:        emissive,
+				opacity:         opacity,
+				refractionRatio: data.uniforms.refractionRatio.value,
+				shading:         THREE.FlatShading,
+				shininess:       data.uniforms.shininess.value,
+				transparent:     true
+			});
+
+			var geometry = baseCylinderGeometry.clone();
+
+			var mesh = new THREE.Mesh( geometry, material );
+			mesh.position.copy( position );
+			mesh.quaternion.copy( quaternion );
+			mesh.scale.copy( scale );
+
+			return mesh;
+		}
 	}
 
 	// To be called when the view object is no longer being used.
@@ -2145,24 +2226,31 @@ function View( projectURL ) {
 	this.dispose = function(){
 
 		window.clearInterval( motionInterval );
-		cancelAnimationFrame( eventListeners[ "animationRequest" ] );
+		cancelAnimationFrame( timeouts.animation );
 		
 		renderer.dispose();
 	}
 
-	/**
-	 * Handle used by the controls to zoom in on an event, like a button press.
-	 */
-	this.zoomIn = function () {
-		controls.dollyOut();
-	}
+}
 
-	/**
-	 * Handle used by the controls to zoom out on an event, like a button press.
-	 */
-	this.zoomOut = function () {
-		controls.dollyIn();
-	}
+THREE.Vector3.prototype.moveDownhole = function( depth, azimuth, inclination ){
+
+	azimuth = THREE.Math.degToRad( azimuth );
+	inclination = THREE.Math.degToRad( inclination );
+
+	this.x += depth * Math.sin( azimuth ) * Math.cos( inclination );
+	this.y += depth * Math.cos( azimuth ) * Math.cos( inclination );
+	this.z += depth * Math.sin( inclination );
+
+	return this;
+
+}
+
+THREE.Quaternion.prototype.setFromAzimuthInclination = function( azimuth, inclination ){
+
+	var temp = new THREE.Euler( 0 , THREE.Math.degToRad( 90 - inclination ), THREE.Math.degToRad( azimuth + 90 ) );
+
+	return this.setFromEuler( temp );
 }
 
 /**
@@ -2197,6 +2285,7 @@ View.Render = {
 	Remove: 6
 }
 
+
 /**
  * // TODO: Figure out what should be used in place of markdown.
  * Loads a JSON data file from `url`.
@@ -2220,7 +2309,7 @@ View.getJsonSize = function( url, callback ) {
 	var xhr = $.ajax( {
 	  type:  "HEAD",
 	  url: url,
-	  success: function( msg ) { callback( xhr.getResponseHeader( 'Content-Length' ) );
-	  }
+	  success: function( msg ) { callback( xhr.getResponseHeader( 'Content-Length' ) ); }
 	} );
+
 }

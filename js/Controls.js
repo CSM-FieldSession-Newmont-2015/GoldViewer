@@ -73,7 +73,7 @@ function loadControls() {
 			}
 		});
 		$("#zoomIn").click(function () {
-			view.zoomIn();
+			view.controls.dollyOut();
 		});
 		$("#zoomOut").button({
 			text: false,
@@ -82,7 +82,7 @@ function loadControls() {
 			}
 		});
 		$("#zoomOut").click(function () {
-			view.zoomOut();
+			view.controls.dollyIn();
 		});
 		$("#toggleTerrain").button({
 			text: false,
@@ -100,7 +100,7 @@ function loadControls() {
 			}
 		});
 		$("#autoRotate").click(function () {
-			view.autoRotate();
+			view.controls.autoRotate = !view.controls.autoRotate;
 		});
 		
 		$("#toggleSurveyHoles").button({

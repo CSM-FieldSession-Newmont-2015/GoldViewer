@@ -28,7 +28,8 @@
 
 	var beforeMainVertexString = [
 
-			"uniform float uniformScale;",
+			"uniform float uniformMineralScale;",
+			"uniform float uniformSceneScale;",
 			"uniform float logWidths;",
 			"uniform float scaleAttributeUniform;",
 
@@ -59,14 +60,14 @@
 	var mainVertexString = [
 
 			"void main(){",
-			"	float overallScale = uniformScale;"
+			"	float overallScale = uniformMineralScale * uniformSceneScale;"
 
 		].join("\n");
 
 	var afterMainVertexString = [
 			
-			"vec3 newPosition = vec3(logWidths, logWidths, 1.0) * vec3(width, width, height) * position + vec3(1.0-logWidths, 1.0-logWidths, 0.0 ) * position;",
-			"newPosition = newPosition * vec3(overallScale, overallScale, overallScale);",
+			"vec3 newPosition = vec3(logWidths + 0.1, logWidths + 0.1, 1.0) * vec3(width, width, height) * position + vec3(1.0-logWidths, 1.0-logWidths, 0.0 ) * position;",
+			"newPosition = newPosition * vec3(overallScale, overallScale, 1.0);",
 			"newPosition = rotate_vector( quaternion, newPosition);",
 			"newPosition = newPosition + offset;",
 			"vDynamicBits = float(dynamicBits);"
@@ -222,7 +223,14 @@
 
 		// This uniform will scale all the cylinders larger or smaller
 		//  than their initial size
-		uniforms.uniformScale = {
+		uniforms.uniformMineralScale = {
+			type: "f",
+			value: 1
+		}
+
+		// This uniform will scale all the cylinders larger or smaller
+		//  than their initial size
+		uniforms.uniformSceneScale = {
 			type: "f",
 			value: 1
 		}
