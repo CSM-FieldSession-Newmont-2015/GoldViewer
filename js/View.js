@@ -50,10 +50,10 @@ function View( projectURL ) {
 	var cylinderScale = 1.0;
 
 	/**
-	 * Contains event listeners we add to the window and container
-	 * @type {Object}
+	 * Free API key for google maps services.
+	 * @type {String}
 	 */
-	var timeouts = {};
+	var googleMapsAPIKey = "AIzaSyDBgtPVW-5DsA0tVGXbQ3blWIYHe7YXHZc";
 
 	/**
 	 * Stores the data and metadata for the survey line holes.
@@ -93,8 +93,6 @@ function View( projectURL ) {
 	 * @see getMinerals
 	 */
 	var minerals = {};
-
-	var motionInterval = null;
 
 	/**
 	 * Store the mouse position for ray casting.
@@ -170,6 +168,12 @@ function View( projectURL ) {
 	 var terrainMesh = null;
 
 	/**
+	 * Contains timeouts and event listeners we add to the window and container
+	 * @type {Object}
+	 */
+	var timeouts = {};
+
+	/**
 	 * We reuse the same sprite object for tooltips. If the user isn't hovering
 	 * over something, we remove it from the scene and don't use it.
 	 * @see  tooltipSpriteLocation
@@ -240,7 +244,7 @@ function View( projectURL ) {
 		// the minerals simultaneously and adding them to the scene.
 		if( !size || size < 1024 * 1024 * 1024){
 
-			setTimeout( getMinerals, 500 );
+			setTimeout( function(){ getMinerals(); size = size || 0}, 500 );
 
 		} else {
 			console.log( "JSON object detected to be large. (" + ( size >> 20 ) + " MB)\n" +
@@ -802,170 +806,141 @@ function View( projectURL ) {
 		mesh.material = material;
 	}
 
+	// Creates the terrain mesh from the browser cache, or by using elevations from
+	//  Google Map's elevation services.
 	function addTerrain() {
 
-		var sizeX = property.box.size[0];
-		var sizeY = property.box.size[1];
+		var saveName = projectURL + size + ".terrain";
+
+		if ( localStorage.hasOwnProperty( saveName ) && loadFromCache ) {
+			//console.log( 'Loading ' + saveName + ' from cache.' );
+			return makeTerrainMesh( JSON.parse( localStorage[ saveName ] ) );
+		}
 
 
-		var maxTerrainDim = Math.max( sizeX, sizeY ) * 1.02;
-		var minTerrainDim = Math.min( sizeX, sizeY );
 
-		// Setting this variable makes it so that small property boxes
-		// don't wind up with a large numbers of segments
-		var maxDimSegmentAmount = Math.min( Math.ceil( maxTerrainDim / 2.0 ),
-			maxPossibleSegments );
+		// Otherwise make it from scratch
+		var elevator = new google.maps.ElevationService();
+
+		var latLngMin = [ property.longLatMin[1], property.longLatMin[0] ];
+		var latLngMax = [ property.longLatMax[1], property.longLatMax[0] ];
+
+		// This is the object where we will store the elevations returned from google,
+		//  as well as other metadata
+		var elevationObj = {
+			elevations: []
+		};
+
+		var size = property.box.size;
+
+		var maxTerrainDim = Math.max( size[0], size[1] ) * 1.02;
+		var minTerrainDim = Math.min( size[0], size[1] ) * 1.02;
+
+		// This variable makes it so that small property boxes don't wind up with too many segments
+		var maxDimSegmentAmount = Math.ceil( Math.min( maxTerrainDim / 2.0,
+			maxPossibleSegments ) );
 
 		var segmentLength = maxTerrainDim / maxDimSegmentAmount;
+
 		var minDimSegmentAmount = Math.ceil( minTerrainDim / segmentLength );
 		minTerrainDim = minDimSegmentAmount * segmentLength;
 
-		var xSamples, ySamples;
-		var elevations = [];
-
-		if ( sizeX >= sizeY ) {
-			xSamples = maxDimSegmentAmount + 1;
-			ySamples = minDimSegmentAmount + 1;
+		// Determine the number of samples to be obtained for each dimension, and determine
+		//  the x/y size of our final mesh
+		if ( size[0] >= size[1] ) {
+			elevationObj.sizeX    = maxTerrainDim;
+			elevationObj.sizeY    = minTerrainDim;
+			elevationObj.xSamples = maxDimSegmentAmount + 1;
+			elevationObj.ySamples = minDimSegmentAmount + 1;
 		} else {
-			ySamples = maxDimSegmentAmount + 1;
-			xSamples = minDimSegmentAmount + 1;
+			elevationObj.sizeY    = maxTerrainDim;
+			elevationObj.sizeX    = minTerrainDim;
+			elevationObj.ySamples = maxDimSegmentAmount + 1;
+			elevationObj.xSamples = minDimSegmentAmount + 1;
 		}
 
-		var saveName = property.name + ".terrain";
-		if ( localStorage.hasOwnProperty( saveName ) && loadFromCache ) {
-			//console.log( 'Loading ' + saveName + ' from cache.' );
-			var elevationObject = JSON.parse( localStorage[saveName] );
-			xSamples = elevationObject.xSamples;
-			ySamples = elevationObject.ySamples;
-			elevations = elevationObject.elevations;
-			makeTerrainMesh();
-			return;
-		}
+		var dx = ( latLngMax[1] - latLngMin[1] ) / elevationObj.xSamples;
+		var dy = ( latLngMax[0] - latLngMin[0] ) / elevationObj.ySamples;
 
-		var elevator = new google.maps.ElevationService();
-		var openRequests = 0;
+		( function() {
+			var x = 0;
+			var y = 0;
 
-		var latLngMin = new google.maps.LatLng( property.longLatMin[1], property.longLatMin[0] );
-		var latLngMax = new google.maps.LatLng( property.longLatMax[1], property.longLatMax[0] );
+			var request = { };
 
-		var dx = ( latLngMax.lat() - latLngMin.lat() ) / xSamples;
-		var dy = ( latLngMax.lng() - latLngMin.lng() ) / ySamples;
+			makeRequest();
 
-		var path = [];
+			function makeRequest() {
 
-		var intervals = 0;
-		var timeout = 0;
-		var x = latLngMin.lng();
-		var startLocation = 0;
+				var latLngs = [];
 
-		// Here we construct a snake-like path to go along the terrain plane
-		for ( var counter = 0; counter < xSamples; counter += 1 ) {
-			path.push( new google.maps.LatLng( latLngMin.lat(), x ) );
-			path.push( new google.maps.LatLng( latLngMax.lat(), x ) );
-			intervals += ySamples;
-			if ( counter + 1 < xSamples ) {
-				path.push( new google.maps.LatLng( latLngMax.lat(), x + dx ) );
-				path.push( new google.maps.LatLng( latLngMin.lat(), x + dx ) );
-				intervals += ySamples;
-				counter += 1;
-			}
-			x += 2 * dx;
+				while( y < elevationObj.ySamples && latLngs.length < 128 ) {
 
-			// Make sure we aren't requesting more than 512 intervals at a time.
-			// ( Google's limit )
-			if ( intervals > 512 - ySamples * 2 ) {
-				// It's important to pass in a unique object for each iteration
-				// of the loop. Otherwise, they all have the same object!
-				( function(){
-					sendElevationRequest( {
-					'path': path.slice(),
-					'samples': intervals
-				}, timeout, startLocation );} )()
-				path = [];
-				intervals = 0;
-				timeout += 200;
-				openRequests += 1;
-				startLocation = counter + 1;
-			}
-		}
+					var lng = latLngMin[1] + x * dx;
+					var lat = latLngMin[0] + y * dy;
+					var latLng = new google.maps.LatLng( {lat: lat, lng: lng} );
 
-		if ( path.length !== 0 ) {
-			var pathRequest = {
-				'path': path,
-				'samples': intervals
-			};
-			sendElevationRequest( pathRequest, timeout, startLocation );
-			openRequests += 1;
-		}
+					latLngs.push( latLng );
 
-		function sendElevationRequest( pathRequest, timeout, startLocation ) {
-			setTimeout( function () {
-				elevator.getElevationAlongPath( pathRequest, handleResults );
-			}, timeout );
+					if( ++x >= elevationObj.xSamples ){
+						x = 0;
+						y = y + 1;
+					}
 
-			function handleResults( results, status ) {
-				if ( status == google.maps.ElevationStatus.OVER_QUERY_LIMIT ) {
-					setTimeout( sendElevationRequest( pathRequest, 2000, startLocation ) );
-				} else {
-					addToTerrain( results, status, startLocation );
 				}
-			}
-		}
 
-		function addToTerrain( results, status, startLocation ) {
-			openRequests -= 1;
-			if ( status != google.maps.ElevationStatus.OK ) {
-				console.error( status );
-				return;
-			}
-			var xIndex = startLocation;
-			var yIndex = 0;
-			var dy = 1;
-			results.forEach( function ( thing ) {
-				if( elevations[yIndex] === undefined ){
-					elevations[yIndex] = [];
-				}
-				elevations[yIndex][xIndex] = thing.elevation;
-				yIndex += dy;
-				if( yIndex == -1 || yIndex == ySamples ){
-					xIndex += 1;
-					dy = -1 * dy;
-					yIndex += dy;
-				}
-			} );
-			if ( openRequests === 0 ) {
-				makeTerrainMesh();
-				var elevationObject = {
-					elevations: elevations,
-					xSamples: xSamples,
-					ySamples: ySamples
-				}
-				saveToCache( saveName, elevationObject );
+				request['locations'] = latLngs;
+
+				sendRequest();
+
 			}
 
-		}
-
-		function makeTerrainMesh() {
-			var geometry = new THREE.PlaneGeometry( sizeX, sizeY, xSamples - 1, ySamples - 1 );
-			var counter = 0;
-			var maxElevation = 0;
-			console.log()
-
-			for( var j = 0; j < ySamples; j += 1 )
-				for( var i = 0; i < xSamples; i += 1 )
-					maxElevation = Math.max( maxElevation, elevations[j][i] );
-
-			var center = vec3FromArray( property.box.center );
-			var offset = center.z + property.box.size[2] / 2 - maxElevation;
-			for ( var j = 0; j < ySamples; j += 1 ) {
-				for ( var i = 0; i < xSamples; i += 1 ) {
-					geometry.vertices[counter].x += center.x;
-					geometry.vertices[counter].y += center.y;
-					if( elevations[j][i] )
-						geometry.vertices[counter].z = elevations[j][i] + offset;
-					counter += 1;
-				}
+			function sendRequest(){
+				elevator.getElevationForLocations( request, handleResult );
 			}
+
+			function handleResult( result, status ) {
+
+				if( status != google.maps.ElevationStatus.OK ){
+					return window.setTimeout( sendRequest, 1000 );
+				}
+
+				for( var i = 0; i < result.length; i += 1 ){
+					elevationObj.elevations.push( result[ i ].elevation );
+				}
+
+				if( y >= elevationObj.ySamples){
+					saveToCache( saveName, elevationObj );
+					return makeTerrainMesh( elevationObj );
+				}
+
+				window.setTimeout( makeRequest, 100 );
+			}
+
+		} )();
+
+
+		function makeTerrainMesh( elevationObj ) {
+
+			var geometry = new THREE.PlaneGeometry( elevationObj.sizeX,
+			                                        elevationObj.sizeY,
+			                                        elevationObj.xSamples - 1,
+			                                        elevationObj.ySamples - 1);
+
+			var maxElevation = Number.MAX_VALUE * -1;
+			var minElevation = Number.MAX_VALUE;
+
+			for( var count = 0; count < elevationObj.elevations.length; count += 1 ){
+				geometry.vertices[ count ].z = elevationObj.elevations[ count ];
+				maxElevation = Math.max( maxElevation, elevationObj.elevations[ count ] );
+				minElevation = Math.min( minElevation, elevationObj.elevations[ count ] );
+			}
+
+			var zOffset = 0;
+
+			// Make the terrain flush with the top of the property box
+			zOffset = Math.max( zOffset, property.box.max[2] - maxElevation );
+			zOffset = Math.min( zOffset, property.box.max[2] - minElevation );
 
 			geometry.verticesNeedUpdate = true;
 
@@ -976,12 +951,50 @@ function View( projectURL ) {
 				wireframe: true,
 				opacity: 0.14
 			} );
+
 			terrainMesh = new THREE.Mesh( geometry, material );
+
+			terrainMesh.position.x += property.box.center[0];
+			terrainMesh.position.y += property.box.center[1];
+			terrainMesh.position.z += zOffset;
+
+
+			terrainMesh.updateMatrixWorld();
 
 			terrainMesh.matrixAutoUpdate = false;
 			scene.add( terrainMesh, false );
 		}
 	}
+
+	function findMaxZoom( latLng1, latLng2, dimensionX, dimensionY ){
+
+		var point1 = project( latLng1 );
+		var point2 = project( latLng2 );
+
+		var zoom = 0;
+
+		while( ( latLng1.x - latLng2.x ) * ( 1 << zoom ) < dimensionX &&
+			   ( latLng1.x - latLng2.x ) * ( 1 << zoom ) < dimensionY) {
+			zoom += 1;
+		}
+
+	}
+
+	// The mapping between latitude, longitude and pixels is defined by the web
+	// mercator projection.
+	function project( latLng ) {
+		var siny = Math.sin(latLng.lat() * Math.PI / 180);
+
+		// Truncating to 0.9999 effectively limits latitude to 89.189. This is
+		// about a third of a tile past the edge of the world tile.
+		siny = Math.min(Math.max(siny, -0.9999), 0.9999);
+
+		return new google.maps.Point(
+		    0.5 + latLng.lng() / 360,
+		    0.5 - Math.log((1 + siny) / (1 - siny)) / (4 * Math.PI));
+	}
+
+	this.project = project;
 
 	function saveToCache( name, object ) {
 		localStorage[name] = JSON.stringify( object );
@@ -1036,7 +1049,7 @@ function View( projectURL ) {
 		while( count < intervals.length && intervals[ count ].value >= lowerValue ){
 
 			// If we're above our higher value, set the remove flag
-			if(intervals[ count ].value > higherValue ){
+			if(intervals[ count ].value >= higherValue ){
 				mineral.data.bitAttributes.array[ count ] = mineral.data.bitAttributes.array[ count ] | (1 << 6);
 			}else{
 				mineral.data.bitAttributes.array[ count ] -= mineral.data.bitAttributes.array[ count ] & (1 << 6);
@@ -1500,6 +1513,8 @@ function View( projectURL ) {
 			analytes: {},
 			formatVersion: project.json["formatVersion"],
 			box: {
+				min: boxMin,
+				max: boxMax,
 				size: boxSize,
 				center: center
 			}
@@ -1657,7 +1672,7 @@ function View( projectURL ) {
 	function setupWindowListeners() {
 
 		// Resize the camera when the window is resized.
-		window.onresize = function ( event ) {
+		timeouts.windowResize = function ( event ) {
 			camera.aspect = window.innerWidth / window.innerHeight;
 			camera.updateProjectionMatrix();
 
@@ -1672,6 +1687,8 @@ function View( projectURL ) {
 			pickingTexture.setSize( window.innerWidth, window.innerHeight );
 		}
 
+		window.addEventListener( 'resize', timeouts.windowResize );
+
 		container.onmousemove = function( event ) {
 
 			if( event.clientX = mouse.x && event.clientY == mouse.y ){
@@ -1682,14 +1699,14 @@ function View( projectURL ) {
 			mouse.y = event.clientY;
 
 			// Check what we're hovering over if the camera isn't moving and no buttons are being pressed
-			if( !motionInterval && !controls.autoRotate && event.buttons == 0 ){
+			if( !timeouts.motion && !controls.autoRotate && event.buttons == 0 ){
 				return checkHover();
 			}
 
 			// Clear the motion interval if the user begins panning
-			if ( event.buttons % 4 - event.buttons % 2 == 2  && motionInterval ) {
-				window.clearInterval( motionInterval );
-				motionInterval = null;
+			if ( event.buttons % 4 - event.buttons % 2 == 2  && timeouts.motion ) {
+				window.clearInterval( timeouts.motion );
+				timeouts.motion = null;
 			}
 		}
 
@@ -1699,9 +1716,9 @@ function View( projectURL ) {
 			//  it as a click rather than just a button release
 			if( mouse.downLocation && mouse.distanceTo( mouse.downLocation ) < 3 ){
 
-				if( timeouts.motionInterval ){
-					clearInterval( timeouts.motionInterval );
-					timeouts.motionInterval = null;
+				if( timeouts.motion ){
+					clearInterval( timeouts.motion );
+					timeouts.motion = null;
 					return checkHover();
 				}
 
@@ -1816,11 +1833,11 @@ function View( projectURL ) {
 		}
 
 		//get rid of the last interval, in case it exists
-		window.clearInterval( motionInterval );
+		window.clearInterval( timeouts.motion );
 
 		//Start an interval to move the reticle around!
 		//Trigger 100 times a second
-		motionInterval = setInterval( function () {
+		timeouts.motion = setInterval( function () {
 			if ( reticleMotion.length !== 0 ) {
 				controls.target.add( reticleMotion.pop() );
 			}
@@ -1829,8 +1846,8 @@ function View( projectURL ) {
 			}
 
 			if ( reticleMotion.length === 0 && cameraMotion.length === 0 ) {
-				window.clearInterval( motionInterval );
-				motionInterval = null;
+				window.clearInterval( timeouts.motion );
+				timeouts.motion = null;
 			}
 		}, 10 );
 	}
@@ -2225,7 +2242,8 @@ function View( projectURL ) {
 	//  Allows the garbage collector to free up memory.
 	this.dispose = function(){
 
-		window.clearInterval( motionInterval );
+		window.clearInterval( timeouts.motion );
+		window.removeEventListener( 'resize', timeouts.windowResize );
 		cancelAnimationFrame( timeouts.animation );
 		
 		renderer.dispose();
@@ -2299,6 +2317,7 @@ View.loadJSON = function( url, callback ) {
 	$.ajax( {
 		url: url,
 		dataType: "json",
+		crossDomain: true,
 		success: function ( data ) { setTimeout( function() { callback ( data ) }, 0 ); }
 	} );
 
