@@ -112,6 +112,17 @@ function loadControls() {
 		$("#toggleSurveyHoles").click(function () {
 			view.toggleVisible("surveyHoles");
 		});
+		
+		$("#takeScreenshot").button({
+			text: false,
+			icons: {
+				primary: "ui-icon-print"
+			}
+		});
+		
+		document.getElementById('download').addEventListener('click', function() {
+			view.takeScreenshot(this, 'canvas', 'test.png');
+			}, false);
 
 		$("#sidebarHandle").button({
 			text: false,

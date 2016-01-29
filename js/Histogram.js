@@ -1,6 +1,6 @@
 ﻿function loadSidebar(property) {
-	var latCenter = ((property.longLatMin.y + property.longLatMax.y) / 2).toFixed(8);;
-	var lngCenter = ((property.longLatMin.x + property.longLatMax.x) / 2).toFixed(8);;
+	var latCenter = ((property.longLatMin[1] + property.longLatMax[1]) / 2).toFixed(8);;
+	var lngCenter = ((property.longLatMin[0] + property.longLatMax[0]) / 2).toFixed(8);;
 
 	$('.propertyOverview').html('');
 

@@ -30,6 +30,7 @@
 
 			"uniform float uniformMineralScale;",
 			"uniform float uniformSceneScale;",
+			"uniform float constantWidth;",
 			"uniform float logWidths;",
 			"uniform float scaleAttributeUniform;",
 
@@ -66,8 +67,9 @@
 
 	var afterMainVertexString = [
 			
-			"vec3 newPosition = vec3(logWidths + 0.1, logWidths + 0.1, 1.0) * vec3(width, width, height) * position + vec3(1.0-logWidths, 1.0-logWidths, 0.0 ) * position;",
-			"newPosition = newPosition * vec3(overallScale, overallScale, 1.0);",
+			"vec3 newPosition = vec3(logWidths + .01, logWidths + .01, 1.0) * vec3(width, width, height);",
+			"newPosition += vec3(constantWidth, constantWidth, 0) * vec3(1.0-logWidths, 1.0-logWidths, 0.0 );",
+			"newPosition *= position * vec3(overallScale, overallScale, 1.0);",
 			"newPosition = rotate_vector( quaternion, newPosition);",
 			"newPosition = newPosition + offset;",
 			"vDynamicBits = float(dynamicBits);"
@@ -229,8 +231,15 @@
 		}
 
 		// This uniform will scale all the cylinders larger or smaller
-		//  than their initial size
+		//  than their initial size. Usually the same value is applied to all minerals
 		uniforms.uniformSceneScale = {
+			type: "f",
+			value: 1
+		}
+
+		// This is the base width of the cylinder whenever logWidths is set to 0.
+		//  By making this different for all minerals, it prevents Z-fighting
+		uniforms.constantWidth = {
 			type: "f",
 			value: 1
 		}

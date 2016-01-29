@@ -50,12 +50,6 @@ function View( projectURL ) {
 	var cylinderScale = 1.0;
 
 	/**
-	 * Free API key for google maps services.
-	 * @type {String}
-	 */
-	var googleMapsAPIKey = "AIzaSyDBgtPVW-5DsA0tVGXbQ3blWIYHe7YXHZc";
-
-	/**
 	 * Stores the data and metadata for the survey line holes.
 	 *
 	 * `holes.lines` contains the THREE.Mesh objects used to give lines their
@@ -230,7 +224,7 @@ function View( projectURL ) {
 
 	function setup( json ) {
 
-		project.json = json;
+		project.json = json
 
 		if( !property ){
 			property = getProperty();
@@ -242,9 +236,9 @@ function View( projectURL ) {
 		
 		// If our JSON file is less than a gigabyte, we should be fine loading in all
 		// the minerals simultaneously and adding them to the scene.
-		if( !size || size < 1024 * 1024 * 1024){
+		if( !size || size < 1024 * 1024 * 1024 ){
 
-			setTimeout( function(){ getMinerals(); size = size || 0}, 500 );
+			getMinerals();
 
 		} else {
 			console.log( "JSON object detected to be large. (" + ( size >> 20 ) + " MB)\n" +
@@ -255,6 +249,7 @@ function View( projectURL ) {
 		this.controls = controls;
 		this.minerals = minerals;
 		this.scene = scene;
+		this.url = projectURL;
 
 	}
 
@@ -315,10 +310,7 @@ function View( projectURL ) {
 			// If rawDownholeSurveys is not defined, make a deep copy of the
 			//  interpolatedDownholeSurveys object.
 			if( !hole.rawDownholeSurveys ){
-				hole.rawDownholeSurveys = [];
-				for( var survey in hole.interpolatedDownholeSurveys ){
-					hole.rawDownholeSurveys.push( jQuery.extend( true, {}, hole.interpolatedDownholeSurveys[survey] ) );
-				}
+				hole.rawDownholeSurveys = hole.interpolatedDownholeSurveys;
 				warn = true;
 			}
 
@@ -382,13 +374,20 @@ function View( projectURL ) {
 	// Adds all minerals to the scene
 	function getMinerals() {
 
-		for( var analyte in property.analytes ) {
-			if( getMineral( analyte ) ){
-				scene.add( minerals[ analyte ].mesh );
-			}
-		}
+		( function() {
+			var i = 0;
+			var analytes = Object.keys( property[ "analytes" ] );
+			setTimeout( addNextMineral, 100 );
 
-		return minerals;
+			function addNextMineral(){
+				var mineral = getMineral( analytes[i] );
+				if( mineral )
+					scene.add( mineral.mesh );
+
+				if( ++i < analytes.length )
+					setTimeout( addNextMineral, 100 );
+			}
+		} )();
 	}
 
 	// Extracts a single mineral from the JSON object and prepares it for
@@ -406,6 +405,13 @@ function View( projectURL ) {
 			return;
 		}
 
+		minerals[ mineral ] = {
+				color: property.analytes[ mineral ].color,
+				intervals: [],
+				startID: currentID,
+				maxValue: 0
+			}
+
 		loadFromJSON();
 
 		if( minerals[ mineral ].intervals.length == 0 ){
@@ -420,9 +426,7 @@ function View( projectURL ) {
 		sortIntervals();
 		loadAttributes();
 		createMeshes();
-
 		addMineralToSidebar( mineral, minerals[ mineral ].intervals );
-
 		checkDeleteProject();
 
 		return minerals[ mineral ];
@@ -431,22 +435,17 @@ function View( projectURL ) {
 		// Reformats the data from project.json into the mineral's intervals object
 		function loadFromJSON(){
 
-			minerals[ mineral ] = {
-				color: property.analytes[ mineral ].color,
-				intervals: [],
-				startID: currentID,
-				maxValue: 0
-			}
-
 			var holesJSON = project.json.holes;
 
-			var preventZFighting = ( Object.keys(minerals).length - 1 ) * Math.PI / 300;
+			var preventZFighting = ( Object.keys(minerals).length - 1 ) * Math.PI / 100;
 
 			// Iterate over all the holes in the JSON object
 			for( var i = 0; i < holesJSON.length; i += 1 ){
+
 				// Iterate over all the different minerals in each hole
 				holesJSON[ i ].downholeDataValues.forEach( function( dhValue ){
-					// Return unless we found the correct mineral
+
+					// Return unless we found the mineral that we're looking for
 					if( dhValue.name != mineral){
 						return;
 					}
@@ -465,7 +464,8 @@ function View( projectURL ) {
 
 						}
 
-						var interpolated = interpolateInterval( dhValue.intervals[ j ], holesJSON[ i ] );
+						// Interpolate the cylinder down the hole
+						var interpolated = interpolateInterval( interval, holesJSON[ i ] );
 						Array.prototype.push.apply( minerals[ mineral ].intervals, interpolated );
 
 						minerals[ mineral ].maxValue = Math.max( interval.value, minerals[ mineral ].maxValue );
@@ -589,7 +589,8 @@ function View( projectURL ) {
 					                    intervals[ i ].location.y,
 					                    intervals[ i ].location.z );
 				data.heights.setX(   i, intervals[ i ].length );
-				data.widths.setX(    i, Math.log( intervals[ i ].value + 1.0 ) );
+				data.widths.setX(    i, Math.log( intervals[ i ].value + 1 ) /
+					                    Math.log( minerals[ mineral ].maxValue ) );
 
 				// Use the quaternion that we took from the survey line
 				var quaternion = intervals[ i ].quaternion;
@@ -630,6 +631,11 @@ function View( projectURL ) {
 
 			data.uniforms.diffuse.value = colorFromString( minerals[ mineral ].color );
 			data.uniforms.uniformSceneScale.value = cylinderScale;
+
+			// Scale each mineral down a little bit more than the last.
+			//  Prevents Z-Fighting when logWidths is set to 0.
+			var numberMinerals = Object.keys( minerals ).length;
+			data.uniforms.constantWidth.value = Math.pow( .99, numberMinerals - 1 );
 
 			// Set up a phong material with our custom vertex shader
 			var visibleMaterial = new THREE.ShaderMaterial({
@@ -688,6 +694,7 @@ function View( projectURL ) {
 	 * @todo Return the holes object instead of modifying a global object.
 	 */
 	function addSurveyLines() {
+
 		var totalMetersDrilled = 0;
 		var geometries = {};
 		holes.lines = {};
@@ -777,33 +784,6 @@ function View( projectURL ) {
 			scene.add( holes.lines[jsonColor] );
 
 		} );
-	}
-
-	/**
-	 * Retrieve image to display on terrain mesh
-	 *
-	 */
-	function addTerrainImage( mesh ) {
-
-		longLatMin = vec3FromArray( property.longLatMin );
-		longLatMax = vec3FromArray( property.longLatMax );
-		//get the center of the property
-		var latCenter = ( longLatMin.y + longLatMax.y ) / 2;
-		var lngCenter = ( longLatMin.x + longLatMax.x ) / 2;
-		//construct google maps request
-		var mapImage = "https://maps.googleapis.com/maps/api/staticmap?" +
-			"center=" + latCenter + "," + lngCenter +
-			"&zoom=12&size=640x640&maptype=satellite" +
-			"&visible=" + longLatMin.y + "," + longLatMin.x +
-			"&visible=" + longLatMax.y + "," + longLatMax.x;
-
-		// load a texture, set wrap mode to repeat
-		THREE.ImageUtils.crossOrigin = '';
-		var texture = THREE.ImageUtils.loadTexture( mapImage );
-		var material = new THREE.MeshPhongMaterial( {
-			map: texture
-		} );
-		mesh.material = material;
 	}
 
 	// Creates the terrain mesh from the browser cache, or by using elevations from
@@ -949,10 +929,12 @@ function View( projectURL ) {
 				side: THREE.DoubleSide,
 				transparent: true,
 				wireframe: true,
+				map: new THREE.Texture(),
 				opacity: 0.14
 			} );
 
 			terrainMesh = new THREE.Mesh( geometry, material );
+			terrainMesh.wireMaterial = material;
 
 			terrainMesh.position.x += property.box.center[0];
 			terrainMesh.position.y += property.box.center[1];
@@ -966,35 +948,109 @@ function View( projectURL ) {
 		}
 	}
 
-	function findMaxZoom( latLng1, latLng2, dimensionX, dimensionY ){
+	function addImageToTerrain( imageURL ){
 
-		var point1 = project( latLng1 );
-		var point2 = project( latLng2 );
+		// If there's no url, add the last image, or a satellite image
+		if( !imageURL ){
+			if( terrainMesh.imageMaterial ){
+				return terrainMesh.material = terrainMesh.imageMaterial;
+			}
+			return addSatelliteImage();
+		}
 
-		var zoom = 0;
+		var loader = new THREE.TextureLoader();
+		loader.setCrossOrigin( "" );
 
-		while( ( latLng1.x - latLng2.x ) * ( 1 << zoom ) < dimensionX &&
-			   ( latLng1.x - latLng2.x ) * ( 1 << zoom ) < dimensionY) {
-			zoom += 1;
+		return loader.load( imageURL, function( texture ){
+
+			texture.minFilter = THREE.LinearFilter;
+
+			var material = new THREE.MeshBasicMaterial( {
+				map: texture,
+				side: THREE.DoubleSide,
+				transparent: true,
+				opacity: .8
+			} );
+
+			terrainMesh.material = material;
+			terrainMesh.imageMaterial = material;
+
+		} );
+
+	}
+	this.addImageToTerrain = addImageToTerrain;
+
+	// Adds a satellite image from Google maps to the terrain mesh
+	function addSatelliteImage() {
+
+		var TILE_SIZE = 256;
+
+		var url = "https://maps.googleapis.com/maps/api/staticmap?maptype=satellite&scale=2";
+
+		var latLngMin = new google.maps.LatLng( {
+			lat: property.longLatMin[1],
+			lng: property.longLatMin[0] } );
+
+		var latLngMax = new google.maps.LatLng( {
+			lat: property.longLatMax[1],
+			lng: property.longLatMax[0] } );
+
+		var latLngCenter = new google.maps.LatLng( {
+			lat: ( latLngMax.lat() + latLngMin.lat() ) / 2,
+			lng: ( latLngMax.lng() + latLngMin.lng() ) / 2,
+		} );
+
+		url += "&center=" + latLngCenter.lat() + "," + latLngCenter.lng();
+
+		var zoom = findMaxZoom( latLngMin, latLngMax, 640, 640 );
+
+		url += "&zoom=" + zoom
+
+		var minPoint = project( latLngMin );
+		var maxPoint = project( latLngMax );
+
+		var pixelSizeX = Math.ceil( Math.abs( maxPoint.x - minPoint.x ) * ( 1 << zoom ) );
+		var pixelSizeY = Math.ceil( Math.abs( maxPoint.y - minPoint.y ) * ( 1 << zoom ) );
+
+		url += "&size=" + pixelSizeX + "x" + pixelSizeY;
+
+		return addImageToTerrain( url );
+
+		// Returns the maximum zoom level that would fit latLng1 and latLng2
+		//  onto a space given by dimensionX and dimensionY.
+		//  Assumes that the points do not straddle the date line
+		function findMaxZoom( latLng1, latLng2, dimensionX, dimensionY ){
+
+			var point1 = project( latLng1 );
+			var point2 = project( latLng2 );
+
+			maxZoomX = ( -Math.log( Math.abs( point1.x - point2.x ) + 1e-12 ) +
+				          Math.log( dimensionX ) ) / Math.log( 2 );
+			maxZoomY = ( -Math.log( Math.abs( point1.y - point2.y ) + 1e-12 ) +
+				          Math.log( dimensionY ) ) / Math.log( 2 );
+
+			// Max zoom level is currently 26
+			return THREE.Math.clamp( Math.floor( Math.min( maxZoomX, maxZoomY ) ), 0, 26 );
+
+		}
+		this.findMaxZoom = findMaxZoom;
+
+		// The mapping between latitude, longitude and pixels is defined by the web
+		// mercator projection.
+		function project( latLng ) {
+			var siny = Math.sin(latLng.lat() * Math.PI / 180);
+
+			// Truncating to 0.9999 effectively limits latitude to 89.189. This is
+			// about a third of a tile past the edge of the world tile.
+			siny = Math.min(Math.max(siny, -0.9999), 0.9999);
+
+			return new google.maps.Point(
+			    TILE_SIZE * ( 0.5 + latLng.lng() / 360 ),
+			    TILE_SIZE * ( 0.5 - Math.log((1 + siny) / (1 - siny)) / (4 * Math.PI)) );
 		}
 
 	}
-
-	// The mapping between latitude, longitude and pixels is defined by the web
-	// mercator projection.
-	function project( latLng ) {
-		var siny = Math.sin(latLng.lat() * Math.PI / 180);
-
-		// Truncating to 0.9999 effectively limits latitude to 89.189. This is
-		// about a third of a tile past the edge of the world tile.
-		siny = Math.min(Math.max(siny, -0.9999), 0.9999);
-
-		return new google.maps.Point(
-		    0.5 + latLng.lng() / 360,
-		    0.5 - Math.log((1 + siny) / (1 - siny)) / (4 * Math.PI));
-	}
-
-	this.project = project;
+	this.addSatelliteImage = addSatelliteImage;
 
 	function saveToCache( name, object ) {
 		localStorage[name] = JSON.stringify( object );
@@ -1086,11 +1142,10 @@ function View( projectURL ) {
 		}
 
 		if( objectName == "terrain" ){
-			if( visible == null ){
-				visible = !terrainMesh.visible;
+			if( visible || terrainMesh.material.id == terrainMesh.wireMaterial.id ){
+				return addImageToTerrain();
 			}
-			terrainMesh.visible = visible;
-			return;
+			return terrainMesh.material = terrainMesh.wireMaterial;
 		}
 
 		var mineral = minerals[objectName];
@@ -1333,8 +1388,7 @@ function View( projectURL ) {
 
 		//return renderer to its previous state
 		renderer.enableScissorTest(false);
-		renderer.setClearColor( clearColor );
-		renderer.setClearAlpha( alpha );
+		renderer.setClearColor( clearColor, alpha );
 		renderer.antialias = antialias;
 
 		return object;
@@ -1650,9 +1704,16 @@ function View( projectURL ) {
 	 * Save a rendered frame as an image, returning the image data.
 	 * @return {String} The image data.
 	 */
-	this.takeScreenshot = function(){
-		renderer.render( scene, camera );
-		return renderer.domElement.toDataURL();
+	this.takeScreenshot = function( link ){
+		var alpha = renderer.getClearAlpha();
+		renderer.setClearAlpha( 0 );
+
+		renderer.render( scene, camera, undefined, true );
+		renderer.render( sceneOrtho, cameraOrtho );
+
+		renderer.setClearAlpha( alpha );
+		link.href = renderer.domElement.toDataURL('image/png');
+		link.download = "Gold Viewer Screenshot";
 	}
 
 	/**
@@ -1780,7 +1841,6 @@ function View( projectURL ) {
 
 		// If we didn't find an intersection, move to the center of the object
 		if( intersection.length == 0 ){
-			console.log("didn't intersect");
 			return startMotion( target.add( mesh.position ) );
 		}
 
@@ -1849,7 +1909,7 @@ function View( projectURL ) {
 				window.clearInterval( timeouts.motion );
 				timeouts.motion = null;
 			}
-		}, 10 );
+		}.bind( this ), 10 );
 	}
 
 	function getDeltasForMovement( movementVector, acceleration ) {
@@ -1941,7 +2001,8 @@ function View( projectURL ) {
 		controls.target = boxCenter;
 		controls.autoRotate = true;
 
-		cylinderScale = Math.log( Math.max( property.box.size[0], property.box.size[1] ) )
+		cylinderScale = Math.sqrt( Math.max( property.box.size[0], property.box.size[1] ) )
+		console.log( cylinderScale );
 
 	}
 
@@ -1976,8 +2037,10 @@ function View( projectURL ) {
 	function setupRenderer() {
 
 		renderer = new THREE.WebGLRenderer( {
-			antialias: true
+			antialias: true,
+			alpha: true
 		} );
+
 
 		renderer.setSize( window.innerWidth, window.innerHeight );
 		renderer.setClearColor( View.colors.background, 1 );
@@ -2093,6 +2156,8 @@ function View( projectURL ) {
 			value = 1.0;
 		}
 
+		//normalizeWidths();
+
 		value = Number( value );
 
 		for( var mineral in minerals ){
@@ -2106,44 +2171,42 @@ function View( projectURL ) {
 
 		cylinderScale = value || cylinderScale;
 
-		var maxValue = 0;
-
-		for( var mineral in minerals ){
-			if( !minerals[ mineral ] ){
-				continue;
-			}
-			maxValue = Math.max( maxValue, minerals[ mineral ].maxValue );
-		}
-
-		console.log( maxValue )
-
 		for( var mineral in minerals ){
 			if( !minerals[ mineral ] ){
 				continue;
 			}
 			minerals[ mineral ].data.uniforms.uniformSceneScale.value = cylinderScale;
-			minerals[ mineral ].data.uniforms.uniformMineralScale.value = Math.log( maxValue + 1 ) / Math.log( minerals[ mineral ].maxValue + 1 );
+			minerals[ mineral ].data.uniforms.uniformMineralScale.value = cylinderScale / Math.log( minerals[ mineral ].maxValue + 1 );
 		}
+
+		return cylinderScale;
 
 	}
 
 	function setSceneScale( value ) {
 
+		cylinderScale = value || cylinderScale;
+
 		for( var mineral in minerals ) {
 			if( minerals[ mineral ] ){
-				minerals[ mineral ].data.uniforms.uniformSceneScale.value = value;
+				minerals[ mineral ].data.uniforms.uniformSceneScale.value = cylinderScale;
 			}
 		}
 
-		cylinderScale = value;
+		return cylinderScale;
 
 	}
 
 	function setMineralScale( mineral, value ) {
 
 		if( minerals[ mineral ] ) {
+
+			value = value || minerals[ mineral ].data.uniforms.uniformMineralScale.value;
 			minerals[ mineral ].data.uniforms.uniformMineralScale.value = value;
+
 		}
+
+		return value;
 
 	}
 
