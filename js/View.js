@@ -13,6 +13,12 @@ function View( projectURL ) {
 	var baseCylinderGeometry = null;
 
 	/**
+	 * Version of the objects stored in the cache. This way they will automatically
+	 * reload whenever changes would otherwise make old object invalid
+	 */
+	var cacheVersion = "v1.0";
+
+	/**
 	 * The perspective camera which presents the user's view of the property.
 	 * @type {THREE.Camera}
 	 */
@@ -211,7 +217,7 @@ function View( projectURL ) {
 	function setSize( bytes ) {
 
 		size = Number( bytes );
-		var saveName = projectURL + size + '.property' ;
+		var saveName = projectURL + size + cacheVersion + '.property' ;
 
 		if( loadFromCache && !property && localStorage.hasOwnProperty( saveName ) ){
 
@@ -790,7 +796,7 @@ function View( projectURL ) {
 	//  Google Map's elevation services.
 	function addTerrain() {
 
-		var saveName = projectURL + size + ".terrain";
+		var saveName = projectURL + size + cacheVersion + ".terrain";
 
 		if ( localStorage.hasOwnProperty( saveName ) && loadFromCache ) {
 			//console.log( 'Loading ' + saveName + ' from cache.' );
