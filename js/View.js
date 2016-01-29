@@ -411,13 +411,6 @@ function View( projectURL ) {
 			return;
 		}
 
-		minerals[ mineral ] = {
-				color: property.analytes[ mineral ].color,
-				intervals: [],
-				startID: currentID,
-				maxValue: 0
-			}
-
 		loadFromJSON();
 
 		if( minerals[ mineral ].intervals.length == 0 ){
@@ -441,8 +434,17 @@ function View( projectURL ) {
 		// Reformats the data from project.json into the mineral's intervals object
 		function loadFromJSON(){
 
+			minerals[ mineral ] = {
+					color: property.analytes[ mineral ].color,
+					intervals: [],
+					startID: currentID,
+					maxValue: 0
+				}
+
 			var holesJSON = project.json.holes;
 
+			// by adding this small value to the length of the cylinders,
+			//  we can prevent the z fighting on the tops and bottoms
 			var preventZFighting = ( Object.keys(minerals).length - 1 ) * Math.PI / 100;
 
 			// Iterate over all the holes in the JSON object
@@ -701,7 +703,6 @@ function View( projectURL ) {
 	 */
 	function addSurveyLines() {
 
-		var totalMetersDrilled = 0;
 		var geometries = {};
 		holes.lines = {};
 		holes.ids = {};
@@ -759,11 +760,7 @@ function View( projectURL ) {
 			}
 
 			Array.prototype.push.apply( geometries[ color ], lastSurvey.location.toArray() );
-
-			totalMetersDrilled += jsonHole["depth"];
 		} );
-
-		property["totalMetersDrilled"] = Math.round( totalMetersDrilled );
 
 
 		// Create the Line objects to add to the scene
@@ -1148,6 +1145,9 @@ function View( projectURL ) {
 		}
 
 		if( objectName == "terrain" ){
+			if( !terrainMesh )
+				return;
+
 			if( visible || terrainMesh.material.id == terrainMesh.wireMaterial.id ){
 				return addImageToTerrain();
 			}
@@ -1996,9 +1996,9 @@ function View( projectURL ) {
 		var boxCenter = vec3FromArray( property.box.center );
 
 		camera.position.set( 
-			1.3 * property.maxDimension,
-			1.3 * property.maxDimension,
-			1.3 * property.maxDimension + boxCenter.z - 0.5 * property.box.size[2] );
+			 1.3 * property.maxDimension,
+			-1.3 * property.maxDimension,
+			 1.3 * property.maxDimension + boxCenter.z - 0.5 * property.box.size[2] );
 
 		camera.lookAt( boxCenter );
 
@@ -2162,8 +2162,6 @@ function View( projectURL ) {
 			value = 1.0;
 		}
 
-		//normalizeWidths();
-
 		value = Number( value );
 
 		for( var mineral in minerals ){
@@ -2173,19 +2171,14 @@ function View( projectURL ) {
 		}
 	}
 
-	function normalizeWidths ( value ) {
-
-		cylinderScale = value || cylinderScale;
+	function normalizeWidths () {
 
 		for( var mineral in minerals ){
 			if( !minerals[ mineral ] ){
 				continue;
 			}
-			minerals[ mineral ].data.uniforms.uniformSceneScale.value = cylinderScale;
-			minerals[ mineral ].data.uniforms.uniformMineralScale.value = cylinderScale / Math.log( minerals[ mineral ].maxValue + 1 );
+			minerals[ mineral ].data.uniforms.uniformMineralScale.value = 1;
 		}
-
-		return cylinderScale;
 
 	}
 

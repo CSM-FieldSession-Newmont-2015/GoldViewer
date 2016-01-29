@@ -1,14 +1,17 @@
 ﻿function loadSidebar(property) {
-	var latCenter = ((property.longLatMin[1] + property.longLatMax[1]) / 2).toFixed(8);;
-	var lngCenter = ((property.longLatMin[0] + property.longLatMax[0]) / 2).toFixed(8);;
 
 	$('.propertyOverview').html('');
 
 	$('.propertyOverview').append('<div class="propertyTitle">' + property["name"] + '</div>')
 		.append(property["description"]+"<br><br>")
 		.append("Holes: " + property["numHoles"] + "<br>")
-		.append("Meters Drilled: " + property["totalMetersDrilled"] + "<br>")
-		.append("LatLong: " + latCenter + "," + lngCenter + "<br>"); var chartIndex = 0;
+		.append("LatLong min:")
+		.append("(" + property["longLatMin"][1] + ", " + property["longLatMin"][0] + ")<br>")
+		.append("LatLong max:")
+		.append("(" + property["longLatMax"][1] + ", " + property["longLatMax"][0] + ")<br>")
+
+	if( property["totalMetersDrilled"])
+		$('.propertyOverview').append("Meters Drilled: " + property["totalMetersDrilled"] + "<br>")
 
 	var chartIndex = 0;
 	$('.minerals').html('');
