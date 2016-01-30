@@ -153,7 +153,7 @@ function View( projectURL ) {
 	 * Size in bytes of file holding the project.json object
 	 * @type {Number}
 	 */
-	var size = null;
+	var byteSize = null;
 
 	/**
 	 * FPS counter. https://github.com/mrdoob/stats.js/
@@ -201,7 +201,6 @@ function View( projectURL ) {
 
 		// In the meantime, run the methods not dependent on the project
 		baseCylinderGeometry = makeCylinderGeometry( 1, 1, 6 );
-
 		setupContainerAndStats();
 		setupRenderer();
 		setupCameraAndControls();
@@ -216,14 +215,12 @@ function View( projectURL ) {
 	//  of the JSON being loaded, and loads the property from cache if it exists
 	function setSize( bytes ) {
 
-		size = Number( bytes );
-		var saveName = projectURL + size + cacheVersion + '.property' ;
+		byteSize = Number( bytes );
+
+		var saveName = projectURL + byteSize + cacheVersion + '.property' ;
 
 		if( loadFromCache && !property && localStorage.hasOwnProperty( saveName ) ){
-
-			//console.log( 'loading ' + saveName + ' from cache.' );
 			property = JSON.parse( localStorage[ saveName ] );
-
 			loadFromProperty( property );
 		}
 	}
@@ -242,7 +239,7 @@ function View( projectURL ) {
 		
 		// If our JSON file is less than a gigabyte, we should be fine loading in all
 		// the minerals simultaneously and adding them to the scene.
-		if( !size || size < 1024 * 1024 * 1024 ){
+		if( !byteSize || byteSize < 1024 * 1024 * 1024 ){
 
 			getMinerals();
 
@@ -465,10 +462,10 @@ function View( projectURL ) {
 
 						// In the case that there are two consecutive intervals with the
 						//  same value, collapse them before adding them to intervals
-						while( j < dhValue.intervals.length - 1 && interval.to == dhValue.intervals[ j + 1 ].from
+						while( j < dhValue.intervals.length - 1 && interval.to >= dhValue.intervals[ j + 1 ].from
 						                                        && interval.value == dhValue.intervals[ j + 1 ].value ){
 
-							interval.to = dhValue.intervals[ ++j ].to;
+							interval.to = Math.max( interval.to, dhValue.intervals[ ++j ].to );
 
 						}
 
@@ -793,14 +790,15 @@ function View( projectURL ) {
 	//  Google Map's elevation services.
 	function addTerrain() {
 
-		var saveName = projectURL + size + cacheVersion + ".terrain";
+		var saveName = projectURL + byteSize + cacheVersion + ".terrain";
 
 		if ( localStorage.hasOwnProperty( saveName ) && loadFromCache ) {
 			//console.log( 'Loading ' + saveName + ' from cache.' );
-			return makeTerrainMesh( JSON.parse( localStorage[ saveName ] ) );
+			var elevationObj = JSON.parse( localStorage[ saveName ] );
+
+			terrainMesh = makeBasicTerrainMesh( elevationObj );
+			return elevateTerrainMesh( elevationObj );
 		}
-
-
 
 		// Otherwise make it from scratch
 		var elevator = new google.maps.ElevationService();
@@ -841,6 +839,13 @@ function View( projectURL ) {
 			elevationObj.ySamples = maxDimSegmentAmount + 1;
 			elevationObj.xSamples = minDimSegmentAmount + 1;
 		}
+
+		// Make a Mesh to go on top of the box until we get the elevation data from Google.		
+
+		terrainMesh = makeBasicTerrainMesh( elevationObj );
+		terrainMesh.position.z += property.box.max[2];
+		scene.add( terrainMesh );
+
 
 		var dx = ( latLngMax[1] - latLngMin[1] ) / elevationObj.xSamples;
 		var dy = ( latLngMax[0] - latLngMin[0] ) / elevationObj.ySamples;
@@ -894,7 +899,8 @@ function View( projectURL ) {
 
 				if( y >= elevationObj.ySamples){
 					saveToCache( saveName, elevationObj );
-					return makeTerrainMesh( elevationObj );
+					terrainMesh.position.z -= property.box.max[2];
+					return elevateTerrainMesh( elevationObj );
 				}
 
 				window.setTimeout( makeRequest, 100 );
@@ -903,29 +909,38 @@ function View( projectURL ) {
 		} )();
 
 
-		function makeTerrainMesh( elevationObj ) {
-
-			var geometry = new THREE.PlaneGeometry( elevationObj.sizeX,
-			                                        elevationObj.sizeY,
-			                                        elevationObj.xSamples - 1,
-			                                        elevationObj.ySamples - 1);
+		function elevateTerrainMesh( elevationObj ) {
 
 			var maxElevation = Number.MAX_VALUE * -1;
 			var minElevation = Number.MAX_VALUE;
 
 			for( var count = 0; count < elevationObj.elevations.length; count += 1 ){
-				geometry.vertices[ count ].z = elevationObj.elevations[ count ];
+				terrainMesh.geometry.vertices[ count ].z = elevationObj.elevations[ count ];
 				maxElevation = Math.max( maxElevation, elevationObj.elevations[ count ] );
 				minElevation = Math.min( minElevation, elevationObj.elevations[ count ] );
 			}
+
+			terrainMesh.geometry.verticesNeedUpdate = true;
 
 			var zOffset = 0;
 
 			// Make the terrain flush with the top of the property box
 			zOffset = Math.max( zOffset, property.box.max[2] - maxElevation );
 			zOffset = Math.min( zOffset, property.box.max[2] - minElevation );
+			terrainMesh.position.z += zOffset;
 
-			geometry.verticesNeedUpdate = true;
+			terrainMesh.updateMatrixWorld();
+			terrainMesh.matrixAutoUpdate = false;
+
+			scene.add( terrainMesh, false );
+		}
+
+		function makeBasicTerrainMesh( elevationObj ){
+
+			var geometry = new THREE.PlaneGeometry( elevationObj.sizeX,
+			                                        elevationObj.sizeY,
+			                                        elevationObj.xSamples - 1,
+			                                        elevationObj.ySamples - 1 );
 
 			var material = new THREE.MeshBasicMaterial( {
 				color: View.colors.terrain_frame,
@@ -936,18 +951,13 @@ function View( projectURL ) {
 				opacity: 0.14
 			} );
 
-			terrainMesh = new THREE.Mesh( geometry, material );
-			terrainMesh.wireMaterial = material;
+			var mesh = new THREE.Mesh( geometry, material );
+			mesh.wireMaterial = material;
 
-			terrainMesh.position.x += property.box.center[0];
-			terrainMesh.position.y += property.box.center[1];
-			terrainMesh.position.z += zOffset;
+			mesh.position.x += property.box.center[0];
+			mesh.position.y += property.box.center[1];
 
-
-			terrainMesh.updateMatrixWorld();
-
-			terrainMesh.matrixAutoUpdate = false;
-			scene.add( terrainMesh, false );
+			return mesh;
 		}
 	}
 
@@ -1036,7 +1046,6 @@ function View( projectURL ) {
 			return THREE.Math.clamp( Math.floor( Math.min( maxZoomX, maxZoomY ) ), 0, 26 );
 
 		}
-		this.findMaxZoom = findMaxZoom;
 
 		// The mapping between latitude, longitude and pixels is defined by the web
 		// mercator projection.
@@ -1433,6 +1442,10 @@ function View( projectURL ) {
 		baseCylinderGeometry.rotateZ( theta );
 	}
 
+	function addUnsupportedSprite() {
+		console.log('here');
+	}
+
 	/**
 	 * Create a sprite with text.
 	 * @param  {Object} message    A string or string-able object to put as the
@@ -1587,7 +1600,7 @@ function View( projectURL ) {
 			};
 		} );
 
-		saveToCache( projectURL + size + '.property', property );
+		saveToCache( projectURL + byteSize + cacheVersion + '.property', property );
 
 		return property;
 	}
@@ -1599,6 +1612,7 @@ function View( projectURL ) {
 
 		if( intersected ){
 			setIntervalAttributes( intersected.id );
+			intersected = null;
 		}
 
 	}
@@ -1774,6 +1788,7 @@ function View( projectURL ) {
 			if ( event.buttons % 4 - event.buttons % 2 == 2  && timeouts.motion ) {
 				window.clearInterval( timeouts.motion );
 				timeouts.motion = null;
+				checkHover();
 			}
 		}
 
@@ -1889,7 +1904,7 @@ function View( projectURL ) {
 		var acceleration = controlsMovementVector.length() / 25000 + 0.01;
 
 		var reticleMotion = getDeltasForMovement( controlsMovementVector, acceleration );
-		var cameraMoion =   [];
+		var cameraMotion =   [];
 
 		if( cameraDestination ){
 			var cameraMovementVector = cameraDestination.clone().sub( camera.position );
@@ -1914,6 +1929,7 @@ function View( projectURL ) {
 			if ( reticleMotion.length === 0 && cameraMotion.length === 0 ) {
 				window.clearInterval( timeouts.motion );
 				timeouts.motion = null;
+				checkHover();
 			}
 		}.bind( this ), 10 );
 	}
@@ -1982,7 +1998,7 @@ function View( projectURL ) {
 	function addReticle() {
 
 		reticle = new THREE.Mesh( 
-			new THREE.IcosahedronGeometry( Math.log( property.maxDimension ) / 20, 3 ),
+			new THREE.IcosahedronGeometry( Math.sqrt( property.maxDimension ) / 50, 3 ),
 			new THREE.MeshBasicMaterial( {
 				color: View.colors.reticleLight,
 				wireframe: true
@@ -2002,14 +2018,12 @@ function View( projectURL ) {
 
 		camera.lookAt( boxCenter );
 
-		controls.minDistance = property.maxDimension / 200;
+		controls.minDistance = reticle.geometry.boundingSphere.radius * 5;
 		controls.maxDistance = property.maxDimension * 2;
 		controls.target = boxCenter;
 		controls.autoRotate = true;
 
-		cylinderScale = Math.sqrt( Math.max( property.box.size[0], property.box.size[1] ) )
-		console.log( cylinderScale );
-
+		cylinderScale = Math.sqrt( Math.max( property.box.size[0], property.box.size[1] ) );
 	}
 
 	function setupCameraAndControls() {
@@ -2050,14 +2064,15 @@ function View( projectURL ) {
 
 		renderer.setSize( window.innerWidth, window.innerHeight );
 		renderer.setClearColor( View.colors.background, 1 );
+		renderer.sortObjects = false;
 		renderer.autoClear = false;
 		container.appendChild( renderer.domElement );
 
 		// Load GL stuff.
 		var gl = renderer.context;
-		if ( !gl.getExtension( "OES_element_index_uint" ) ) {
+		if ( !gl.getExtension( "OES_element_index_uint" ) || !gl.getExtension( "ANGLE_instanced_arrays" ) ) {
 			console.error( 
-				"Could not to load OES_element_index_uint. Is it supported?\n" );
+				"Could not to load OES_element_index_uint or ANGLE_instanced_arrays. Are they supported?\n" );
 			var msg = [];
 			msg.push( "Supported extensions:" );
 			gl.getSupportedExtensions().sort().forEach( function ( ext ) {
